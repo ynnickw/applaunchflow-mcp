@@ -3,6 +3,10 @@
   "version": "0.1.2",
   "description": "MCP server for AppLaunchFlow — create App Store & Google Play screenshots with AI.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ynnickw/applaunchflow-mcp"
+  },
   "type": "module",
   "bin": {
     "applaunchflow-mcp": "./build/index.js"
