@@ -46,8 +46,8 @@ Preferred workflows:
 - When adding or editing elements, ensure text and screenshots do not overlap. Verify that positions place elements in distinct, non-conflicting areas of the canvas.
 - After composition-sensitive edits, inspect the returned translation or re-fetch the layout before reporting success. If elements overlap or are poorly positioned, fix them before telling the user the edit is done.
 - ALWAYS use browse_templates when a template choice is needed. Never offer templates via text bullet points or AskUserQuestion. The gallery opens in the browser and returns the user's selection automatically.
-- Use actual visual previews from the template tools/resources. Do not rely on adjective-heavy descriptions alone.
-- Keep the full template catalog available when the user is browsing templates. Only narrow to a small shortlist if the user explicitly asks for recommendations or fewer options.
+- When you need visual context about a screenshot (e.g. to extract colors, understand the app UI, or make context-specific edits), use view_screenshot to look at the actual image.
+- After generating a new variant, always include the editor URL in the reply so the user can open it directly.
 
 Translation and localization:
 - When the user asks to translate, localize, or create a version in another language, ALWAYS use translate_layouts. Do NOT manually edit text nodes via transform_layout for translation.

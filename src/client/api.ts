@@ -60,7 +60,6 @@ export class AppLaunchFlowClient {
       "Cookie",
       `${this.credentials.cookieName}=${this.credentials.token}`,
     );
-    headers.set("Authorization", `Bearer ${this.credentials.token}`);
     return headers;
   }
 

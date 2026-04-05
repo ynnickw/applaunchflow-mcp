@@ -59,7 +59,28 @@ export function registerScreenshotTools(
     },
     async (args) => {
       try {
-        return ok(await client.generateLayouts(args), "Generated layouts");
+        const result = await client.generateLayouts(args);
+        const generationId = args.generationId || args.projectId || "";
+        const variantId = result.variantId || "";
+        const editorUrl = `${client.credentials.baseUrl}/editor?projectId=${generationId}&variantId=${variantId}&device=phone`;
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                "Generated layouts successfully.",
+                `Editor URL: ${editorUrl}`,
+                "IMPORTANT: Paste this exact editor URL in the reply so the user can open it.",
+              ].join("\n"),
+            },
+          ],
+          structuredContent: {
+            success: true,
+            data: { ...result, editorUrl },
+            message: "Generated layouts",
+          },
+        };
       } catch (error) {
         return fail(error);
       }

@@ -82,24 +82,6 @@ export function registerVariantTools(
   );
 
   server.registerTool(
-    "switch_variant",
-    {
-      title: "Switch Variant",
-      description: "Set a variant as active",
-      inputSchema: {
-        variantId: z.string().uuid(),
-      },
-    },
-    async ({ variantId }) => {
-      try {
-        return ok(await client.switchVariant(variantId), "Switched variant");
-      } catch (error) {
-        return fail(error);
-      }
-    },
-  );
-
-  server.registerTool(
     "duplicate_variant",
     {
       title: "Duplicate Variant",
@@ -111,24 +93,6 @@ export function registerVariantTools(
     async ({ variantId }) => {
       try {
         return ok(await client.duplicateVariant(variantId), "Duplicated variant");
-      } catch (error) {
-        return fail(error);
-      }
-    },
-  );
-
-  server.registerTool(
-    "delete_variant",
-    {
-      title: "Delete Variant",
-      description: "Delete a content variant",
-      inputSchema: {
-        variantId: z.string().uuid(),
-      },
-    },
-    async ({ variantId }) => {
-      try {
-        return ok(await client.deleteVariant(variantId), "Deleted variant");
       } catch (error) {
         return fail(error);
       }

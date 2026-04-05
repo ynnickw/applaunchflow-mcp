@@ -1,11 +1,26 @@
-# applaunchflow MCP
+# AppLaunchFlow MCP
 
-Local stdio MCP server for applaunchflow.
+MCP server for AppLaunchFlow — create App Store & Google Play screenshots with AI.
+
+## Setup
+
+Add to your MCP client config (e.g. Claude Desktop):
+
+```json
+{
+  "mcpServers": {
+    "applaunchflow": {
+      "command": "npx",
+      "args": ["-y", "@applaunchflow/mcp@latest"]
+    }
+  }
+}
+```
 
 ## Auth
 
 ```bash
-pnpm --dir applaunchflow-mcp dev auth login --base-url http://localhost:3000
+npx -y @applaunchflow/mcp@latest auth login
 ```
 
 Credentials are stored in `~/.applaunchflow/credentials.json`.
@@ -16,11 +31,9 @@ Environment overrides:
 - `applaunchflow_MCP_TOKEN`
 - `applaunchflow_MCP_COOKIE_NAME`
 
-## Run
+## Development
 
 ```bash
-pnpm --dir applaunchflow-mcp build
-node applaunchflow-mcp/build/index.js
+pnpm install
+pnpm dev
 ```
-
-The server uses stdio transport and exposes tools/resources for project, screenshot, layout, template, variant, graphics, and ASO workflows.
