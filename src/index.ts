@@ -24,7 +24,7 @@ import { registerVariantTools } from "./tools/variants.js";
 const SERVER_INSTRUCTIONS = `
 AppLaunchFlow MCP is screenshot-focused at this stage.
 Only use it for screenshot project setup, screenshot uploads, screenshot template generation, variants, and direct screenshot layout editing.
-Do not treat this MCP as an ASO, localization, graphics, or promo-video assistant.
+Do not treat this MCP as an ASO, localization, or graphics assistant.
 
 Use AppLaunchFlow MCP as an execution tool, not a questionnaire.
 

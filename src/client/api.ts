@@ -108,7 +108,6 @@ export class AppLaunchFlowClient {
       | "logo"
       | "panorama"
       | "background"
-      | "video-frame"
       | "font";
   }) {
     return this.requestJson<{

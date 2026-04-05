@@ -157,7 +157,8 @@ export function registerLayoutTools(
         "4. Dot-notation is supported for deep updates without replacing the whole object. Example: {'richContent.attrs.defaultFontSize': 96} updates only the font size inside richContent.attrs, preserving all other fields. Always use dot-notation for nested property changes. " +
         "5. For add_node, changes MUST include an 'id' field. " +
         "6. To add new screens, first add empty screen containers, then populate them in a SECOND call using selector 'screenId:<id>'. " +
-        "7. Default to layouts:['mobile']. Only include tablet/desktop if the user asks.",
+        "7. Default to layouts:['mobile']. Only include tablet/desktop if the user asks. " +
+        "8. FONT SIZE: The rendered font size is controlled ONLY by 'richContent.attrs.defaultFontSize' (pixel value). To change font size, use dot-notation: {'richContent.attrs.defaultFontSize': 80}. Do NOT use 'fontSizeScale' — that property is for promo videos only and has NO effect on screenshot rendering.",
       inputSchema: {
         generationId: z.string().uuid(),
         language: z.string(),
