@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
@@ -57,12 +58,36 @@ export function registerScreenshotTools(
           .describe("DO NOT pass this. Always omit so a new variant is created. Never overwrite existing variants."),
       },
     },
-    async (args) => {
+    async (args, extra) => {
       try {
         const result = await client.generateLayouts(args);
         const generationId = args.generationId || args.projectId || "";
         const variantId = result.variantId || "";
-        const editorUrl = `${client.credentials.baseUrl}/editor?projectId=${generationId}&variantId=${variantId}&device=phone`;
+        const editorParams = new URLSearchParams({
+          projectId: generationId,
+          device: "phone",
+        });
+        if (variantId) {
+          editorParams.set("variantId", variantId);
+        }
+        if (result.detectedLanguage) {
+          editorParams.set("language", result.detectedLanguage);
+        }
+        const editorUrl = `${client.credentials.baseUrl}/editor?${editorParams.toString()}`;
+
+        try {
+          await server.server.elicitInput(
+            {
+              mode: "url",
+              elicitationId: randomUUID(),
+              message: "Opening the generated screenshot variant in the editor.",
+              url: editorUrl,
+            },
+            { signal: extra.signal },
+          );
+        } catch {
+          // Client may not support URL elicitation — include URL in response
+        }
 
         return {
           content: [

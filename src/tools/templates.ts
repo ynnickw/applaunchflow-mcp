@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ElicitResultSchema } from "@modelcontextprotocol/sdk/types.js";
+import type { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import {
@@ -10,6 +12,59 @@ import {
 } from "../template-previews.js";
 import type { TemplateSelectionCoordinator } from "../template-selection.js";
 import { fail } from "./utils.js";
+
+/**
+ * Bypass the SDK's `elicitation.url` capability gate by calling the underlying
+ * protocol `request()` method directly.  This lets us send URL-mode elicitations
+ * to clients (like Claude Code) that support them at the protocol level even when
+ * the SDK's newer capability check doesn't recognise the advertised capabilities.
+ *
+ * Falls back gracefully: callers should catch errors and offer the gallery URL.
+ */
+async function elicitUrl(
+  server: McpServer,
+  params: {
+    mode: "url";
+    elicitationId: string;
+    message: string;
+    url: string;
+  },
+  options?: RequestOptions,
+) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const proto = server.server as any;
+  return proto.request(
+    { method: "elicitation/create", params },
+    ElicitResultSchema,
+    options,
+  ) as ReturnType<typeof server.server.elicitInput>;
+}
+
+/**
+ * Try to create an elicitation completion notifier.  The SDK gates this behind
+ * `capabilities.elicitation.url` too, so fall back silently.
+ */
+function tryCreateCompletionNotifier(
+  server: McpServer,
+  elicitationId: string,
+): (() => Promise<void>) | undefined {
+  try {
+    return server.server.createElicitationCompletionNotifier(elicitationId);
+  } catch {
+    // SDK capability check failed — send the notification manually.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const proto = server.server as any;
+      return () =>
+        proto.notification({
+          method: "notifications/elicitation/complete",
+          params: { elicitationId },
+        });
+    } catch {
+      return undefined;
+    }
+  }
+}
 
 type TemplateCatalogPayload = {
   templates: Array<{
@@ -226,15 +281,12 @@ export function registerTemplateTools(
           try {
             const elicitationId = randomUUID();
 
-            try {
-              selection.setCompletionNotifier(
-                server.server.createElicitationCompletionNotifier(elicitationId),
-              );
-            } catch {
-              selection.setCompletionNotifier(undefined);
-            }
+            selection.setCompletionNotifier(
+              tryCreateCompletionNotifier(server, elicitationId),
+            );
 
-            const elicitationResult = await server.server.elicitInput(
+            const elicitationResult = await elicitUrl(
+              server,
               {
                 mode: "url",
                 elicitationId,
@@ -302,22 +354,23 @@ export function registerTemplateTools(
               },
             };
           } catch (error) {
-            selection.cleanup();
-
             const errorMessage =
               error instanceof Error ? error.message : String(error);
-            if (
-              errorMessage.includes("Client does not support url elicitation") ||
-              errorMessage.includes("Client does not support URL elicitation")
-            ) {
+            const isUnsupported =
+              errorMessage.toLowerCase().includes("does not support") &&
+              errorMessage.toLowerCase().includes("elicitation");
+            if (isUnsupported) {
+              selection.cleanup();
+
               return {
                 content: [
                   {
                     type: "text" as const,
                     text: [
-                      "This client does not support interactive URL selection.",
-                      "Paste this exact gallery URL into the user-visible reply so the user can choose manually:",
+                      `Open the template gallery to browse and pick a template:`,
                       fallbackGalleryUrl,
+                      "",
+                      "Reply with the template name or id once you've chosen.",
                     ].join("\n"),
                   },
                   {
@@ -330,19 +383,19 @@ export function registerTemplateTools(
                   },
                 ],
                 structuredContent: {
-                  success: false,
+                  success: true,
                   data: {
-                    interactiveSelectionAvailable: false,
                     galleryUrl: fallbackGalleryUrl,
                     userFacingUrl: fallbackGalleryUrl,
                     deviceType,
                     templateIds: filteredTemplateIds,
                   },
-                  message: "Interactive selection unavailable; falling back to manual gallery browsing",
+                  message: "Open the gallery URL to choose a template",
                 },
               };
             }
 
+            selection.cleanup();
             throw error;
           }
         }

@@ -25,6 +25,7 @@ export function registerPrompts(server: McpServer): void {
             type: "text",
             text: [
               "Create an AppLaunchFlow project quickly.",
+              "If no project is selected yet, the first branching question is whether the user wants to create a new app or edit an existing one.",
               "Ask for the app name and platform (iOS or Android) using AskUserQuestion.",
               "Autofill category and description from context — do not ask the user for these.",
               "Call create_project immediately after getting the name and platform.",
@@ -62,8 +63,8 @@ export function registerPrompts(server: McpServer): void {
             type: "text",
             text: [
               "Operate directly on the existing AppLaunchFlow screenshot layout.",
-              "For small text-only edits to known nodes, transform_layout can be used directly.",
-              "For any composition-sensitive edit, call get_layout first and inspect the relevant existing screens before building transform operations.",
+              "Call get_layout first and inspect the relevant existing screens before every transform_layout call.",
+              "This read-before-edit rule is mandatory even for small direct edits.",
               "Composition-sensitive edits include adding screens, reusing screenshots, changing screenshot placement, moving text, changing spacing, or any request that should match the current style.",
               "When preserving the current design, copy actual numeric values from nearby screens: text positions, widths, zIndex, screenshot position, scale, rotation, and typography attributes.",
               "Do not invent a fresh composition unless the user explicitly asks for a redesign.",

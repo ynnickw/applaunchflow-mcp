@@ -384,6 +384,14 @@ export const PROJECT_CREATION_WIZARD_RESOURCE = {
   matchesUi: "dashboard upload flow",
   steps: [
     {
+      order: 0,
+      id: "entry-branch",
+      label: "Create Or Edit",
+      required: true,
+      prompt:
+        "Before templates or screenshot generation, branch first: create a new app or edit an existing project.",
+    },
+    {
       order: 1,
       id: "platform",
       label: "Default Platform",
@@ -436,7 +444,7 @@ export const PROJECT_CREATION_WIZARD_RESOURCE = {
     defaultDeviceType: "phone",
   },
   createProjectRule:
-    "Call create_project only after the platform choice, optional import decision, and app name confirmation are complete.",
+    "Call create_project only after the user has chosen the create-new-app path, plus platform and app name are known.",
   nextStepAfterCreate: "Upload screenshots",
 };
 
@@ -448,12 +456,20 @@ export const WORKFLOW_GUIDE_RESOURCE = {
     {
       name: "Browse templates visually",
       preferredSteps: [
-        "choose_template",
         "browse_templates",
-        "get_template_details",
       ],
       notes:
-        "Use choose_template when the user needs to pick one template and continue automatically after clicking it in the hosted gallery. Use browse_templates for manual browsing only. Keep the full template catalog available unless the user asks for a shortlist.",
+        "Use browse_templates when the user needs to pick a template from the hosted visual gallery. Keep the full template catalog available unless the user asks for a shortlist.",
+    },
+    {
+      name: "Start screenshot work",
+      preferredSteps: [
+        "create_project",
+        "list_projects",
+        "get_project",
+      ],
+      notes:
+        "If no project is in scope yet, start by branching to create a new app or edit an existing one. Do not begin with template browsing before a project path is chosen.",
     },
     {
       name: "New template on existing project",
@@ -471,7 +487,7 @@ export const WORKFLOW_GUIDE_RESOURCE = {
         "transform_layout",
       ],
       notes:
-        "Use get_layout first for edits that affect layout, spacing, or visual hierarchy. Only skip it for small, clearly targeted changes to known existing nodes such as replacing headline text.",
+        "Use get_layout first for every direct layout edit. Treat the read as mandatory, then transform the layout, then return the editor URL so the user can review visually.",
     },
     {
       name: "Add new screens to current layout",
@@ -489,7 +505,7 @@ export const WORKFLOW_GUIDE_RESOURCE = {
     "Do not reduce the template catalog to a tiny recommendation list unless the user explicitly asks for that.",
     "Do not describe templates without showing preview resources when template previews are available.",
     "Do not read template previews one by one when browse_templates can show the full gallery in one step.",
-    "Do not ask the user to type a template name when choose_template can collect the choice directly from the hosted gallery.",
+    "Do not begin a screenshot session with template browsing before the user has chosen create new app or edit existing project.",
     "Do not invent fresh x/y positions, widths, screenshot scale values, or headline styling for new screens when the user wants to preserve the current design language.",
     "Do not report success for new screens or composition edits without checking that the new nodes match the surrounding screens and do not overlap key content.",
   ],

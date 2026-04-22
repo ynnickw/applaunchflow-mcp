@@ -29,6 +29,8 @@ Do not treat this MCP as an ASO, localization, or graphics assistant.
 Use AppLaunchFlow MCP as an execution tool, not a questionnaire.
 
 Default behavior:
+- When the user wants screenshot help and no project has been selected yet, the first branch is always: create a new app or edit an existing app.
+- Do not start with template browsing before that project choice is resolved.
 - For concrete requests on an existing project, act directly instead of asking follow-up questions.
 - Only ask when a missing detail is required to avoid a materially wrong result, or when the request is genuinely ambiguous.
 - Do not force menu-style "what would you like to do next?" steps after each tool call.
@@ -36,6 +38,7 @@ Default behavior:
 - If a tool returns a user-facing URL, repeat the exact URL in the assistant reply. Do not say "link above" or assume tool output is visible to the user.
 
 Preferred workflows:
+- Entry point without a known project: ask whether the user wants to create a new app or edit an existing project. If they want existing, list/select projects. If they want new, create the project first.
 - New screenshot direction or template on an existing project: call generate_layouts WITHOUT a variantId — a new variant is always created automatically. Never overwrite existing variants.
 - For small, precise edits to existing known nodes, transform_layout can be used directly.
 - For any composition-sensitive edit, inspect the current layout first with get_layout. This includes adding screens, reusing screenshots, changing screenshot placement, moving text, changing spacing, or anything that should match the existing visual system.
@@ -45,6 +48,7 @@ Preferred workflows:
 - For adding new screens to an existing layout, prefer direct layout editing when the user wants to keep the current design. Only generate a fresh variant when the user asks for a new AI-generated layout/template.
 - When adding or editing elements, ensure text and screenshots do not overlap. Verify that positions place elements in distinct, non-conflicting areas of the canvas.
 - After composition-sensitive edits, inspect the returned translation or re-fetch the layout before reporting success. If elements overlap or are poorly positioned, fix them before telling the user the edit is done.
+- get_layout is mandatory before every direct transform_layout call. Do not edit a layout without a fresh read of the current state first.
 - ALWAYS use browse_templates when a template choice is needed. Never offer templates via text bullet points or AskUserQuestion. The gallery opens in the browser and returns the user's selection automatically.
 - When you need visual context about a screenshot (e.g. to extract colors, understand the app UI, or make context-specific edits), use view_screenshot to look at the actual image.
 - After generating a new variant, always include the editor URL in the reply so the user can open it directly.

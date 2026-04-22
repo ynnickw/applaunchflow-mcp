@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
@@ -95,12 +96,64 @@ export function registerLayoutTools(
   server: McpServer,
   client: AppLaunchFlowClient,
 ): void {
+  const layoutReadReceipts = new Map<string, number>();
+
+  function buildReadReceiptKey(args: {
+    generationId: string;
+    language: string;
+    variantId?: string;
+  }): string {
+    return [args.generationId, args.language, args.variantId || "default"].join("::");
+  }
+
+  function buildEditorUrl(args: {
+    generationId: string;
+    language?: string;
+    variantId?: string;
+  }): string {
+    const params = new URLSearchParams({
+      projectId: args.generationId,
+      device: "phone",
+    });
+
+    if (args.variantId) {
+      params.set("variantId", args.variantId);
+    }
+
+    if (args.language) {
+      params.set("language", args.language);
+    }
+
+    return `${client.credentials.baseUrl}/editor?${params.toString()}`;
+  }
+
+  function buildVariantPreviewUrl(args: {
+    language?: string;
+    variantId?: string;
+  }): string | null {
+    if (!args.variantId) {
+      return null;
+    }
+
+    const params = new URLSearchParams({
+      device: "phone",
+    });
+
+    if (args.language) {
+      params.set("language", args.language);
+    }
+
+    return `${client.credentials.baseUrl}/api/variants/${args.variantId}/preview?${params.toString()}`;
+  }
+
   server.registerTool(
     "get_layout",
     {
       title: "Get Layout",
       description:
-        "Get layout JSON for the current translation before editing or reviewing a variant.",
+        "Get layout JSON for the current translation before editing or reviewing a variant. " +
+        "This is mandatory before every direct transform_layout call. " +
+        "Returns the editor URL and attempts to open it so the user can review visually before editing.",
       inputSchema: {
         generationId: z.string().uuid(),
         language: z.string().optional(),
@@ -108,12 +161,68 @@ export function registerLayoutTools(
         sign: z.boolean().optional(),
       },
     },
-    async ({ generationId, language, variantId, sign }) => {
+    async ({ generationId, language, variantId, sign }, extra) => {
       try {
-        return ok(
-          await client.getLayout({ generationId, language, variantId, sign }),
-          "Fetched layout data",
-        );
+        const layout = await client.getLayout({
+          generationId,
+          language,
+          variantId,
+          sign,
+        });
+        const hasEditReceipt = Boolean(language);
+        if (language) {
+          const receiptKey = buildReadReceiptKey({
+            generationId,
+            language,
+            variantId,
+          });
+          layoutReadReceipts.set(receiptKey, Date.now());
+        }
+
+        const editorUrl = buildEditorUrl({ generationId, language, variantId });
+        const previewUrl = buildVariantPreviewUrl({ language, variantId });
+
+        try {
+          await server.server.elicitInput(
+            {
+              mode: "url",
+              elicitationId: randomUUID(),
+              message: "Opening the screenshot editor for visual review before editing.",
+              url: editorUrl,
+            },
+            { signal: extra.signal },
+          );
+        } catch {
+          // Client may not support URL elicitation — include URL in response
+        }
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                "Fetched layout data.",
+                `Editor URL: ${editorUrl}`,
+                previewUrl ? `Preview URL: ${previewUrl}` : null,
+                hasEditReceipt
+                  ? "A fresh get_layout read is now recorded for this generation/language/variant and can be used for one transform_layout call."
+                  : "No edit receipt was recorded because language was omitted. Provide language when reading a layout you intend to transform.",
+              ]
+                .filter(Boolean)
+                .join("\n"),
+            },
+          ],
+          structuredContent: {
+            success: true,
+            data: {
+              layout,
+              editorUrl,
+              previewUrl,
+              readBeforeEditSatisfied: hasEditReceipt,
+            },
+            message: "Fetched layout data",
+          },
+        };
       } catch (error) {
         return fail(error);
       }
@@ -134,7 +243,7 @@ export function registerLayoutTools(
         desktopLayout: z.record(z.any()).nullable().optional(),
       },
     },
-    async (args) => {
+    async (args, extra) => {
       try {
         return ok(await client.saveLayout(args), "Saved layout");
       } catch (error) {
@@ -150,6 +259,7 @@ export function registerLayoutTools(
       description:
         "Apply transform operations to an existing layout. Primary editing tool for text, screenshots, colors, and structure changes. " +
         "IMPORTANT: Always call get_layout FIRST to inspect the current layout state before using this tool. Never transform blindly. " +
+        "ENFORCED RULE: each transform_layout call requires a fresh get_layout call for the same generationId, language, and variantId immediately beforehand. " +
         "RULES: " +
         "1. nodeType is REQUIRED in every operation target. " +
         "2. Omit nodeId to update ALL nodes of that type in the target screens. " +
@@ -171,9 +281,74 @@ export function registerLayoutTools(
         operations: z.array(transformOperationSchema).min(1),
       },
     },
-    async (args) => {
+    async (args, extra) => {
       try {
-        return ok(await client.transformLayout(args), "Applied layout transform");
+        const receiptKey = buildReadReceiptKey({
+          generationId: args.generationId,
+          language: args.language,
+          variantId: args.variantId,
+        });
+
+        if (!layoutReadReceipts.has(receiptKey)) {
+          return fail(
+            new Error(
+              "Call get_layout first for this generation/language/variant before transform_layout. Direct layout editing is locked until the current layout has been read.",
+            ),
+          );
+        }
+
+        const transformed = await client.transformLayout(args);
+        layoutReadReceipts.delete(receiptKey);
+
+        const editorUrl = buildEditorUrl({
+          generationId: args.generationId,
+          language: args.language,
+          variantId: args.variantId,
+        });
+        const previewUrl = buildVariantPreviewUrl({
+          language: args.language,
+          variantId: args.variantId,
+        });
+
+        try {
+          await server.server.elicitInput(
+            {
+              mode: "url",
+              elicitationId: randomUUID(),
+              message: "Opening the screenshot editor so you can review the updated layout.",
+              url: editorUrl,
+            },
+            { signal: extra.signal },
+          );
+        } catch {
+          // Client may not support URL elicitation — include URL in response
+        }
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                "Applied layout transform.",
+                `Editor URL: ${editorUrl}`,
+                previewUrl ? `Preview URL: ${previewUrl}` : null,
+                "This transform consumed the current read receipt. Call get_layout again before the next direct edit.",
+              ]
+                .filter(Boolean)
+                .join("\n"),
+            },
+          ],
+          structuredContent: {
+            success: true,
+            data: {
+              result: transformed,
+              editorUrl,
+              previewUrl,
+              nextEditRequiresFreshRead: true,
+            },
+            message: "Applied layout transform",
+          },
+        };
       } catch (error) {
         return fail(error);
       }
