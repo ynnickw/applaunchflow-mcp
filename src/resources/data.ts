@@ -474,11 +474,11 @@ export const WORKFLOW_GUIDE_RESOURCE = {
     {
       name: "New template on existing project",
       preferredSteps: [
-        "create_variant",
+        "browse_templates",
         "generate_layouts",
       ],
       notes:
-        "Use this when the user wants a fresh screenshot direction or a different template without overwriting the current variant.",
+        "ALWAYS start with browse_templates so the user can pick a template visually. Never skip template browsing or generate layouts automatically without it. Then call generate_layouts with the selected template — a new variant is created automatically.",
     },
     {
       name: "Edit current layout directly",
@@ -506,6 +506,7 @@ export const WORKFLOW_GUIDE_RESOURCE = {
     "Do not describe templates without showing preview resources when template previews are available.",
     "Do not read template previews one by one when browse_templates can show the full gallery in one step.",
     "Do not begin a screenshot session with template browsing before the user has chosen create new app or edit existing project.",
+    "Do not generate layouts without first calling browse_templates. Template browsing is mandatory before any layout generation.",
     "Do not invent fresh x/y positions, widths, screenshot scale values, or headline styling for new screens when the user wants to preserve the current design language.",
     "Do not report success for new screens or composition edits without checking that the new nodes match the surrounding screens and do not overlap key content.",
   ],

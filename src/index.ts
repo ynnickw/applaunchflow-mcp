@@ -39,7 +39,8 @@ Default behavior:
 
 Preferred workflows:
 - Entry point without a known project: ask whether the user wants to create a new app or edit an existing project. If they want existing, list/select projects. If they want new, create the project first.
-- New screenshot direction or template on an existing project: call generate_layouts WITHOUT a variantId — a new variant is always created automatically. Never overwrite existing variants.
+- Before generating layouts, ALWAYS call browse_templates first so the user can pick a template. Never skip template browsing or offer to generate layouts automatically without it.
+- New screenshot direction or template on an existing project: call browse_templates, then call generate_layouts with the selected template WITHOUT a variantId — a new variant is always created automatically. Never overwrite existing variants.
 - For small, precise edits to existing known nodes, transform_layout can be used directly.
 - For any composition-sensitive edit, inspect the current layout first with get_layout. This includes adding screens, reusing screenshots, changing screenshot placement, moving text, changing spacing, or anything that should match the existing visual system.
 - Use transform_layout as the primary tool for editing current screens once you have enough layout context.
