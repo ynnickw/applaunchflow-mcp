@@ -1,6 +1,6 @@
 {
   "name": "@applaunchflow/mcp",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "MCP server for AppLaunchFlow — create App Store & Google Play screenshots with AI.",
   "license": "MIT",
   "repository": {
