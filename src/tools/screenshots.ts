@@ -1,9 +1,8 @@
-import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
-import { fail, ok } from "./utils.js";
+import { openUrl, fail, ok } from "./utils.js";
 
 export function registerScreenshotTools(
   server: McpServer,
@@ -75,19 +74,7 @@ export function registerScreenshotTools(
         }
         const editorUrl = `${client.credentials.baseUrl}/editor?${editorParams.toString()}`;
 
-        try {
-          await server.server.elicitInput(
-            {
-              mode: "url",
-              elicitationId: randomUUID(),
-              message: "Opening the generated screenshot variant in the editor.",
-              url: editorUrl,
-            },
-            { signal: extra.signal },
-          );
-        } catch {
-          // Client may not support URL elicitation — include URL in response
-        }
+        await openUrl(server, editorUrl, "Opening the generated screenshot variant in the editor.", { signal: extra.signal });
 
         return {
           content: [

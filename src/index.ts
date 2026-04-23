@@ -36,6 +36,7 @@ Default behavior:
 - Do not force menu-style "what would you like to do next?" steps after each tool call.
 - The user can edit layouts in natural language. Translate those requests into direct MCP actions.
 - If a tool returns a user-facing URL, repeat the exact URL in the assistant reply. Do not say "link above" or assume tool output is visible to the user.
+- When URL elicitation is not supported or fails, open the URL directly in the user's browser by running the shell command: open "<url>" (macOS) or xdg-open "<url>" (Linux). Do not just paste the URL in text — always attempt to open it automatically.
 
 Preferred workflows:
 - Entry point without a known project: ask whether the user wants to create a new app or edit an existing project. If they want existing, list/select projects. If they want new, create the project first.

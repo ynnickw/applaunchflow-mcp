@@ -1,8 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
-import { fail, ok } from "./utils.js";
+import { openUrl, fail, ok } from "./utils.js";
 
 const transformOperationSchema = z.object({
   type: z.enum([
@@ -182,19 +181,7 @@ export function registerLayoutTools(
         const editorUrl = buildEditorUrl({ generationId, language, variantId });
         const previewUrl = buildVariantPreviewUrl({ language, variantId });
 
-        try {
-          await server.server.elicitInput(
-            {
-              mode: "url",
-              elicitationId: randomUUID(),
-              message: "Opening the screenshot editor for visual review before editing.",
-              url: editorUrl,
-            },
-            { signal: extra.signal },
-          );
-        } catch {
-          // Client may not support URL elicitation — include URL in response
-        }
+        await openUrl(server, editorUrl, "Opening the screenshot editor for visual review before editing.", { signal: extra.signal });
 
         return {
           content: [
@@ -310,19 +297,7 @@ export function registerLayoutTools(
           variantId: args.variantId,
         });
 
-        try {
-          await server.server.elicitInput(
-            {
-              mode: "url",
-              elicitationId: randomUUID(),
-              message: "Opening the screenshot editor so you can review the updated layout.",
-              url: editorUrl,
-            },
-            { signal: extra.signal },
-          );
-        } catch {
-          // Client may not support URL elicitation — include URL in response
-        }
+        await openUrl(server, editorUrl, "Opening the screenshot editor so you can review the updated layout.", { signal: extra.signal });
 
         return {
           content: [

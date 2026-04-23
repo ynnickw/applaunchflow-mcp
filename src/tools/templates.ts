@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { ElicitResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import type { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import {
@@ -11,34 +9,7 @@ import {
   decorateTemplatePayload,
 } from "../template-previews.js";
 import type { TemplateSelectionCoordinator } from "../template-selection.js";
-import { fail } from "./utils.js";
-
-/**
- * Bypass the SDK's `elicitation.url` capability gate by calling the underlying
- * protocol `request()` method directly.  This lets us send URL-mode elicitations
- * to clients (like Claude Code) that support them at the protocol level even when
- * the SDK's newer capability check doesn't recognise the advertised capabilities.
- *
- * Falls back gracefully: callers should catch errors and offer the gallery URL.
- */
-async function elicitUrl(
-  server: McpServer,
-  params: {
-    mode: "url";
-    elicitationId: string;
-    message: string;
-    url: string;
-  },
-  options?: RequestOptions,
-) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const proto = server.server as any;
-  return proto.request(
-    { method: "elicitation/create", params },
-    ElicitResultSchema,
-    options,
-  ) as ReturnType<typeof server.server.elicitInput>;
-}
+import { elicitUrl, openInBrowser, fail } from "./utils.js";
 
 /**
  * Try to create an elicitation completion notifier.  The SDK gates this behind
@@ -278,6 +249,9 @@ export function registerTemplateTools(
             title,
           });
 
+          // Try URL elicitation first; if the client doesn't support it,
+          // open the gallery directly in the user's browser.
+          let elicitationWorked = false;
           try {
             const elicitationId = randomUUID();
 
@@ -318,6 +292,13 @@ export function registerTemplateTools(
               };
             }
 
+            elicitationWorked = true;
+          } catch {
+            // Client doesn't support URL elicitation — open directly in the browser.
+            openInBrowser(selection.galleryUrl);
+          }
+
+          try {
             const chosenTemplateId = await selection.waitForSelection(extra.signal);
             const chosenTemplate = availableTemplateMap.get(chosenTemplateId);
 
@@ -354,47 +335,6 @@ export function registerTemplateTools(
               },
             };
           } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
-            const isUnsupported =
-              errorMessage.toLowerCase().includes("does not support") &&
-              errorMessage.toLowerCase().includes("elicitation");
-            if (isUnsupported) {
-              selection.cleanup();
-
-              return {
-                content: [
-                  {
-                    type: "text" as const,
-                    text: [
-                      `Open the template gallery to browse and pick a template:`,
-                      fallbackGalleryUrl,
-                      "",
-                      "Reply with the template name or id once you've chosen.",
-                    ].join("\n"),
-                  },
-                  {
-                    type: "resource_link" as const,
-                    uri: fallbackGalleryUrl,
-                    name: "Open Template Gallery",
-                    mimeType: "text/html",
-                    description:
-                      "Hosted visual gallery for browsing screenshot template previews.",
-                  },
-                ],
-                structuredContent: {
-                  success: true,
-                  data: {
-                    galleryUrl: fallbackGalleryUrl,
-                    userFacingUrl: fallbackGalleryUrl,
-                    deviceType,
-                    templateIds: filteredTemplateIds,
-                  },
-                  message: "Open the gallery URL to choose a template",
-                },
-              };
-            }
-
             selection.cleanup();
             throw error;
           }
