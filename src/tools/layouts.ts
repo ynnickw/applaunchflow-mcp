@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
-import { openUrl, fail, ok } from "./utils.js";
+import { fail, ok } from "./utils.js";
 
 const transformOperationSchema = z.object({
   type: z.enum([
@@ -181,8 +181,6 @@ export function registerLayoutTools(
         const editorUrl = buildEditorUrl({ generationId, language, variantId });
         const previewUrl = buildVariantPreviewUrl({ language, variantId });
 
-        await openUrl(server, editorUrl, "Opening the screenshot editor for visual review before editing.", { signal: extra.signal });
-
         return {
           content: [
             {
@@ -296,8 +294,6 @@ export function registerLayoutTools(
           language: args.language,
           variantId: args.variantId,
         });
-
-        await openUrl(server, editorUrl, "Opening the screenshot editor so you can review the updated layout.", { signal: extra.signal });
 
         return {
           content: [
