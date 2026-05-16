@@ -152,7 +152,7 @@ export function registerLayoutTools(
       description:
         "Get layout JSON for the current translation before editing or reviewing a variant. " +
         "This is mandatory before every direct transform_layout call. " +
-        "Returns the editor URL and attempts to open it so the user can review visually before editing.",
+        "Returns the editor URL as a reference link — do NOT auto-open it. The user already has the editor open from the initial generation.",
       inputSchema: {
         generationId: z.string().uuid(),
         language: z.string().optional(),
@@ -301,7 +301,7 @@ export function registerLayoutTools(
               type: "text" as const,
               text: [
                 "Applied layout transform.",
-                `Editor URL: ${editorUrl}`,
+                `Editor URL (already open — do NOT run \`open\` again): ${editorUrl}`,
                 previewUrl ? `Preview URL: ${previewUrl}` : null,
                 "This transform consumed the current read receipt. Call get_layout again before the next direct edit.",
               ]

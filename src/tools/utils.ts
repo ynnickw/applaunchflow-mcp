@@ -73,6 +73,33 @@ export async function openUrl(
   }
 }
 
+export interface ReadReceiptStore {
+  record(args: { generationId: string; variantId?: string }): void;
+  has(args: { generationId: string; variantId?: string }): boolean;
+  consume(args: { generationId: string; variantId?: string }): void;
+}
+
+/**
+ * In-memory get-before-edit gate keyed by generationId + variantId. The timestamp
+ * is retained for a future TTL sweep; current callers only check presence.
+ */
+export function createReadReceiptStore(): ReadReceiptStore {
+  const receipts = new Map<string, number>();
+  const keyFor = (args: { generationId: string; variantId?: string }) =>
+    [args.generationId, args.variantId || "active"].join("::");
+  return {
+    record(args) {
+      receipts.set(keyFor(args), Date.now());
+    },
+    has(args) {
+      return receipts.has(keyFor(args));
+    },
+    consume(args) {
+      receipts.delete(keyFor(args));
+    },
+  };
+}
+
 export function ok(data: unknown, message?: string) {
   const text =
     typeof data === "string"

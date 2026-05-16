@@ -229,14 +229,19 @@ export function registerTemplateTools(
         // If coordinator is available, set up a callback so clicking a template works
         if (selectionCoordinator) {
           const selection = await selectionCoordinator.createSelection({
-            baseUrl: client.credentials.baseUrl,
-            deviceType,
             templateIds: filteredTemplateIds.length > 0 ? filteredTemplateIds : undefined,
-            selectedTemplateId:
-              selectedTemplateId && availableIds.has(selectedTemplateId)
-                ? selectedTemplateId
-                : undefined,
-            title,
+            buildGalleryUrl: (callbackUrl) =>
+              buildTemplateGalleryUrl(client.credentials.baseUrl, {
+                deviceType,
+                templateIds:
+                  filteredTemplateIds.length > 0 ? filteredTemplateIds : undefined,
+                selectedTemplateId:
+                  selectedTemplateId && availableIds.has(selectedTemplateId)
+                    ? selectedTemplateId
+                    : undefined,
+                title,
+                returnTo: callbackUrl,
+              }),
           });
 
           const fallbackGalleryUrl = buildTemplateGalleryUrl(client.credentials.baseUrl, {

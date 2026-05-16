@@ -223,6 +223,43 @@ export class AppLaunchFlowClient {
     return this.requestJson<{ template: any }>(`/api/mcp/templates/${templateId}`);
   }
 
+  listSocialTemplates() {
+    return this.requestJson<{ templates: any[] }>("/api/mcp/social-templates");
+  }
+
+  getSocialTemplate(templateId: string) {
+    return this.requestJson<{ template: any }>(
+      `/api/mcp/social-templates/${templateId}`,
+    );
+  }
+
+  getPromoVideo(generationId: string, variantId?: string) {
+    return this.requestJson<any>("/api/promovideo/load", {
+      query: { generationId, variantId },
+    });
+  }
+
+  generatePromoVideo(body: Record<string, unknown>) {
+    return this.requestJson<any>("/api/promovideo/generate", {
+      method: "POST",
+      body,
+    });
+  }
+
+  updatePromoVideo(body: Record<string, unknown>) {
+    return this.requestJson<any>("/api/promovideo/update", {
+      method: "POST",
+      body,
+    });
+  }
+
+  clearPromoVideo(body: Record<string, unknown>) {
+    return this.requestJson<any>("/api/promovideo/clear", {
+      method: "POST",
+      body,
+    });
+  }
+
   lookupAppStore(id: string, country = "us") {
     return this.requestJson<any>("/api/itunes/lookup", {
       query: { id, country },
@@ -275,6 +312,16 @@ export class AppLaunchFlowClient {
     });
   }
 
+  getGraphicsFormat(
+    projectId: string,
+    format: string,
+    variantId?: string,
+  ) {
+    return this.requestJson<any>("/api/graphics", {
+      query: { projectId, variantId, format },
+    });
+  }
+
   generateGraphics(body: Record<string, unknown>) {
     return this.requestJson<any>("/api/graphics/generate", {
       method: "POST",
@@ -284,6 +331,13 @@ export class AppLaunchFlowClient {
 
   saveGraphics(body: Record<string, unknown>) {
     return this.requestJson<any>("/api/graphics", {
+      method: "POST",
+      body,
+    });
+  }
+
+  saveGraphicsFormat(body: Record<string, unknown>) {
+    return this.requestJson<any>("/api/graphics/format", {
       method: "POST",
       body,
     });
@@ -336,6 +390,40 @@ export class AppLaunchFlowClient {
     return this.requestJson<any>("/api/illustrations/list", {
       query: { projectId },
     });
+  }
+
+  listKeywords(query: {
+    projectId: string;
+    storeProvider?: "app_store" | "google_play";
+  }) {
+    return this.requestJson<any>("/api/keywords", { query });
+  }
+
+  listKeywordCompetitors(query: {
+    projectId: string;
+    storeProvider?: "app_store" | "google_play";
+  }) {
+    return this.requestJson<any>("/api/keywords/competitors", { query });
+  }
+
+  getKeywordHistory(query: { trackedKeywordId: string; appId?: string }) {
+    return this.requestJson<any>("/api/keywords/history", { query });
+  }
+
+  addKeywords(body: {
+    projectId: string;
+    appId: string;
+    keywords: string[];
+    country?: string;
+    lang?: string;
+    source?: "type" | "suggest" | "competitor" | "auto_detect";
+    storeProvider?: "app_store" | "google_play";
+  }) {
+    return this.requestJson<{
+      ok: true;
+      added: number;
+      staleCount: number;
+    }>("/api/keywords", { method: "POST", body });
   }
 
   /** List files in a project's asset subfolder (panorama, illustrations, backgrounds, etc.) */

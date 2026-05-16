@@ -1,9 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import {
-  buildTemplateGalleryUrl,
-  type TemplatePreviewDeviceType,
-} from "./template-previews.js";
 
 type PendingSelection = {
   allowedTemplateIds: Set<string>;
@@ -16,11 +12,12 @@ type PendingSelection = {
 };
 
 type CreateSelectionArgs = {
-  baseUrl: string;
-  deviceType: TemplatePreviewDeviceType;
+  /**
+   * Build the gallery URL given the local callback URL the coordinator listens on.
+   * Callers inject the appropriate template-gallery base path (screenshot vs social).
+   */
+  buildGalleryUrl: (callbackUrl: string) => string;
   templateIds?: string[];
-  selectedTemplateId?: string;
-  title?: string;
   timeoutMs?: number;
 };
 
@@ -167,13 +164,7 @@ export class TemplateSelectionCoordinator {
     });
 
     const callbackUrl = `http://127.0.0.1:${this.port}/template-selection/select?selectionId=${encodeURIComponent(selectionId)}`;
-    const galleryUrl = buildTemplateGalleryUrl(args.baseUrl, {
-      deviceType: args.deviceType,
-      templateIds: args.templateIds,
-      selectedTemplateId: args.selectedTemplateId,
-      title: args.title,
-      returnTo: callbackUrl,
-    });
+    const galleryUrl = args.buildGalleryUrl(callbackUrl);
 
     const cleanup = () => {
       const pending = this.pendingSelections.get(selectionId);

@@ -1,0 +1,537 @@
+import { randomUUID } from "node:crypto";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+import type { AppLaunchFlowClient } from "../client/api.js";
+import {
+  buildSocialTemplateGalleryUrl,
+  decorateSocialTemplatePayload,
+  SOCIAL_FORMATS,
+  type SocialFormat,
+} from "../social-template-previews.js";
+import type { TemplateSelectionCoordinator } from "../template-selection.js";
+import { elicitUrl, fail, ok, openInBrowser, openUrl } from "./utils.js";
+
+function tryCreateCompletionNotifier(
+  server: McpServer,
+  elicitationId: string,
+): (() => Promise<void>) | undefined {
+  try {
+    return server.server.createElicitationCompletionNotifier(elicitationId);
+  } catch {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const proto = server.server as any;
+      return () =>
+        proto.notification({
+          method: "notifications/elicitation/complete",
+          params: { elicitationId },
+        });
+    } catch {
+      return undefined;
+    }
+  }
+}
+
+type SocialTemplateCatalogPayload = {
+  templates: Array<{
+    id: string;
+    name: string;
+    description?: string | null;
+    previewUrls: Record<SocialFormat, string>;
+    previewResourceUris: Record<SocialFormat, string>;
+  }>;
+};
+
+function buildGraphicsEditorUrl(
+  client: AppLaunchFlowClient,
+  args: {
+    generationId: string;
+    variantId?: string;
+    format?: SocialFormat;
+  },
+): string {
+  const params = new URLSearchParams({ projectId: args.generationId });
+  if (args.variantId) {
+    params.set("variantId", args.variantId);
+  }
+  if (args.format) {
+    params.set("format", args.format);
+  }
+  return `${client.credentials.baseUrl}/graphics?${params.toString()}`;
+}
+
+export function registerGraphicsTools(
+  server: McpServer,
+  client: AppLaunchFlowClient,
+  selectionCoordinator?: TemplateSelectionCoordinator,
+): void {
+  server.registerTool(
+    "browse_social_templates",
+    {
+      title: "Browse & Select Social Template",
+      description:
+        "ALWAYS use this tool when a social-graphics template choice is needed. Opens the social template gallery in the browser where the user can preview each template across all six social formats and click to select. Returns the selected template id. Never offer social templates via text or AskUserQuestion.",
+      inputSchema: {
+        format: z
+          .enum(SOCIAL_FORMATS)
+          .optional()
+          .describe(
+            "Which social format the gallery should preview first. Defaults to 'og'.",
+          ),
+        templateIds: z
+          .array(z.string())
+          .optional()
+          .describe("Optional subset of social template ids to show."),
+        selectedTemplateId: z
+          .string()
+          .optional()
+          .describe("Optional template id to highlight in the gallery."),
+        title: z
+          .string()
+          .optional()
+          .describe("Optional gallery heading, for example the project name."),
+      },
+    },
+    async (
+      {
+        format = "og",
+        templateIds,
+        selectedTemplateId,
+        title,
+      },
+      extra,
+    ) => {
+      try {
+        const payload = decorateSocialTemplatePayload(
+          await client.listSocialTemplates(),
+          client.credentials.baseUrl,
+        ) as SocialTemplateCatalogPayload;
+        const availableIds = new Set(payload.templates.map((t) => t.id));
+        const availableTemplateMap = new Map(
+          payload.templates.map((t) => [t.id, t]),
+        );
+        const filteredTemplateIds =
+          templateIds?.filter((id) => availableIds.has(id)) || [];
+
+        if (selectionCoordinator) {
+          const selection = await selectionCoordinator.createSelection({
+            templateIds:
+              filteredTemplateIds.length > 0 ? filteredTemplateIds : undefined,
+            buildGalleryUrl: (callbackUrl) =>
+              buildSocialTemplateGalleryUrl(client.credentials.baseUrl, {
+                format,
+                templateIds:
+                  filteredTemplateIds.length > 0
+                    ? filteredTemplateIds
+                    : undefined,
+                selectedTemplateId:
+                  selectedTemplateId && availableIds.has(selectedTemplateId)
+                    ? selectedTemplateId
+                    : undefined,
+                title,
+                returnTo: callbackUrl,
+              }),
+          });
+
+          try {
+            const elicitationId = randomUUID();
+            selection.setCompletionNotifier(
+              tryCreateCompletionNotifier(server, elicitationId),
+            );
+
+            const elicitationResult = await elicitUrl(
+              server,
+              {
+                mode: "url",
+                elicitationId,
+                message:
+                  "Browse the social template gallery and click a template to select it.",
+                url: selection.galleryUrl,
+              },
+              { signal: extra.signal },
+            );
+
+            if (elicitationResult.action !== "accept") {
+              selection.cleanup();
+              return {
+                content: [
+                  {
+                    type: "text" as const,
+                    text:
+                      elicitationResult.action === "decline"
+                        ? "Template browsing was dismissed."
+                        : "Template browsing was cancelled.",
+                  },
+                ],
+                structuredContent: {
+                  success: false,
+                  data: { action: elicitationResult.action, cancelled: true },
+                  message: "Template browsing not completed",
+                },
+              };
+            }
+          } catch {
+            openInBrowser(selection.galleryUrl);
+          }
+
+          try {
+            const chosenTemplateId = await selection.waitForSelection(
+              extra.signal,
+            );
+            const chosenTemplate = availableTemplateMap.get(chosenTemplateId);
+            if (!chosenTemplate) {
+              throw new Error(
+                `Selected template ${chosenTemplateId} is not available`,
+              );
+            }
+
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: `Selected social template ${chosenTemplate.name} (${chosenTemplate.id}).`,
+                },
+                {
+                  type: "resource_link" as const,
+                  uri: chosenTemplate.previewResourceUris[format],
+                  name: `${chosenTemplate.name} (${format} preview)`,
+                  mimeType: "image/png",
+                  description:
+                    chosenTemplate.description ||
+                    `Visual preview for the ${chosenTemplate.name} social template.`,
+                },
+              ],
+              structuredContent: {
+                success: true,
+                data: {
+                  template: chosenTemplate,
+                  templateId: chosenTemplate.id,
+                  templateName: chosenTemplate.name,
+                  format,
+                  galleryUrl: selection.galleryUrl,
+                },
+                message: "Selected social template",
+              },
+            };
+          } catch (error) {
+            selection.cleanup();
+            throw error;
+          }
+        }
+
+        // No coordinator — fall back to returning the URL
+        const galleryUrl = buildSocialTemplateGalleryUrl(
+          client.credentials.baseUrl,
+          {
+            format,
+            templateIds:
+              filteredTemplateIds.length > 0 ? filteredTemplateIds : undefined,
+            selectedTemplateId:
+              selectedTemplateId && availableIds.has(selectedTemplateId)
+                ? selectedTemplateId
+                : undefined,
+            title,
+          },
+        );
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                "Paste this exact gallery URL into the user-visible reply.",
+                `Social template gallery URL: ${galleryUrl}`,
+                "After you pick a template, reply with the template name or id.",
+              ].join("\n"),
+            },
+            {
+              type: "resource_link" as const,
+              uri: galleryUrl,
+              name: "Open Social Template Gallery",
+              mimeType: "text/html",
+              description:
+                "Hosted gallery for browsing social-graphics template previews.",
+            },
+          ],
+          structuredContent: {
+            success: true,
+            data: {
+              galleryUrl,
+              userFacingUrl: galleryUrl,
+              format,
+              templateIds: filteredTemplateIds,
+            },
+            message: "Prepared social template gallery",
+          },
+        };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "generate_graphics",
+    {
+      title: "Generate Social Graphics",
+      description:
+        "Generate AI social graphics for all six formats (OG, X post, Instagram story, Play Store feature, X header, LinkedIn banner) using a chosen social template. " +
+        "Always call browse_social_templates first to pick a template. Omit variantId to create a fresh variant — never overwrite an existing one. " +
+        "After generation, the graphics editor opens automatically.",
+      inputSchema: {
+        generationId: z.string().uuid(),
+        templateId: z
+          .string()
+          .min(1)
+          .describe("Social template id (e.g. 'social-clean')."),
+        primaryFormat: z
+          .enum(SOCIAL_FORMATS)
+          .optional()
+          .describe("Default format the editor highlights. Defaults to 'og'."),
+        variantId: z
+          .string()
+          .uuid()
+          .optional()
+          .describe(
+            "DO NOT pass this. Always omit so a new variant is created. Never overwrite existing variants.",
+          ),
+      },
+    },
+    async (args, extra) => {
+      try {
+        const result = await client.generateGraphics(args);
+        const variantId = result?.variantId || args.variantId || "";
+        const editorUrl = buildGraphicsEditorUrl(client, {
+          generationId: args.generationId,
+          variantId,
+        });
+
+        await openUrl(
+          server,
+          editorUrl,
+          "Opening the generated social graphics in the editor.",
+          { signal: extra.signal },
+        );
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                "Generated social graphics successfully.",
+                `Editor URL: ${editorUrl}`,
+                "IMPORTANT: Paste this exact editor URL in the reply so the user can open it.",
+              ].join("\n"),
+            },
+          ],
+          structuredContent: {
+            success: true,
+            data: { ...result, editorUrl },
+            message: "Generated social graphics",
+          },
+        };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  const graphicsReadReceipts = new Set<string>();
+  const graphicsReceiptKey = (args: {
+    generationId: string;
+    variantId?: string;
+    format: SocialFormat;
+  }) => [args.generationId, args.variantId || "active", args.format].join("::");
+
+  server.registerTool(
+    "get_graphics",
+    {
+      title: "Get Social Graphics",
+      description:
+        "Fetch the current social graphics layouts (one per format) for overview or metadata inspection. " +
+        "For direct edits, use get_graphics_format instead.",
+      inputSchema: {
+        generationId: z.string().uuid(),
+        variantId: z.string().uuid().optional(),
+      },
+    },
+    async ({ generationId, variantId }) => {
+      try {
+        const result = await client.getGraphics(generationId, variantId);
+        const editorUrl = buildGraphicsEditorUrl(client, {
+          generationId,
+          variantId,
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                "Fetched social graphics.",
+                `Editor URL: ${editorUrl}`,
+                "Use get_graphics_format before a direct one-format edit.",
+              ].join("\n"),
+            },
+          ],
+          structuredContent: {
+            success: true,
+            data: { ...result, editorUrl, readBeforeEditSatisfied: false },
+            message: "Fetched social graphics",
+          },
+        };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_graphics_format",
+    {
+      title: "Get One Social Graphics Format",
+      description:
+        "Fetch exactly one social graphics layout for a project. " +
+        "Use this before direct edits so the next save_graphics_format call works from the current state of that same format. " +
+        "If the user did not request a specific format, use the variant's primary format from an earlier get_graphics response or inspect the editor URL.",
+      inputSchema: {
+        generationId: z.string().uuid(),
+        variantId: z.string().uuid().optional(),
+        format: z.enum(SOCIAL_FORMATS),
+      },
+    },
+    async ({ generationId, variantId, format }) => {
+      try {
+        const result = await client.getGraphicsFormat(
+          generationId,
+          format,
+          variantId,
+        );
+        const editorUrl = buildGraphicsEditorUrl(client, {
+          generationId,
+          variantId,
+          format,
+        });
+        graphicsReadReceipts.add(
+          graphicsReceiptKey({ generationId, variantId, format }),
+        );
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                `Fetched social graphics format ${format}.`,
+                `Editor URL: ${editorUrl}`,
+                "A fresh same-format read receipt was recorded and can be used for one save_graphics_format call.",
+              ].join("\n"),
+            },
+          ],
+          structuredContent: {
+            success: true,
+            data: { ...result, editorUrl, readBeforeEditSatisfied: true },
+            message: "Fetched one social graphics format",
+          },
+        };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "save_graphics",
+    {
+      title: "Save Social Graphics",
+      description:
+        "Persist a complete social graphics payload (template id, primary format, all per-format layouts).",
+      inputSchema: {
+        generationId: z.string().uuid(),
+        variantId: z.string().uuid().optional(),
+        socialTemplateId: z.string().min(1),
+        socialPrimaryFormat: z.enum(SOCIAL_FORMATS),
+        graphics: z
+          .array(
+            z.object({
+              format: z.enum(SOCIAL_FORMATS),
+              layout: z.record(z.any()),
+            }),
+          )
+          .min(1),
+      },
+    },
+    async (args) => {
+      try {
+        return ok(await client.saveGraphics(args), "Saved social graphics");
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "save_graphics_format",
+    {
+      title: "Save One Social Graphics Format",
+      description:
+        "Persist exactly one social graphics format after reading the latest same-format layout with get_graphics_format. " +
+        "ENFORCED: each call requires a fresh get_graphics_format for the same generationId/variantId/format immediately beforehand. " +
+        "Read the current layouts, mutate only the requested format in memory, then save that single layout here.",
+      inputSchema: {
+        generationId: z.string().uuid(),
+        variantId: z.string().uuid().optional(),
+        format: z.enum(SOCIAL_FORMATS),
+        layout: z.record(z.any()),
+      },
+    },
+    async (args) => {
+      try {
+        const receiptKey = graphicsReceiptKey({
+          generationId: args.generationId,
+          variantId: args.variantId,
+          format: args.format,
+        });
+
+        if (!graphicsReadReceipts.has(receiptKey)) {
+          return fail(
+            new Error(
+              "Call get_graphics_format first for this generation/variant/format before save_graphics_format. Direct editing is locked until the current same-format state has been read.",
+            ),
+          );
+        }
+
+        const result = await client.saveGraphicsFormat(args);
+        graphicsReadReceipts.delete(receiptKey);
+
+        const editorUrl = buildGraphicsEditorUrl(client, {
+          generationId: args.generationId,
+          variantId: args.variantId,
+          format: args.format,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                `Saved social graphics format ${args.format}.`,
+                `Editor URL (already open — do NOT run \`open\` again): ${editorUrl}`,
+                "This save consumed the current same-format read receipt. Call get_graphics_format again before the next direct edit.",
+              ].join("\n"),
+            },
+          ],
+          structuredContent: {
+            success: true,
+            data: {
+              result,
+              editorUrl,
+              nextEditRequiresFreshRead: true,
+            },
+            message: "Saved one social graphics format",
+          },
+        };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+}

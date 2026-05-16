@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { openUrl, fail, ok } from "./utils.js";
 
-const contentTypeEnum = z.enum(["screenshots"]);
+const contentTypeEnum = z.enum(["screenshots", "socialGraphics", "promoVideo"]);
 
 export function registerVariantTools(
   server: McpServer,
@@ -51,7 +51,20 @@ export function registerVariantTools(
         const generationId = args.generationId;
 
         if (variantId && generationId) {
-          const editorUrl = `${client.credentials.baseUrl}/editor?projectId=${generationId}&variantId=${variantId}&device=phone`;
+          const editorPath =
+            args.contentType === "socialGraphics"
+              ? "/graphics"
+              : args.contentType === "promoVideo"
+                ? "/promovideo"
+                : "/editor";
+          const params = new URLSearchParams({
+            projectId: generationId,
+            variantId,
+          });
+          if (args.contentType === "screenshots") {
+            params.set("device", "phone");
+          }
+          const editorUrl = `${client.credentials.baseUrl}${editorPath}?${params.toString()}`;
 
           await openUrl(server, editorUrl, "Opening the new variant in the editor.", { signal: extra.signal });
 
