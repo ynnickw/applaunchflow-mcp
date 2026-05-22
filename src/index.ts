@@ -20,14 +20,15 @@ import { registerScreenshotTools } from "./tools/screenshots.js";
 import { registerTemplateTools } from "./tools/templates.js";
 import { registerGraphicsTools } from "./tools/graphics.js";
 import { registerPromoVideoTools } from "./tools/promovideo.js";
+import { registerMockupTools } from "./tools/mockups.js";
 import { registerLocalizationTools } from "./tools/localization.js";
 import { registerVariantTools } from "./tools/variants.js";
 import { registerKeywordTools } from "./tools/keywords.js";
 
 const SERVER_INSTRUCTIONS = `
-AppLaunchFlow MCP supports three content types: app store screenshots, social graphics, and promo videos.
-Use it for project setup, screenshot uploads, AI generation of screenshots/graphics/videos, variant management, direct layout editing, and translation.
-Do not treat this MCP as an ASO or generic graphics-design assistant — every tool is scoped to one of those three content types.
+AppLaunchFlow MCP supports four content types: app store screenshots, social graphics, promo videos, and mockup animations.
+Use it for project setup, screenshot uploads, AI generation of screenshots/graphics/videos, mockup animation editing, variant management, direct layout editing, and translation.
+Do not treat this MCP as an ASO or generic graphics-design assistant — every tool is scoped to one of those four content types.
 
 Use AppLaunchFlow MCP as an execution tool, not a questionnaire.
 
@@ -39,8 +40,8 @@ Default behavior:
 - Do not force menu-style "what would you like to do next?" steps after each tool call.
 - The user can edit layouts in natural language. Translate those requests into direct MCP actions.
 - If a tool returns a user-facing URL, repeat the exact URL in the assistant reply. Do not say "link above" or assume tool output is visible to the user.
-- The MCP opens the editor in the user's browser automatically on INITIAL CREATION ONLY: generate_layouts, generate_graphics, generate_promo_video, create_variant, duplicate_variant. For these, if the MCP's elicitation-based browser open fails, fall back ONCE to: open "<url>" (macOS) / xdg-open "<url>" (Linux).
-- For edit tools (transform_layout, save_graphics_format, update_promo_video, save_layout, save_graphics), DO NOT run open / xdg-open. The user already has the editor open from the initial creation; popping a new tab on every edit is annoying. Just include the editor URL in the reply text as a reference link.
+- The MCP opens the editor in the user's browser automatically on INITIAL CREATION ONLY: generate_layouts, generate_graphics, generate_promo_video, create_mockup_animation, create_variant, duplicate_variant. For these, if the MCP's elicitation-based browser open fails, fall back ONCE to: open "<url>" (macOS) / xdg-open "<url>" (Linux).
+- For edit tools (transform_layout, save_graphics_format, update_promo_video, update_mockup_animation, save_layout, save_graphics), DO NOT run open / xdg-open. The user already has the editor open from the initial creation; popping a new tab on every edit is annoying. Just include the editor URL in the reply text as a reference link.
 
 Screenshot workflows:
 - Entry point without a known project: ask whether the user wants to create a new app or edit an existing project. If they want existing, list/select projects. If they want new, create the project first.
@@ -74,6 +75,12 @@ Promo video workflows:
 - Use clear_promo_video to wipe a variant's video config when the user wants to start over.
 - Use create_variant with contentType:"promoVideo" or duplicate_variant for copies / A-B tests. duplicate_variant clones the source promo-video variant, including its config.
 - Promo video has no template gallery — the LLM produces the full config end-to-end. Do NOT call browse_templates / browse_social_templates for promo videos.
+
+Mockup animation workflows:
+- create_mockup_animation seeds a fresh mockup variant from a SCENE_PRESETS preset and a specific screenshot/recording path. Always omit variantId; a new variant is always created. Call list_mockup_media first to pick a screenshotPath, and list_mockup_presets to pick a presetId and learn the valid enum + bound values. Editor opens automatically.
+- For edits to an existing mockup animation, ALWAYS call get_mockup_animation first to fetch the current state, mutate the MockupProjectState object in memory, then call update_mockup_animation with the full updated state. There is no granular per-keyframe transform — full-state replace is the supported edit path. The same get-before-edit receipt rule applies: update_mockup_animation is locked until a fresh get_mockup_animation has been called for the same project/variant. Edits propagate live to any open mockup editor tab via realtime — do not open the editor again.
+- Use create_variant with contentType:"mockups" or duplicate_variant for additional A/B variants. duplicate_variant clones the source mockup variant, including its state. To start a variant over, call create_mockup_animation for a fresh variant instead.
+- Mockup animation has no template gallery — the LLM constructs the MockupProjectState end-to-end using values from list_mockup_presets. Do NOT call browse_templates / browse_social_templates for mockup animations.
 
 Translation and localization (screenshots only):
 - When the user asks to translate, localize, or create a version in another language for screenshots, ALWAYS use translate_layouts. Do NOT manually edit text nodes via transform_layout for translation.
@@ -149,6 +156,7 @@ async function startServer() {
   registerTemplateTools(server, client, templateSelectionCoordinator);
   registerGraphicsTools(server, client, templateSelectionCoordinator);
   registerPromoVideoTools(server, client);
+  registerMockupTools(server, client);
   registerLocalizationTools(server, client);
   registerVariantTools(server, client);
   registerKeywordTools(server, client);

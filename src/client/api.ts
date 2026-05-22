@@ -260,6 +260,38 @@ export class AppLaunchFlowClient {
     });
   }
 
+  createMockupAnimation(body: Record<string, unknown>) {
+    return this.requestJson<any>("/api/mockups/setup", {
+      method: "POST",
+      body,
+    });
+  }
+
+  getMockupAnimation(generationId: string, variantId?: string) {
+    return this.requestJson<any>("/api/mockups", {
+      query: { generationId, variantId },
+    });
+  }
+
+  updateMockupAnimation(body: Record<string, unknown>) {
+    return this.requestJson<any>("/api/mockups", {
+      method: "POST",
+      body,
+    });
+  }
+
+  listMockupMedia(projectId: string) {
+    return this.requestJson<any>("/api/mockup-media/list", {
+      query: { projectId },
+    });
+  }
+
+  getMockupThemeColors(generationId: string) {
+    return this.requestJson<any>("/api/mockups/theme-colors", {
+      query: { generationId },
+    });
+  }
+
   lookupAppStore(id: string, country = "us") {
     return this.requestJson<any>("/api/itunes/lookup", {
       query: { id, country },
