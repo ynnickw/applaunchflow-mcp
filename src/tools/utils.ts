@@ -125,7 +125,50 @@ export function ok(data: unknown, message?: string) {
   };
 }
 
+interface ValidationIssue {
+  path?: Array<string | number> | string;
+  message?: string;
+  code?: string;
+  expected?: unknown;
+  received?: unknown;
+  maximum?: unknown;
+  minimum?: unknown;
+}
+
+function extractValidationIssues(error: unknown): ValidationIssue[] | null {
+  if (!(error instanceof AppLaunchFlowApiError)) return null;
+  const body = error.body as
+    | { details?: unknown; error?: { details?: unknown } }
+    | undefined;
+  const details = body?.details ?? body?.error?.details;
+  if (!Array.isArray(details)) return null;
+  return details.filter(
+    (issue): issue is ValidationIssue =>
+      typeof issue === "object" && issue !== null,
+  );
+}
+
+function formatValidationIssue(issue: ValidationIssue): string {
+  const path = Array.isArray(issue.path)
+    ? issue.path.join(".")
+    : (issue.path ?? "");
+  const where = path ? `\`${path}\`` : "(root)";
+  const bounds = [
+    issue.expected !== undefined ? `expected ${JSON.stringify(issue.expected)}` : null,
+    issue.received !== undefined ? `received ${JSON.stringify(issue.received)}` : null,
+    issue.maximum !== undefined ? `max ${JSON.stringify(issue.maximum)}` : null,
+    issue.minimum !== undefined ? `min ${JSON.stringify(issue.minimum)}` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const parts = [where, issue.message ?? issue.code ?? "invalid"];
+  if (bounds) parts.push(`(${bounds})`);
+  return `• ${parts.join(" — ")}`;
+}
+
 export function fail(error: unknown) {
+  const issues = extractValidationIssues(error);
+
   const normalized =
     error instanceof AppLaunchFlowApiError
       ? {
@@ -137,6 +180,7 @@ export function fail(error: unknown) {
           message: error.body?.error?.message || error.message,
           status: error.status,
           details: error.body,
+          ...(issues ? { issues } : {}),
         }
       : {
           code: "UNKNOWN",
@@ -144,12 +188,21 @@ export function fail(error: unknown) {
           message: error instanceof Error ? error.message : String(error),
         };
 
+  // For validation errors, append a compact issue summary to the visible
+  // text so the calling LLM can see exactly which field tripped Zod and
+  // self-correct on the next call instead of guessing.
+  const text = issues?.length
+    ? [normalized.message, "Issues:", ...issues.map(formatValidationIssue)].join(
+        "\n",
+      )
+    : normalized.message;
+
   return {
     isError: true,
     content: [
       {
         type: "text" as const,
-        text: normalized.message,
+        text,
       },
     ],
     structuredContent: {
