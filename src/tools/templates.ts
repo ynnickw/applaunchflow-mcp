@@ -242,6 +242,31 @@ export function registerTemplateTools(
         );
         const filteredTemplateIds =
           templateIds?.filter((templateId) => availableIds.has(templateId)) || [];
+        const droppedTemplateIds =
+          templateIds?.filter((templateId) => !availableIds.has(templateId)) ||
+          [];
+
+        if (droppedTemplateIds.length > 0) {
+          console.error(
+            `[browse_templates] Ignoring unknown template ids not in the registry: ${droppedTemplateIds.join(", ")}`,
+          );
+        }
+
+        // If a caller restricted the gallery to specific ids but NONE of them
+        // are known, silently showing every template would misrepresent the
+        // prepared catalog. Fail loudly instead so the flow can re-prepare.
+        if (
+          templateIds &&
+          templateIds.length > 0 &&
+          filteredTemplateIds.length === 0
+        ) {
+          return fail(
+            new Error(
+              `None of the requested template ids match the available templates (${droppedTemplateIds.join(", ")}). ` +
+                "The prepared catalog and the template registry may be out of sync — re-run prepare_screenshot_styles and pass its returned templateIds.",
+            ),
+          );
+        }
 
         // If coordinator is available, set up a callback so clicking a template works
         if (selectionCoordinator) {

@@ -73,6 +73,63 @@ export async function openUrl(
   }
 }
 
+/**
+ * Minimal shape of the tool-handler `extra` we need for progress reporting.
+ * The MCP client only receives progress notifications when it supplied a
+ * progressToken in the request metadata, so this is a no-op otherwise.
+ */
+type ProgressNotification = {
+  method: "notifications/progress";
+  params: {
+    progressToken: string | number;
+    progress: number;
+    total?: number;
+    message?: string;
+  };
+};
+
+interface ProgressCapableExtra {
+  _meta?: { progressToken?: string | number };
+  sendNotification?: (notification: ProgressNotification) => Promise<void>;
+}
+
+/**
+ * Emit periodic progress notifications while a long-running operation (e.g. the
+ * one-shot AI catalog generation behind prepare_*) is awaited. Clients that
+ * reset their request timeout on progress stay connected instead of timing out
+ * during the dead air. Returns a stop function to call in a `finally`.
+ */
+export function startProgressHeartbeat(
+  extra: ProgressCapableExtra | undefined,
+  message: string,
+  intervalMs = 8000,
+): () => void {
+  const progressToken = extra?._meta?.progressToken;
+  const sendNotification = extra?.sendNotification;
+  if (progressToken === undefined || typeof sendNotification !== "function") {
+    return () => {};
+  }
+
+  let progress = 0;
+  const send = () => {
+    progress += 1;
+    void sendNotification({
+      method: "notifications/progress",
+      params: { progressToken, progress, message },
+    }).catch(() => {
+      // Best-effort keepalive; a failed notification must not break the tool.
+    });
+  };
+
+  send();
+  const interval = setInterval(send, intervalMs);
+  if (typeof interval.unref === "function") {
+    interval.unref();
+  }
+
+  return () => clearInterval(interval);
+}
+
 export interface ReadReceiptStore {
   record(args: { generationId: string; variantId?: string }): void;
   has(args: { generationId: string; variantId?: string }): boolean;

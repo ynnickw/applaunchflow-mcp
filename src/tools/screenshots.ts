@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
-import { openUrl, fail, ok } from "./utils.js";
+import { openUrl, fail, ok, startProgressHeartbeat } from "./utils.js";
 
 export function registerScreenshotTools(
   server: McpServer,
@@ -37,7 +37,14 @@ export function registerScreenshotTools(
           ),
       },
     },
-    async ({ generationId, selectedScreenshotPaths, deviceType = "phone" }) => {
+    async (
+      { generationId, selectedScreenshotPaths, deviceType = "phone" },
+      extra,
+    ) => {
+      const stopHeartbeat = startProgressHeartbeat(
+        extra,
+        "Preparing personalized screenshot styles for every template…",
+      );
       try {
         const result = await client.generateLayouts({
           generationId,
@@ -82,6 +89,8 @@ export function registerScreenshotTools(
         };
       } catch (error) {
         return fail(error);
+      } finally {
+        stopHeartbeat();
       }
     },
   );

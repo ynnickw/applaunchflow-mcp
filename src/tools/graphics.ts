@@ -9,7 +9,14 @@ import {
   type SocialFormat,
 } from "../social-template-previews.js";
 import type { TemplateSelectionCoordinator } from "../template-selection.js";
-import { elicitUrl, fail, ok, openInBrowser, openUrl } from "./utils.js";
+import {
+  elicitUrl,
+  fail,
+  ok,
+  openInBrowser,
+  openUrl,
+  startProgressHeartbeat,
+} from "./utils.js";
 
 function tryCreateCompletionNotifier(
   server: McpServer,
@@ -91,7 +98,14 @@ export function registerGraphicsTools(
           .describe("Format to preview first. Defaults to og."),
       },
     },
-    async ({ generationId, selectedScreenshotPaths, primaryFormat = "og" }) => {
+    async (
+      { generationId, selectedScreenshotPaths, primaryFormat = "og" },
+      extra,
+    ) => {
+      const stopHeartbeat = startProgressHeartbeat(
+        extra,
+        "Preparing personalized social graphics across every format…",
+      );
       try {
         const result = await client.generateGraphics({
           generationId,
@@ -137,6 +151,8 @@ export function registerGraphicsTools(
         };
       } catch (error) {
         return fail(error);
+      } finally {
+        stopHeartbeat();
       }
     },
   );
@@ -274,6 +290,30 @@ export function registerGraphicsTools(
         );
         const filteredTemplateIds =
           templateIds?.filter((id) => availableIds.has(id)) || [];
+        const droppedTemplateIds =
+          templateIds?.filter((id) => !availableIds.has(id)) || [];
+
+        if (droppedTemplateIds.length > 0) {
+          console.error(
+            `[browse_social_templates] Ignoring unknown template ids not in the registry: ${droppedTemplateIds.join(", ")}`,
+          );
+        }
+
+        // Restricting to ids that all turn out to be unknown would fall back to
+        // showing every template — misleading for a prepared catalog. Fail
+        // loudly so the caller re-prepares instead.
+        if (
+          templateIds &&
+          templateIds.length > 0 &&
+          filteredTemplateIds.length === 0
+        ) {
+          return fail(
+            new Error(
+              `None of the requested social template ids match the available templates (${droppedTemplateIds.join(", ")}). ` +
+                "The prepared catalog and the social template registry may be out of sync — re-run prepare_social_graphics_styles and pass its returned templateIds.",
+            ),
+          );
+        }
 
         if (selectionCoordinator) {
           const selection = await selectionCoordinator.createSelection({

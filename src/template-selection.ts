@@ -151,8 +151,12 @@ export class TemplateSelectionCoordinator {
 
       pending.settled = true;
       this.pendingSelections.delete(selectionId);
-      pending.reject(new Error("Template selection timed out"));
-    }, args.timeoutMs ?? 5 * 60 * 1000);
+      pending.reject(
+        new Error(
+          "Template selection timed out. The prepared catalog is still cached, so re-run browse_templates (or browse_social_templates) with the same templateIds and catalogKey to reopen the gallery without regenerating.",
+        ),
+      );
+    }, args.timeoutMs ?? 15 * 60 * 1000);
 
     this.pendingSelections.set(selectionId, {
       allowedTemplateIds,
