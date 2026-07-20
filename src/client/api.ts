@@ -171,8 +171,29 @@ export class AppLaunchFlowClient {
     );
   }
 
+  listProjectScreenshots(projectId: string) {
+    return this.requestJson<{
+      screenshotUrls: string[];
+      paths: string[];
+      platforms: Array<"ios" | "android">;
+      deviceTypes: Array<"phone" | "tablet" | "desktop">;
+      defaultPlatform: "ios" | "android";
+    }>(`/api/projects/${projectId}/screenshots`);
+  }
+
   generateLayouts(body: Record<string, unknown>) {
     return this.requestJson<any>("/api/screenshots/generate", {
+      method: "POST",
+      body,
+    });
+  }
+
+  applyScreenshotTemplate(body: {
+    generationId: string;
+    catalogKey: string;
+    templateId: string;
+  }) {
+    return this.requestJson<any>("/api/screenshots/apply-template", {
       method: "POST",
       body,
     });
@@ -356,6 +377,18 @@ export class AppLaunchFlowClient {
 
   generateGraphics(body: Record<string, unknown>) {
     return this.requestJson<any>("/api/graphics/generate", {
+      method: "POST",
+      body,
+    });
+  }
+
+  applyGraphicsTemplate(body: {
+    generationId: string;
+    catalogKey: string;
+    templateId: string;
+    primaryFormat: string;
+  }) {
+    return this.requestJson<any>("/api/graphics/apply-template", {
       method: "POST",
       body,
     });

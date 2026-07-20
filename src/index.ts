@@ -40,13 +40,14 @@ Default behavior:
 - Do not force menu-style "what would you like to do next?" steps after each tool call.
 - The user can edit layouts in natural language. Translate those requests into direct MCP actions.
 - If a tool returns a user-facing URL, repeat the exact URL in the assistant reply. Do not say "link above" or assume tool output is visible to the user.
-- The MCP opens the editor in the user's browser automatically on INITIAL CREATION ONLY: generate_layouts, generate_graphics, generate_promo_video, create_mockup_animation, create_variant, duplicate_variant. For these, if the MCP's elicitation-based browser open fails, fall back ONCE to: open "<url>" (macOS) / xdg-open "<url>" (Linux).
+- The MCP opens the editor in the user's browser automatically on INITIAL CREATION ONLY: apply_screenshot_style, apply_social_graphics_style, generate_layouts, generate_graphics, generate_promo_video, create_mockup_animation, create_variant, duplicate_variant. For these, if the MCP's elicitation-based browser open fails, fall back ONCE to: open "<url>" (macOS) / xdg-open "<url>" (Linux).
 - For edit tools (transform_layout, save_graphics_format, update_promo_video, update_mockup_animation, save_layout, save_graphics), DO NOT run open / xdg-open. The user already has the editor open from the initial creation; popping a new tab on every edit is annoying. Just include the editor URL in the reply text as a reference link.
 
 Screenshot workflows:
 - Entry point without a known project: ask whether the user wants to create a new app or edit an existing project. If they want existing, list/select projects. If they want new, create the project first.
-- Before generating screenshot layouts, ALWAYS call browse_templates first so the user can pick a template. Never skip template browsing or offer to generate layouts automatically without it.
-- New screenshot direction or template on an existing project: call browse_templates, then immediately call generate_layouts with the selected template WITHOUT a variantId — do not ask for confirmation between template selection and generation. A new variant is always created automatically. Never overwrite existing variants.
+- For the normal style-choice flow, call list_source_screenshots, choose 3-7 real screenshots in story order, then call prepare_screenshot_styles. This generates or reuses one personalized catalog containing every template for phone, tablet, and desktop.
+- After preparation, call browse_templates with exactly the returned templateIds plus generationId and catalogKey so the gallery renders the real personalized results. Then immediately call apply_screenshot_style with the returned catalogKey and selected templateId. Applying creates a new variant from cache without another AI call. Never overwrite an existing variant.
+- Use generate_layouts only for an explicitly requested legacy/direct single-template generation. Do not use it for the normal visual style chooser.
 - For small, precise edits to existing known nodes, transform_layout can be used directly.
 - For any composition-sensitive edit, inspect the current layout first with get_layout. This includes adding screens, reusing screenshots, changing screenshot placement, moving text, changing spacing, or anything that should match the existing visual system.
 - Use transform_layout as the primary tool for editing current screens once you have enough layout context.
@@ -56,13 +57,14 @@ Screenshot workflows:
 - When adding or editing elements, ensure text and screenshots do not overlap. Verify that positions place elements in distinct, non-conflicting areas of the canvas.
 - After composition-sensitive edits, inspect the returned translation or re-fetch the layout before reporting success. If elements overlap or are poorly positioned, fix them before telling the user the edit is done.
 - get_layout is mandatory before every direct transform_layout call. Do not edit a layout without a fresh read of the current state first.
-- ALWAYS use browse_templates when a screenshot template choice is needed. Never offer templates via text bullet points or AskUserQuestion. The gallery opens in the browser and returns the user's selection automatically.
+- ALWAYS use browse_templates after prepare_screenshot_styles when a screenshot template choice is needed. Pass the prepared templateIds, generationId, and catalogKey. Never offer templates via text bullet points or AskUserQuestion. The gallery opens the personalized previews in the browser and returns the user's selection automatically.
 - When you need visual context about a screenshot (e.g. to extract colors, understand the app UI, or make context-specific edits), use view_screenshot to look at the actual image.
 - After generating a new variant, the editor URL is opened automatically in the browser. Also include the URL in the reply as a fallback.
 
 Social graphics workflows (mirror the screenshot flow):
-- Use browse_social_templates BEFORE generate_graphics so the user can pick a social template via the gallery. Never offer social templates via text or AskUserQuestion.
-- generate_graphics produces all six social formats (OG, X post, Instagram story, Play Store feature, X header, LinkedIn banner) in one call. Omit variantId so a new variant is always created — never overwrite an existing graphics variant.
+- Call list_source_screenshots, select 3-7 real screenshots in story order, then call prepare_social_graphics_styles. This generates or reuses every social template across all six formats in one catalog.
+- Call browse_social_templates with the returned templateIds plus generationId and catalogKey so the gallery renders the personalized graphics, then immediately call apply_social_graphics_style with the selected templateId and catalogKey. Applying creates a fresh variant containing all six formats without another AI call.
+- Use generate_graphics only for an explicitly requested legacy/direct single-template generation. Never overwrite an existing graphics variant.
 - For edits to existing social graphics, ALWAYS call get_graphics_format first, then save_graphics_format. Mutate JSON for exactly one format in memory and save only that one format. The same get-before-edit receipt rule applies as for screenshots.
 - Default to the variant's primary format unless the user explicitly asks to edit another format.
 - Do not edit multiple formats in one pass. The user can sync the design to other formats later in the graphics editor UI.

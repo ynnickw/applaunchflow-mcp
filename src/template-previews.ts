@@ -49,6 +49,8 @@ export function buildTemplateGalleryUrl(
     selectedTemplateId?: string;
     title?: string;
     returnTo?: string;
+    generationId?: string;
+    catalogKey?: string;
   },
 ): string {
   const url = new URL("/template-gallery", baseUrl);
@@ -71,6 +73,11 @@ export function buildTemplateGalleryUrl(
 
   if (options?.returnTo) {
     url.searchParams.set("returnTo", options.returnTo);
+  }
+
+  if (options?.generationId && options?.catalogKey) {
+    url.searchParams.set("generationId", options.generationId);
+    url.searchParams.set("catalogKey", options.catalogKey);
   }
 
   return url.toString();

@@ -66,11 +66,156 @@ export function registerGraphicsTools(
   selectionCoordinator?: TemplateSelectionCoordinator,
 ): void {
   server.registerTool(
+    "prepare_social_graphics_styles",
+    {
+      title: "Prepare Personalized Social Graphics Styles",
+      description:
+        "Generate or reuse the project's personalized social-graphics style catalog before the user chooses a style. " +
+        "This prepares every social template across OG image, social post, Instagram story, Play Store feature graphic, X banner, and LinkedIn banner in one AI call and returns a catalogKey. " +
+        "Next call browse_social_templates with the returned templateIds, generationId, and catalogKey, then apply_social_graphics_style. Repeating the same app context and screenshot paths reuses the cache.",
+      inputSchema: {
+        generationId: z.string().uuid(),
+        selectedScreenshotPaths: z
+          .array(z.string().min(1))
+          .min(3)
+          .max(7)
+          .refine((paths) => new Set(paths).size === paths.length, {
+            message: "Screenshot paths must be unique",
+          })
+          .describe(
+            "3-7 unique project-relative paths from list_source_screenshots, in the desired story order.",
+          ),
+        primaryFormat: z
+          .enum(SOCIAL_FORMATS)
+          .optional()
+          .describe("Format to preview first. Defaults to og."),
+      },
+    },
+    async ({ generationId, selectedScreenshotPaths, primaryFormat = "og" }) => {
+      try {
+        const result = await client.generateGraphics({
+          generationId,
+          selectedScreenshotPaths,
+          primaryFormat,
+          previewAllTemplates: true,
+        });
+        const templateIds = Object.keys(result.templatePayloads || {}).sort();
+        if (!result.catalogKey || templateIds.length === 0) {
+          throw new Error(
+            "The social graphics catalog response did not include a cache key and templates",
+          );
+        }
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                result.cacheHit
+                  ? "Reused the existing personalized social-graphics catalog."
+                  : "Prepared personalized social graphics across all six formats.",
+                `Catalog key: ${result.catalogKey}`,
+                `Available template ids: ${templateIds.join(", ")}`,
+                "Next: call browse_social_templates with these templateIds, generationId, and this catalog key so the gallery shows the personalized results; then apply_social_graphics_style with the selected id.",
+              ].join("\n"),
+            },
+          ],
+          structuredContent: {
+            success: true,
+            data: {
+              generationId,
+              catalogKey: result.catalogKey,
+              cacheHit: result.cacheHit === true,
+              templateIds,
+              formats: [...SOCIAL_FORMATS],
+              primaryFormat,
+              selectedScreenshotPaths,
+            },
+            message: result.cacheHit
+              ? "Reused personalized social graphics styles"
+              : "Prepared personalized social graphics styles",
+          },
+        };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "apply_social_graphics_style",
+    {
+      title: "Apply Personalized Social Graphics Style",
+      description:
+        "Create a new social-graphics variant from a previously prepared personalized catalog without another AI generation. " +
+        "Use after prepare_social_graphics_styles and browse_social_templates. The new variant contains all six formats and opens in the graphics editor.",
+      inputSchema: {
+        generationId: z.string().uuid(),
+        catalogKey: z.string().min(1).max(128),
+        templateId: z.string().min(1),
+        primaryFormat: z
+          .enum(SOCIAL_FORMATS)
+          .optional()
+          .describe("Format to show first in the editor. Defaults to og."),
+      },
+    },
+    async (
+      { generationId, catalogKey, templateId, primaryFormat = "og" },
+      extra,
+    ) => {
+      try {
+        const result = await client.applyGraphicsTemplate({
+          generationId,
+          catalogKey,
+          templateId,
+          primaryFormat,
+        });
+        const editorUrl = buildGraphicsEditorUrl(client, {
+          generationId,
+          variantId: result.variantId,
+          format: primaryFormat,
+        });
+        await openUrl(
+          server,
+          editorUrl,
+          "Opening the selected personalized social graphics style in the editor.",
+          { signal: extra.signal },
+        );
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                `Applied social graphics style ${templateId} across all six formats without another AI generation.`,
+                `Editor URL: ${editorUrl}`,
+                "IMPORTANT: Paste this exact editor URL in the reply so the user can open it.",
+              ].join("\n"),
+            },
+          ],
+          structuredContent: {
+            success: true,
+            data: {
+              generationId,
+              variantId: result.variantId,
+              templateId,
+              primaryFormat,
+              formats: [...SOCIAL_FORMATS],
+              editorUrl,
+            },
+            message: "Applied personalized social graphics style",
+          },
+        };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
     "browse_social_templates",
     {
       title: "Browse & Select Social Template",
       description:
-        "ALWAYS use this tool when a social-graphics template choice is needed. Opens the social template gallery in the browser where the user can preview each template across all six social formats and click to select. Returns the selected template id. Never offer social templates via text or AskUserQuestion.",
+        "Use this visual style gallery after prepare_social_graphics_styles, restricted to its returned templateIds, so the user can choose which prepared result to apply. It can also be used independently for static style discovery. Returns the selected template id. Never offer social templates via text or AskUserQuestion.",
       inputSchema: {
         format: z
           .enum(SOCIAL_FORMATS)
@@ -90,6 +235,21 @@ export function registerGraphicsTools(
           .string()
           .optional()
           .describe("Optional gallery heading, for example the project name."),
+        generationId: z
+          .string()
+          .uuid()
+          .optional()
+          .describe(
+            "Project UUID from prepare_social_graphics_styles. Pass together with catalogKey to show the real personalized previews.",
+          ),
+        catalogKey: z
+          .string()
+          .min(1)
+          .max(128)
+          .optional()
+          .describe(
+            "Catalog key from prepare_social_graphics_styles. Pass together with generationId.",
+          ),
       },
     },
     async (
@@ -98,6 +258,8 @@ export function registerGraphicsTools(
         templateIds,
         selectedTemplateId,
         title,
+        generationId,
+        catalogKey,
       },
       extra,
     ) => {
@@ -130,6 +292,8 @@ export function registerGraphicsTools(
                     : undefined,
                 title,
                 returnTo: callbackUrl,
+                generationId,
+                catalogKey,
               }),
           });
 
@@ -231,6 +395,8 @@ export function registerGraphicsTools(
                 ? selectedTemplateId
                 : undefined,
             title,
+            generationId,
+            catalogKey,
           },
         );
 
@@ -275,8 +441,8 @@ export function registerGraphicsTools(
     {
       title: "Generate Social Graphics",
       description:
-        "Generate AI social graphics for all six formats (OG, X post, Instagram story, Play Store feature, X header, LinkedIn banner) using a chosen social template. " +
-        "Always call browse_social_templates first to pick a template. Omit variantId to create a fresh variant — never overwrite an existing one. " +
+        "Legacy direct generation for one chosen template. For the normal style chooser, prefer prepare_social_graphics_styles → browse_social_templates → apply_social_graphics_style so all personalized previews are generated once and the chosen style is applied from cache. " +
+        "Generate AI social graphics for all six formats (OG, X post, Instagram story, Play Store feature, X header, LinkedIn banner) using a chosen social template. Omit variantId to create a fresh variant — never overwrite an existing one. " +
         "After generation, the graphics editor opens automatically.",
       inputSchema: {
         generationId: z.string().uuid(),

@@ -185,7 +185,7 @@ export function registerTemplateTools(
     {
       title: "Browse & Select Template",
       description:
-        "ALWAYS use this tool when a template choice is needed. Opens the visual template gallery in the browser where the user can browse previews and click to select. Returns the selected template id. Never offer templates via text or AskUserQuestion — always open this gallery.",
+        "Use this visual style gallery after prepare_screenshot_styles, restricted to its returned templateIds, so the user can choose which prepared result to apply. It can also be used independently for static style discovery. Returns the selected template id. Never offer templates via text or AskUserQuestion — always open this gallery.",
       inputSchema: {
         deviceType: z
           .enum(TEMPLATE_PREVIEW_DEVICE_TYPES)
@@ -203,6 +203,21 @@ export function registerTemplateTools(
           .string()
           .optional()
           .describe("Optional gallery heading, for example the project name."),
+        generationId: z
+          .string()
+          .uuid()
+          .optional()
+          .describe(
+            "Project UUID from prepare_screenshot_styles. Pass together with catalogKey to show the real personalized previews.",
+          ),
+        catalogKey: z
+          .string()
+          .min(1)
+          .max(128)
+          .optional()
+          .describe(
+            "Catalog key from prepare_screenshot_styles. Pass together with generationId.",
+          ),
       },
     },
     async (
@@ -211,6 +226,8 @@ export function registerTemplateTools(
         templateIds,
         selectedTemplateId,
         title,
+        generationId,
+        catalogKey,
       },
       extra,
     ) => {
@@ -241,6 +258,8 @@ export function registerTemplateTools(
                     : undefined,
                 title,
                 returnTo: callbackUrl,
+                generationId,
+                catalogKey,
               }),
           });
 
@@ -252,6 +271,8 @@ export function registerTemplateTools(
                 ? selectedTemplateId
                 : undefined,
             title,
+            generationId,
+            catalogKey,
           });
 
           // Try URL elicitation first; if the client doesn't support it,
@@ -354,6 +375,8 @@ export function registerTemplateTools(
               ? selectedTemplateId
               : undefined,
           title,
+          generationId,
+          catalogKey,
         });
 
         return {

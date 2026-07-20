@@ -9,10 +9,159 @@ export function registerScreenshotTools(
   client: AppLaunchFlowClient,
 ): void {
   server.registerTool(
+    "prepare_screenshot_styles",
+    {
+      title: "Prepare Personalized Screenshot Styles",
+      description:
+        "Generate or reuse the project's personalized screenshot-style catalog before the user chooses a style. " +
+        "This prepares every screenshot template for phone, tablet, and desktop in one AI call and returns a catalogKey. " +
+        "Next call browse_templates with the returned templateIds, generationId, and catalogKey, then apply_screenshot_style with the selected templateId and catalogKey. " +
+        "Repeating this with the same app context and screenshot paths is a cache hit and does not regenerate AI content.",
+      inputSchema: {
+        generationId: z.string().uuid().describe("Project/generation UUID."),
+        selectedScreenshotPaths: z
+          .array(z.string().min(1))
+          .min(3)
+          .max(7)
+          .refine((paths) => new Set(paths).size === paths.length, {
+            message: "Screenshot paths must be unique",
+          })
+          .describe(
+            "3-7 unique project-relative paths from list_source_screenshots, in the desired story order.",
+          ),
+        deviceType: z
+          .enum(["phone", "tablet", "desktop"])
+          .optional()
+          .describe(
+            "Initial preview device. All three device layouts are prepared regardless. Defaults to phone.",
+          ),
+      },
+    },
+    async ({ generationId, selectedScreenshotPaths, deviceType = "phone" }) => {
+      try {
+        const result = await client.generateLayouts({
+          generationId,
+          selectedScreenshotPaths,
+          deviceType,
+          previewAllTemplates: true,
+        });
+        const templateIds = Object.keys(result.templatePayloads || {}).sort();
+        if (!result.catalogKey || templateIds.length === 0) {
+          throw new Error(
+            "The screenshot catalog response did not include a cache key and templates",
+          );
+        }
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                result.cacheHit
+                  ? "Reused the existing personalized screenshot-style catalog."
+                  : "Prepared personalized screenshot styles for phone, tablet, and desktop.",
+                `Catalog key: ${result.catalogKey}`,
+                `Available template ids: ${templateIds.join(", ")}`,
+                "Next: call browse_templates with these templateIds, generationId, and this catalog key so the gallery shows the personalized results; then apply_screenshot_style with the selected id.",
+              ].join("\n"),
+            },
+          ],
+          structuredContent: {
+            success: true,
+            data: {
+              generationId,
+              catalogKey: result.catalogKey,
+              cacheHit: result.cacheHit === true,
+              templateIds,
+              devices: ["phone", "tablet", "desktop"],
+              selectedScreenshotPaths,
+            },
+            message: result.cacheHit
+              ? "Reused personalized screenshot styles"
+              : "Prepared personalized screenshot styles",
+          },
+        };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "apply_screenshot_style",
+    {
+      title: "Apply Personalized Screenshot Style",
+      description:
+        "Create a new screenshot variant from a previously prepared personalized style catalog without another AI generation. " +
+        "Use only after prepare_screenshot_styles and browse_templates. The new variant includes phone, tablet, and desktop layouts and opens in the editor.",
+      inputSchema: {
+        generationId: z.string().uuid(),
+        catalogKey: z.string().min(1).max(128),
+        templateId: z.string().min(1),
+        deviceType: z
+          .enum(["phone", "tablet", "desktop"])
+          .optional()
+          .describe("Device to show first in the editor. Defaults to phone."),
+      },
+    },
+    async (
+      { generationId, catalogKey, templateId, deviceType = "phone" },
+      extra,
+    ) => {
+      try {
+        const result = await client.applyScreenshotTemplate({
+          generationId,
+          catalogKey,
+          templateId,
+        });
+        const editorParams = new URLSearchParams({
+          projectId: generationId,
+          device: deviceType,
+          variantId: result.variantId,
+        });
+        if (result.detectedLanguage) {
+          editorParams.set("language", result.detectedLanguage);
+        }
+        const editorUrl = `${client.credentials.baseUrl}/editor?${editorParams.toString()}`;
+        await openUrl(
+          server,
+          editorUrl,
+          "Opening the selected personalized screenshot style in the editor.",
+          { signal: extra.signal },
+        );
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                `Applied screenshot style ${templateId} without another AI generation.`,
+                `Editor URL: ${editorUrl}`,
+                "IMPORTANT: Paste this exact editor URL in the reply so the user can open it.",
+              ].join("\n"),
+            },
+          ],
+          structuredContent: {
+            success: true,
+            data: {
+              generationId,
+              variantId: result.variantId,
+              templateId,
+              editorUrl,
+            },
+            message: "Applied personalized screenshot style",
+          },
+        };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
     "generate_layouts",
     {
       title: "Generate Layouts",
       description:
+        "Legacy direct generation for a single screenshot template. For the normal user-facing style chooser, prefer prepare_screenshot_styles → browse_templates → apply_screenshot_style so all personalized previews are generated once and the chosen style is applied from cache. " +
         "Generate screenshot layouts for a project. " +
         "For existing projects, pass generationId (same as projectId) — the API fetches screenshots from storage automatically. " +
         "Do NOT pass screenshots when using generationId. " +
@@ -93,6 +242,39 @@ export function registerScreenshotTools(
             message: "Generated layouts",
           },
         };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_source_screenshots",
+    {
+      title: "List Template Source Screenshots",
+      description:
+        "List all real source screenshots available to screenshot and social-graphics style generation, including project-relative path, signed preview URL, platform, and phone/tablet/desktop device type. No sample fallback is added. Use the returned paths to choose 3-7 inputs for prepare_screenshot_styles or prepare_social_graphics_styles.",
+      inputSchema: {
+        projectId: z.string().uuid(),
+      },
+    },
+    async ({ projectId }) => {
+      try {
+        const result = await client.listProjectScreenshots(projectId);
+        const screenshots = result.paths.map((path, index) => ({
+          path,
+          signedUrl: result.screenshotUrls[index],
+          platform: result.platforms[index],
+          deviceType: result.deviceTypes[index],
+        }));
+        return ok(
+          {
+            projectId,
+            defaultPlatform: result.defaultPlatform,
+            screenshots,
+          },
+          `Listed ${screenshots.length} template source screenshots`,
+        );
       } catch (error) {
         return fail(error);
       }

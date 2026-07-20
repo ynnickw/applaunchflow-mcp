@@ -472,13 +472,26 @@ export const WORKFLOW_GUIDE_RESOURCE = {
         "If no project is in scope yet, start by branching to create a new app or edit an existing one. Do not begin with template browsing before a project path is chosen.",
     },
     {
-      name: "New template on existing project",
+      name: "Prepare and apply a personalized screenshot style",
       preferredSteps: [
+        "list_source_screenshots",
+        "prepare_screenshot_styles",
         "browse_templates",
-        "generate_layouts",
+        "apply_screenshot_style",
       ],
       notes:
-        "ALWAYS start with browse_templates so the user can pick a template visually. Never skip template browsing or generate layouts automatically without it. Then call generate_layouts with the selected template — a new variant is created automatically.",
+        "Select 3-7 real screenshots in story order and prepare the personalized catalog once. Browse only the returned template ids, then apply the selection from the catalog cache. The new variant includes phone, tablet, and desktop without a second AI call.",
+    },
+    {
+      name: "Prepare and apply personalized social graphics",
+      preferredSteps: [
+        "list_source_screenshots",
+        "prepare_social_graphics_styles",
+        "browse_social_templates",
+        "apply_social_graphics_style",
+      ],
+      notes:
+        "Prepare every social template across all six formats once, let the user choose visually, and apply that cached selection as a new variant.",
     },
     {
       name: "Edit current layout directly",
@@ -506,7 +519,7 @@ export const WORKFLOW_GUIDE_RESOURCE = {
     "Do not describe templates without showing preview resources when template previews are available.",
     "Do not read template previews one by one when browse_templates can show the full gallery in one step.",
     "Do not begin a screenshot session with template browsing before the user has chosen create new app or edit existing project.",
-    "Do not generate layouts without first calling browse_templates. Template browsing is mandatory before any layout generation.",
+    "Do not use legacy generate_layouts or generate_graphics for the normal style chooser. Prepare a personalized catalog and apply the selected cached style instead.",
     "Do not invent fresh x/y positions, widths, screenshot scale values, or headline styling for new screens when the user wants to preserve the current design language.",
     "Do not report success for new screens or composition edits without checking that the new nodes match the surrounding screens and do not overlap key content.",
   ],
