@@ -43,6 +43,13 @@ Default behavior:
 - The MCP opens the editor in the user's browser automatically on INITIAL CREATION ONLY: apply_screenshot_style, apply_social_graphics_style, generate_layouts, generate_graphics, generate_promo_video, create_mockup_animation, create_variant, duplicate_variant. For these, if the MCP's elicitation-based browser open fails, fall back ONCE to: open "<url>" (macOS) / xdg-open "<url>" (Linux).
 - For edit tools (transform_layout, save_graphics_format, update_promo_video, update_mockup_animation, save_layout, save_graphics), DO NOT run open / xdg-open. The user already has the editor open from the initial creation; popping a new tab on every edit is annoying. Just include the editor URL in the reply text as a reference link.
 
+Schema references (MCP resources — read them, they are not loaded automatically):
+- applaunchflow://schema/layout — every field of the layout JSON: all 11 node types, their properties, and valid value ranges. Used by BOTH screenshots and social graphics (a social layout is the same shape with exactly one screen and the format's canvas size).
+- applaunchflow://schema/transforms — the transform_layout operations, selector syntax, and the selector pitfalls that silently match every screen.
+- applaunchflow://schema/video-config — the full Remotion VideoConfig: six scene types and their content shapes, theme, text styles, ken burns, choreography preset ids, device/text overlays, audio.
+- For mockup animations the equivalent is the list_mockup_presets TOOL, not a resource.
+- Read the relevant resource before hand-writing or non-trivially editing JSON. A get_* response only shows what is currently set — it does not tell you what is possible.
+
 Screenshot workflows:
 - Entry point without a known project: ask whether the user wants to create a new app or edit an existing project. If they want existing, list/select projects. If they want new, create the project first.
 - For the normal style-choice flow, call list_source_screenshots, choose 3-7 real screenshots in story order, then call prepare_screenshot_styles. This generates or reuses one personalized catalog containing every template for phone, tablet, and desktop.

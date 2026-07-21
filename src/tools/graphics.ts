@@ -598,7 +598,8 @@ export function registerGraphicsTools(
       description:
         "Fetch exactly one social graphics layout for a project. " +
         "Use this before direct edits so the next save_graphics_format call works from the current state of that same format. " +
-        "If the user did not request a specific format, use the variant's primary format from an earlier get_graphics response or inspect the editor URL.",
+        "If the user did not request a specific format, use the variant's primary format from an earlier get_graphics response or inspect the editor URL. " +
+        "The returned layout is the same Layout shape screenshots use — one screen, canvas sized to the format. Read the resource applaunchflow://schema/layout for every node type's fields and valid ranges.",
       inputSchema: {
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
@@ -649,7 +650,8 @@ export function registerGraphicsTools(
     {
       title: "Save Social Graphics",
       description:
-        "Persist a complete social graphics payload (template id, primary format, all per-format layouts).",
+        "Persist a complete social graphics payload (template id, primary format, all per-format layouts). " +
+        "Prefer save_graphics_format when editing a single format. Each layout uses the same shape as screenshot layouts; see the resource applaunchflow://schema/layout.",
       inputSchema: {
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
@@ -659,7 +661,11 @@ export function registerGraphicsTools(
           .array(
             z.object({
               format: z.enum(SOCIAL_FORMATS),
-              layout: z.record(z.any()),
+              layout: z
+                .record(z.any())
+                .describe(
+                  "Complete Layout object for this format — the SAME shape screenshot layouts use, with exactly one entry in screens[] and canvasWidth/canvasHeight matching the format. Full field reference: applaunchflow://schema/layout.",
+                ),
             }),
           )
           .min(1),
@@ -686,7 +692,12 @@ export function registerGraphicsTools(
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
         format: z.enum(SOCIAL_FORMATS),
-        layout: z.record(z.any()),
+        layout: z
+          .record(z.any())
+          .describe(
+            "Complete Layout object for this one format — the SAME shape screenshot layouts use, with exactly one entry in screens[] and canvasWidth/canvasHeight matching the format. " +
+            "Full field reference: read the resource applaunchflow://schema/layout.",
+          ),
       },
     },
     async (args) => {

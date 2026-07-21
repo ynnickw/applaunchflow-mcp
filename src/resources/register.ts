@@ -12,6 +12,7 @@ import {
   PROJECT_CREATION_WIZARD_RESOURCE,
   SUPPORTED_DEVICES,
   TRANSFORM_SCHEMA_RESOURCE,
+  VIDEO_CONFIG_SCHEMA_RESOURCE,
   WORKFLOW_GUIDE_RESOURCE,
 } from "./data.js";
 
@@ -48,10 +49,23 @@ export function registerResources(
     "applaunchflow://schema/layout",
     {
       title: "Layout Schema",
-      description: "AppLaunchFlow layout JSON structure",
+      description:
+        "Full field-level reference for the layout JSON used by BOTH screenshots and social graphics: every node type, its properties and valid value ranges. Read before hand-writing or editing layout JSON.",
       mimeType: "application/json",
     },
     async (uri) => asJsonResource(uri.href, LAYOUT_SCHEMA_RESOURCE),
+  );
+
+  server.registerResource(
+    "video-config-schema",
+    "applaunchflow://schema/video-config",
+    {
+      title: "Promo Video Config Schema",
+      description:
+        "Full field-level reference for the Remotion VideoConfig: scene types and their content shapes, theme, text styles, ken burns, choreography preset ids, audio. Read before editing a promo video config.",
+      mimeType: "application/json",
+    },
+    async (uri) => asJsonResource(uri.href, VIDEO_CONFIG_SCHEMA_RESOURCE),
   );
 
   server.registerResource(
@@ -59,7 +73,8 @@ export function registerResources(
     "applaunchflow://schema/transforms",
     {
       title: "Transform Schema",
-      description: "Supported layout transform operations",
+      description:
+        "Supported transform_layout operations, the selector syntax (including the pitfalls that silently match every screen), and the valid node types. Read before calling transform_layout.",
       mimeType: "application/json",
     },
     async (uri) => asJsonResource(uri.href, TRANSFORM_SCHEMA_RESOURCE),

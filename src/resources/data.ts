@@ -1,6 +1,15 @@
 export const LAYOUT_SCHEMA_RESOURCE = {
+  appliesTo:
+    "Both App Store screenshots and social graphics use this exact Layout shape. " +
+    "Screenshots: one layout per device size (mobile, tablet, desktop), with one screen per store screenshot. " +
+    "Social graphics: one layout per format (og, twitter, instagram_post, instagram_story, linkedin, facebook), " +
+    "each with exactly ONE screen and canvasWidth/canvasHeight set to that format's pixel dimensions. " +
+    "Everything below applies identically to both; the tools differ (transform_layout / save_layout for screenshots, " +
+    "save_graphics_format / save_graphics for social graphics), not the JSON.",
+
   layout: {
-    description: "Root layout object. One per device size (mobile, tablet, desktop).",
+    description:
+      "Root layout object. Screenshots: one per device size (mobile, tablet, desktop). Social graphics: one per format, holding a single screen.",
     fields: {
       template: { type: "string", description: "Template id used to generate this layout." },
       platform: { type: '"ios" | "android" | "both"', description: "Target platform." },
@@ -11,12 +20,12 @@ export const LAYOUT_SCHEMA_RESOURCE = {
       panoramaBackground: { type: "PanoramaBackground?", description: "A single wide image that spans across all screens as a continuous backdrop. Has imageUrl, optional storagePath, verticalOffset (0-100, 50=center), fitMode ('cover'|'contain'), blur (0-20)." },
       themeColors: { type: "ThemeColors?", description: "Template color palette: primary, secondary, background, text, textSecondary. Used by the renderer for consistent styling." },
       headers: { type: "HeaderNode[]?", description: "Shared header bars across screens (rare). Each has id, position, width, height, backgroundColor, zIndex." },
-      screens: { type: "Screen[]", description: "Ordered array of screens. Each screen is one App Store screenshot." },
+      screens: { type: "Screen[]", description: "Ordered array of screens. For screenshots, each screen is one App Store screenshot. For social graphics, this array always has exactly one screen (the graphic itself)." },
     },
   },
 
   screen: {
-    description: "A single screenshot frame. Contains all visual elements for one App Store screenshot.",
+    description: "A single rendered frame and all visual elements on it — one App Store screenshot, or the whole social graphic.",
     fields: {
       id: { type: "string", required: true, description: "Unique screen identifier." },
       index: { type: "number", required: true, description: "Display order (0-based)." },
@@ -332,6 +341,246 @@ export const TRANSFORM_SCHEMA_RESOURCE = {
     "When adding screens and then populating them, use two separate transform_layout calls: first add the empty screens, then target them by id using selector 'screenId:<id>' to add text and screenshot nodes.",
     "Ensure added or moved elements do not overlap other elements on the same screen. Text must not cover screenshots and vice versa.",
     "reorder expects changes.order or changes.nodeIds with node ids in the desired order.",
+  ],
+};
+
+export const VIDEO_CONFIG_SCHEMA_RESOURCE = {
+  description:
+    "Remotion VideoConfig — the full promo video document returned by get_promo_video / generate_promo_video and " +
+    "accepted by update_promo_video. update_promo_video is a whole-config replace: read the current config, mutate " +
+    "the fields you need, send the entire object back. Unknown extra keys are stripped by validation, so never hand-build " +
+    "a config from scratch when an existing one can be fetched.",
+
+  videoConfig: {
+    description: "Root object.",
+    fields: {
+      version: { type: "1 | 2 | null", description: "Config format version. Preserve whatever the fetched config has." },
+      theme: { type: "VideoTheme", required: true, description: "Colors, optional background gradient, and typography. See theme below." },
+      scenes: { type: "Scene[]", required: true, description: "Ordered scenes, at least one. Each scene is a discriminated union on `type`. See sceneTypes below." },
+      duration: { type: "number | null", description: "Total video length in seconds. Normally the sum of scene durations; leave as-is unless changing pacing deliberately." },
+      audio: { type: "AudioTrack? | null", description: "Single background music track spanning the whole video. See audio below." },
+      phoneId: { type: "string? | null", description: 'Device frame model, e.g. "iphone17" or "googlepixel". Defaults to iphone17.' },
+    },
+  },
+
+  theme: {
+    description: "Global look. Individual scenes can override text colors per element via TextStyle.color.",
+    fields: {
+      "colors.primary": { type: "hex color", required: true },
+      "colors.secondary": { type: "hex color", required: true },
+      "colors.background": { type: "hex color", required: true },
+      "colors.text": { type: "hex color", required: true },
+      "colors.textSecondary": { type: "hex color", required: true },
+      backgroundGradient: { type: "object? | null", description: 'type: "linear" | "radial", colors: string[] (min 2), direction?: number (0-360 degrees).' },
+      "typography.fontFamily": { type: "string", required: true },
+      "typography.titleSize": { type: "number", required: true, description: "Base title font size in px at 1080x1920." },
+      "typography.subtitleSize": { type: "number", required: true },
+    },
+  },
+
+  sceneCommon: {
+    description: "Fields available on EVERY scene regardless of `type`. Sit at the scene root, next to `type` and `content`.",
+    fields: {
+      type: { type: '"hook" | "feature" | "text-only" | "closeup" | "multi-phone" | "cta"', required: true, description: "Discriminator. Determines the shape of `content`." },
+      content: { type: "object", required: true, description: "Type-specific payload. See sceneTypes below — sending the wrong content shape for a type fails validation." },
+      duration: { type: "number | null", description: "Scene length in seconds, 1-15." },
+      choreography: { type: "string | null", description: "Choreography preset id. See choreographyPresets below." },
+      kenBurns: { type: "KenBurnsConfig? | null", description: "Slow camera move on the scene. See kenBurns below." },
+      atmosphere: { type: "object? | null", description: "particles, gradient, glare (each boolean|null) and intensity ('subtle'|'medium'|'dramatic'|null)." },
+      transition: { type: "object? | null", description: "Transition INTO this scene: { type: choreography id, duration: frames|null }. Use a transition-category preset." },
+      animationSpeed: { type: "number? | null", description: "Scene-wide animation speed multiplier, 0.5-2." },
+      illustrations: { type: "IllustrationOverlay[]?", description: "Decorative images. Each: url, storagePath?, x/y (0-100, %), scale (0.1-4), opacity (0-1), rotation (-180..180)." },
+      textOverlays: { type: "TextOverlay[]?", description: "Free-form rich text placed anywhere. Each: richContent (Tiptap doc JSON), text? (plain mirror), x/y (0-100), scale (0.1-4), rotation (-180..180), opacity (0-1), width (5-100, wrap width as % of frame), textAlign, fontSizeScale (0.2-4), textAnimation." },
+      devices: { type: "SceneDevice[]?", description: "Extra device frames on any scene type, max 12. See sceneDevice below." },
+      hiddenElements: { type: "string[]?", description: "Element ids to hide on this scene." },
+    },
+  },
+
+  sceneTypes: {
+    hook: {
+      description: "Opening brand beat: logo + app name + tagline.",
+      content: {
+        appName: "string | null",
+        appNameImageUrl: "string? | null — pre-rendered wordmark image, used instead of appName text when set.",
+        tagline: "string | null",
+        logoUrl: "string | null",
+        showLogo: "boolean | null",
+        appNameStyle: "TextStyle? | null",
+        taglineStyle: "TextStyle? | null",
+        logoPosition: "{ x, y } 0-100 | null",
+        logoScale: "number 0.5-2 | null",
+        logoPadding: "number 0-0.45 | null — padding inside the logo card; lower is tighter around the icon.",
+        textAnimation: "TextAnimation | null",
+      },
+    },
+    feature: {
+      description: "One phone plus a title/subtitle — the workhorse scene.",
+      content: {
+        screenshotIndex: "number >= 0, required — index into the project's uploaded screenshots.",
+        video: "SceneVideo? | null — plays inside the device frame instead of the still. See sceneVideo below.",
+        frameVariant: '"flat" | "right" | "left" | null',
+        title: "string, required",
+        subtitle: "string | null",
+        titleStyle: "TextStyle? | null",
+        subtitleStyle: "TextStyle? | null",
+        phonePosition: "{ x, y } 0-100 | null",
+        phoneScale: "number 0.5-2.5 | null",
+        textAnimation: "TextAnimation | null",
+        disablePhoneOut: "boolean? | null — suppress the phone's zoom-through exit at the end of the scene.",
+      },
+    },
+    "text-only": {
+      description: "Full-frame statement card, no device.",
+      content: {
+        headline: "string, required",
+        subheadline: "string | null",
+        headlineStyle: "TextStyle? | null",
+        subheadlineStyle: "TextStyle? | null",
+        textAnimation: "TextAnimation | null",
+      },
+    },
+    closeup: {
+      description: "Zooms into a region of one screenshot to highlight a detail.",
+      content: {
+        screenshotIndex: "number >= 0, required",
+        video: "SceneVideo? | null",
+        focusRegion: "{ x, y (0-100), width, height (1-100) } | null — the region of the screenshot to magnify, in %.",
+        focusPosition: "{ x, y } 0-100 | null — where the zoomed window sits on screen. Defaults to centered/lower-third.",
+        caption: "string | null",
+        captionStyle: "TextStyle? | null",
+        frameVariant: '"flat" | "right" | "left" | null',
+        phonePosition: "{ x, y } 0-100 | null",
+        phoneScale: "number 0.5-2.5 | null",
+        textAnimation: "TextAnimation | null",
+      },
+    },
+    "multi-phone": {
+      description: "2-6 phones arranged together. Per-phone arrays are positional — index i describes screenshotIndexes[i].",
+      content: {
+        screenshotIndexes: "number[], 1-6 entries, required",
+        layout: '"cascade" | "fan" | "side-by-side" | "custom", required',
+        title: "string | null",
+        titleStyle: "TextStyle? | null",
+        frameVariants: '("flat"|"left"|"right")[] max 6 | null',
+        phonePositions: "({ x, y } | null)[] max 6 | null — manual overrides from dragging.",
+        phoneScales: "number[] (0.4-2.5) max 6 | null",
+        phoneRotations: "number[] (-45..45) max 6 | null",
+        textAnimation: "TextAnimation | null",
+      },
+    },
+    cta: {
+      description: "Closing download call-to-action with store badges.",
+      content: {
+        appName: "string | null",
+        appNameImageUrl: "string? | null",
+        downloadText: "string | null",
+        badge: '"appStore" | "googlePlay" | "both" | "none" | null',
+        badgePosition: "{ x, y } 0-100 | null — centered in flow when unset.",
+        badgeScale: "number 0.3-2 | null",
+        logoUrl: "string? | null",
+        showLogo: "boolean? | null",
+        logoPosition: "{ x, y } 0-100 | null",
+        logoScale: "number 0.5-2 | null",
+        logoPadding: "number 0-0.45 | null",
+        appNameStyle: "TextStyle? | null",
+        downloadTextStyle: "TextStyle? | null",
+        textAnimation: "TextAnimation | null",
+      },
+    },
+  },
+
+  textStyle: {
+    description:
+      "Per-text-element styling. Every field is optional; omit or null to inherit the theme. Applies to appNameStyle, taglineStyle, titleStyle, subtitleStyle, headlineStyle, subheadlineStyle, captionStyle, downloadTextStyle.",
+    fields: {
+      fontSizeScale: { type: "number 0.5-2", description: "Multiplier on the theme's title/subtitle size." },
+      fontWeight: { type: '"light" | "regular" | "medium" | "bold" | "black"' },
+      color: { type: "hex color" },
+      textAlign: { type: '"left" | "center" | "right"' },
+      position: { type: "{ x, y } 0-100", description: "Manual placement as a % of the frame." },
+      animationSpeed: { type: "number 0.5-2" },
+      richContent: { type: "Tiptap doc JSON?", description: "Rich version of this field's text. When it carries real formatting marks the renderer draws it statically with a fade; otherwise the plain string + animation path is used. The plain field stays canonical." },
+      textAnimation: { type: 'TextAnimation | "none" | null', description: "Per-element override. null/absent inherits the scene's content.textAnimation; \"none\" forces no animation." },
+    },
+  },
+
+  textAnimations: [
+    "word-reveal",
+    "fade",
+    "character-cascade",
+    "scale-emphasis",
+    "typewriter",
+    "word-highlight",
+  ],
+
+  sceneDevice: {
+    description: "An extra device frame layered onto any scene (scene.devices[]). Independent of the scene type's own phone.",
+    fields: {
+      screenshotIndex: { type: "number >= 0", required: true },
+      frameVariant: { type: '"flat" | "right" | "left"', description: "Default 'flat'." },
+      position: { type: "{ x, y } 0-100", description: "Default { x: 50, y: 60 }." },
+      scale: { type: "number 0.2-4", description: "Default 1." },
+      rotation: { type: "number -180..180", description: "Default 0." },
+      opacity: { type: "number 0-1", description: "Default 1." },
+      animation: { type: '"none" | "fade" | "feature-pop" | "float-up" | "slide-left" | "slide-right" | "zoom-in" | "drift" | "pulse" | "cascade"', description: "Combined in/out preset. Default 'fade'." },
+      animationDelay: { type: "number 0-3", description: "Seconds. Default 0." },
+    },
+    legacyFields:
+      "outAnimation / outAnimationDelay exist only for configs saved before in/out were merged. Do not set them on new edits.",
+  },
+
+  sceneVideo: {
+    description: "Optional clip that plays inside the device frame on feature/closeup scenes, replacing the still screenshot. Trimmed and looped to the scene duration.",
+    fields: {
+      storagePath: { type: "string? | null", description: 'Authoritative project-relative path, e.g. "promo-media/123-clip.webm".' },
+      url: { type: "string? | null", description: "Ephemeral signed URL, re-signed on load/export. Do not fabricate." },
+      durationSeconds: { type: "number? | null", description: "Source clip length, used to loop short clips." },
+      trimStartSeconds: { type: "number? | null", description: "Start offset into the source clip." },
+    },
+  },
+
+  audio: {
+    description: "Single background music track for the whole video (videoConfig.audio).",
+    fields: {
+      storagePath: { type: "string", required: true, description: 'Project-relative path, e.g. "promo-media/123-track.mp3". Authoritative.' },
+      url: { type: "string? | null", description: "Ephemeral signed URL, re-signed on load/export." },
+      fileName: { type: "string? | null", description: "Original filename, shown in the editor." },
+      volume: { type: "number 0-1", description: "Default 0.8." },
+      fadeInSeconds: { type: "number 0-10", description: "Default 0." },
+      fadeOutSeconds: { type: "number 0-10", description: "Default 0." },
+    },
+  },
+
+  kenBurns: {
+    description: "Slow camera drift over the scene. Set `preset` for a named move, or scaleStart/scaleEnd + pan* for a manual one.",
+    fields: {
+      enabled: { type: "boolean?" },
+      preset: { type: '"slow-zoom-in" | "slow-zoom-out" | "pan-left" | "pan-right" | "zoom-in-pan-right" | "zoom-out-pan-left" | "subtle-drift" | null' },
+      intensity: { type: '"subtle" | "moderate" | "dramatic" | null' },
+      direction: { type: '"zoom-in" | "zoom-out" | "pan-left" | "pan-right" | null' },
+      scaleStart: { type: "number | null" },
+      scaleEnd: { type: "number | null" },
+      panStartX: { type: "number | null" },
+      panEndX: { type: "number | null" },
+      panStartY: { type: "number | null" },
+      panEndY: { type: "number | null" },
+    },
+  },
+
+  choreographyPresets: {
+    description: "Valid ids for scene.choreography and scene.transition.type. Use an entrance/multi-phone/kenBurns id for `choreography`; use a transition id for `transition.type`. Unknown ids fall back to the default motion.",
+    entrance: ["hero-center", "slide-left", "slide-right", "drop-bounce", "zoom-through", "rotate-in", "float-up"],
+    multiPhone: ["cascade-left", "cascade-right", "fan-out", "side-by-side"],
+    kenBurns: ["slow-zoom-in", "slow-zoom-out", "pan-left", "pan-right"],
+    transition: ["morph-scale", "cross-fade", "wipe-left", "push-up"],
+  },
+
+  notes: [
+    "Coordinates (x, y, position, focusRegion) are percentages of the frame, 0-100, where 50 is centered — never pixels.",
+    "screenshotIndex / screenshotIndexes point at the project's uploaded screenshots in upload order. Out-of-range indexes render blank.",
+    "Do not invent storagePath or url values for video/audio/logo assets. Upload via upload_asset, or reuse the exact values from get_promo_video.",
+    "Values outside the documented ranges are rejected by validation — the whole update fails, not just that field.",
+    "Adding or removing scenes changes the total runtime. Update videoConfig.duration to match, or the export and the preview disagree.",
   ],
 };
 

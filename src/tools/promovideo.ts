@@ -97,7 +97,8 @@ export function registerPromoVideoTools(
     {
       title: "Get Promo Video",
       description:
-        "Fetch the current promo video config (Remotion VideoConfig) for a project. Required before update_promo_video so edits operate on fresh state.",
+        "Fetch the current promo video config (Remotion VideoConfig) for a project. Required before update_promo_video so edits operate on fresh state. " +
+        "The returned object follows the schema in the resource applaunchflow://schema/video-config — read that resource to learn which fields and scene types exist and their valid ranges, not just which ones this config happens to use.",
       inputSchema: {
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
@@ -142,14 +143,21 @@ export function registerPromoVideoTools(
         "Persist a promo video config (the same Remotion VideoConfig shape returned by get_promo_video / generate_promo_video). " +
         "This is a full-config replace — fetch the current config with get_promo_video, mutate the parts you want to change, then call this tool with the updated object. " +
         "There is no granular scene-level transform; whole-config replace is the supported edit path at this stage. " +
-        "ENFORCED: each call requires a fresh get_promo_video for the same projectId/variantId immediately beforehand.",
+        "ENFORCED: each call requires a fresh get_promo_video for the same projectId/variantId immediately beforehand. " +
+        "SCHEMA REFERENCE: read the resource applaunchflow://schema/video-config for the full field-level reference — the six scene types and their content shapes, theme, TextStyle, ken burns, choreography preset ids, devices, overlays, and audio. " +
+        "Values outside the documented ranges fail validation and reject the whole update.",
       inputSchema: {
         projectId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
         config: z
           .record(z.any())
           .describe(
-            "Full Remotion VideoConfig object. Must include scenes, theme, typography, etc. Use the object returned by get_promo_video as a starting point.",
+            "Full Remotion VideoConfig object — a whole-config replace, not a patch. " +
+            "Required: theme (colors + typography) and scenes (at least one; each scene is a discriminated union on `type`: hook | feature | text-only | closeup | multi-phone | cta, with a matching `content` shape). " +
+            "Optional: version, duration (seconds), audio, phoneId. " +
+            "All coordinates are percentages of the frame (0-100, 50 = centered), never pixels. " +
+            "Always start from the object returned by get_promo_video and mutate it — do not hand-build one. " +
+            "Full field reference including every scene's content fields and valid ranges: read the resource applaunchflow://schema/video-config.",
           ),
         appName: z.string().optional(),
         projectName: z.string().optional(),

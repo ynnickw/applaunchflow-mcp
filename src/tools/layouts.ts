@@ -152,7 +152,8 @@ export function registerLayoutTools(
       description:
         "Get layout JSON for the current translation before editing or reviewing a variant. " +
         "This is mandatory before every direct transform_layout call. " +
-        "Returns the editor URL as a reference link — do NOT auto-open it. The user already has the editor open from the initial generation.",
+        "Returns the editor URL as a reference link — do NOT auto-open it. The user already has the editor open from the initial generation. " +
+        "The returned JSON follows the layout schema documented in the resource applaunchflow://schema/layout — read it to learn which fields exist and their valid ranges, not just which ones happen to be set here.",
       inputSchema: {
         generationId: z.string().uuid(),
         language: z.string().optional(),
@@ -218,14 +219,30 @@ export function registerLayoutTools(
     "save_layout",
     {
       title: "Save Layout",
-      description: "Persist a full translation layout payload",
+      description:
+        "Persist a full translation layout payload. Whole-layout replace per device size — prefer transform_layout for targeted edits. " +
+        "Each layout must be a complete, valid Layout object; see the resource applaunchflow://schema/layout for every field and valid value range.",
       inputSchema: {
         generationId: z.string().uuid(),
         language: z.string(),
         variantId: z.string().uuid().optional(),
-        mobileLayout: z.record(z.any()),
-        tabletLayout: z.record(z.any()),
-        desktopLayout: z.record(z.any()).nullable().optional(),
+        mobileLayout: z
+          .record(z.any())
+          .describe(
+            "Complete Layout object for the phone canvas. Shape documented in applaunchflow://schema/layout.",
+          ),
+        tabletLayout: z
+          .record(z.any())
+          .describe(
+            "Complete Layout object for the tablet canvas. Same shape as mobileLayout, different canvasWidth/canvasHeight.",
+          ),
+        desktopLayout: z
+          .record(z.any())
+          .nullable()
+          .optional()
+          .describe(
+            "Optional complete Layout object for the desktop canvas. Same shape as mobileLayout.",
+          ),
       },
     },
     async (args, extra) => {
@@ -253,7 +270,8 @@ export function registerLayoutTools(
         "5. For add_node, changes MUST include an 'id' field. " +
         "6. To add new screens, first add empty screen containers, then populate them in a SECOND call using selector 'screenId:<id>'. " +
         "7. Default to layouts:['mobile']. Only include tablet/desktop if the user asks. " +
-        "8. FONT SIZE: The rendered font size is controlled ONLY by 'richContent.attrs.defaultFontSize' (pixel value). To change font size, use dot-notation: {'richContent.attrs.defaultFontSize': 80}. Do NOT use 'fontSizeScale' — that property is for promo videos only and has NO effect on screenshot rendering.",
+        "8. FONT SIZE: The rendered font size is controlled ONLY by 'richContent.attrs.defaultFontSize' (pixel value). To change font size, use dot-notation: {'richContent.attrs.defaultFontSize': 80}. Do NOT use 'fontSizeScale' — that property is for promo videos only and has NO effect on screenshot rendering. " +
+        "SCHEMA REFERENCE: read the resource applaunchflow://schema/transforms for the full operation and selector reference, and applaunchflow://schema/layout for every node type's fields and valid value ranges. Read them before any non-trivial edit rather than guessing field names.",
       inputSchema: {
         generationId: z.string().uuid(),
         language: z.string(),
