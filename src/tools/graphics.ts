@@ -172,10 +172,22 @@ export function registerGraphicsTools(
           .enum(SOCIAL_FORMATS)
           .optional()
           .describe("Format to show first in the editor. Defaults to og."),
+        paletteMode: z
+          .enum(["v1", "v2"])
+          .optional()
+          .describe(
+            "Color palette variant. v1 is the original palette; v2 uses stronger color separation. Defaults to v1.",
+          ),
       },
     },
     async (
-      { generationId, catalogKey, templateId, primaryFormat = "og" },
+      {
+        generationId,
+        catalogKey,
+        templateId,
+        primaryFormat = "og",
+        paletteMode = "v1",
+      },
       extra,
     ) => {
       try {
@@ -184,6 +196,7 @@ export function registerGraphicsTools(
           catalogKey,
           templateId,
           primaryFormat,
+          paletteMode,
         });
         const editorUrl = buildGraphicsEditorUrl(client, {
           generationId,

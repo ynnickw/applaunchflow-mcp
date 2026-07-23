@@ -226,6 +226,7 @@ export class AppLaunchFlowClient {
     generationId: string;
     catalogKey: string;
     templateId: string;
+    paletteMode: "v1" | "v2";
   }) {
     return this.requestJson<any>("/api/screenshots/apply-template", {
       method: "POST",
@@ -421,6 +422,7 @@ export class AppLaunchFlowClient {
     catalogKey: string;
     templateId: string;
     primaryFormat: string;
+    paletteMode: "v1" | "v2";
   }) {
     return this.requestJson<any>("/api/graphics/apply-template", {
       method: "POST",

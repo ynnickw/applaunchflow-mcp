@@ -110,10 +110,22 @@ export function registerScreenshotTools(
           .enum(["phone", "tablet", "desktop"])
           .optional()
           .describe("Device to show first in the editor. Defaults to phone."),
+        paletteMode: z
+          .enum(["v1", "v2"])
+          .optional()
+          .describe(
+            "Color palette variant. v1 is the original palette; v2 uses stronger color separation. Defaults to v1.",
+          ),
       },
     },
     async (
-      { generationId, catalogKey, templateId, deviceType = "phone" },
+      {
+        generationId,
+        catalogKey,
+        templateId,
+        deviceType = "phone",
+        paletteMode = "v1",
+      },
       extra,
     ) => {
       try {
@@ -121,6 +133,7 @@ export function registerScreenshotTools(
           generationId,
           catalogKey,
           templateId,
+          paletteMode,
         });
         const editorParams = new URLSearchParams({
           projectId: generationId,

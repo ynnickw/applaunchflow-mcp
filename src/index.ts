@@ -151,7 +151,7 @@ async function startServer() {
 
   const server = new McpServer({
     name: "applaunchflow-mcp",
-    version: "0.2.2",
+    version: "0.2.4",
   }, {
     instructions: SERVER_INSTRUCTIONS,
   });
