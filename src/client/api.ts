@@ -56,10 +56,14 @@ export class AppLaunchFlowClient {
 
   private buildHeaders(extraHeaders?: Record<string, string>): Headers {
     const headers = new Headers(extraHeaders);
-    headers.set(
-      "Cookie",
-      `${this.credentials.cookieName}=${this.credentials.token}`,
-    );
+    if (this.credentials.authMode === "bearer") {
+      headers.set("Authorization", `Bearer ${this.credentials.token}`);
+    } else {
+      headers.set(
+        "Cookie",
+        `${this.credentials.cookieName}=${this.credentials.token}`,
+      );
+    }
     return headers;
   }
 
@@ -70,6 +74,9 @@ export class AppLaunchFlowClient {
    * lets an in-flight 401 recover without reconnecting the MCP server.
    */
   private async reloadCredentials(): Promise<boolean> {
+    // Hosted request-scoped bearer credentials must never fall back to a local
+    // credentials file belonging to the server operator.
+    if (this.credentials.authMode === "bearer") return false;
     try {
       const fresh = await resolveCredentials();
       if (fresh.token && fresh.token !== this.credentials.token) {

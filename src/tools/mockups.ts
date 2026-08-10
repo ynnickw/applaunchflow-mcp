@@ -1,7 +1,18 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
-import { createReadReceiptStore, fail, ok, openUrl } from "./utils.js";
+import {
+  createHostedReadReceipt,
+  createReadReceiptStore,
+  fail,
+  hostedMcpEnabled,
+  ok,
+  openUrl,
+  verifyHostedReadReceipt,
+} from "./utils.js";
+
+const mockupReceiptKey = (generationId: string, variantId?: string) =>
+  ["mockup", generationId, variantId || "active"].join("::");
 
 const SCENE_PRESET_IDS = [
   "hero-launch",
@@ -213,6 +224,12 @@ export function registerMockupTools(
           variantId,
         });
         mockupReadReceipts.record({ generationId, variantId });
+        const readReceipt = hostedMcpEnabled()
+          ? createHostedReadReceipt(
+              mockupReceiptKey(generationId, variantId),
+              client.credentials.token,
+            )
+          : undefined;
         return {
           content: [
             {
@@ -226,7 +243,12 @@ export function registerMockupTools(
           ],
           structuredContent: {
             success: true,
-            data: { ...result, editorUrl, readBeforeEditSatisfied: true },
+            data: {
+              ...result,
+              editorUrl,
+              readBeforeEditSatisfied: true,
+              readReceipt,
+            },
             message: "Fetched mockup animation",
           },
         };
@@ -254,6 +276,12 @@ export function registerMockupTools(
           .describe(
             "Full MockupProjectState object (selectedMediaPath, motion, finish, speed, background, backgroundMode, backgroundColor, backgroundGradient, backgroundImage, showDynamicIsland, outputRatio, motionDuration, deviceScale, primaryKeyframes, isPlaying). Use the object returned by get_mockup_animation as a starting point.",
           ),
+        readReceipt: z
+          .string()
+          .optional()
+          .describe(
+            "Hosted connector only: pass the readReceipt returned by the immediately preceding get_mockup_animation call.",
+          ),
       },
     },
     async (args) => {
@@ -263,7 +291,14 @@ export function registerMockupTools(
           variantId: args.variantId,
         };
 
-        if (!mockupReadReceipts.has(receiptArgs)) {
+        const hasReceipt = hostedMcpEnabled()
+          ? verifyHostedReadReceipt(
+              args.readReceipt,
+              mockupReceiptKey(args.projectId, args.variantId),
+              client.credentials.token,
+            )
+          : mockupReadReceipts.has(receiptArgs);
+        if (!hasReceipt) {
           return fail(
             new Error(
               "Call get_mockup_animation first for this project/variant before update_mockup_animation. Direct editing is locked until the current state has been read.",

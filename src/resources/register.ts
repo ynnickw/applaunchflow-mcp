@@ -125,11 +125,14 @@ export function registerResources(
       }
 
       const headers = new Headers();
-      headers.set(
-        "Cookie",
-        `${client.credentials.cookieName}=${client.credentials.token}`,
-      );
-      headers.set("Authorization", `Bearer ${client.credentials.token}`);
+      if (client.credentials.authMode === "bearer") {
+        headers.set("Authorization", `Bearer ${client.credentials.token}`);
+      } else {
+        headers.set(
+          "Cookie",
+          `${client.credentials.cookieName}=${client.credentials.token}`,
+        );
+      }
 
       const previewUrl = buildTemplatePreviewUrl(
         client.credentials.baseUrl,

@@ -1,7 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
-import { fail, ok } from "./utils.js";
+import {
+  createHostedReadReceipt,
+  fail,
+  hostedMcpEnabled,
+  ok,
+  verifyHostedReadReceipt,
+} from "./utils.js";
 
 const transformOperationSchema = z.object({
   type: z.enum([
@@ -170,6 +176,7 @@ export function registerLayoutTools(
           sign,
         });
         const hasEditReceipt = Boolean(language);
+        let readReceipt: string | undefined;
         if (language) {
           const receiptKey = buildReadReceiptKey({
             generationId,
@@ -177,6 +184,12 @@ export function registerLayoutTools(
             variantId,
           });
           layoutReadReceipts.set(receiptKey, Date.now());
+          if (hostedMcpEnabled()) {
+            readReceipt = createHostedReadReceipt(
+              receiptKey,
+              client.credentials.token,
+            );
+          }
         }
 
         const editorUrl = buildEditorUrl({ generationId, language, variantId });
@@ -205,6 +218,7 @@ export function registerLayoutTools(
               editorUrl,
               previewUrl,
               readBeforeEditSatisfied: hasEditReceipt,
+              readReceipt,
             },
             message: "Fetched layout data",
           },
@@ -282,6 +296,12 @@ export function registerLayoutTools(
           .optional()
           .describe("Which layout sizes to transform. Default to ['mobile'] unless the user explicitly asks for tablet or desktop."),
         operations: z.array(transformOperationSchema).min(1),
+        readReceipt: z
+          .string()
+          .optional()
+          .describe(
+            "Hosted connector only: pass the readReceipt returned by the immediately preceding get_layout call.",
+          ),
       },
     },
     async (args, extra) => {
@@ -292,7 +312,14 @@ export function registerLayoutTools(
           variantId: args.variantId,
         });
 
-        if (!layoutReadReceipts.has(receiptKey)) {
+        const hasReceipt = hostedMcpEnabled()
+          ? verifyHostedReadReceipt(
+              args.readReceipt,
+              receiptKey,
+              client.credentials.token,
+            )
+          : layoutReadReceipts.has(receiptKey);
+        if (!hasReceipt) {
           return fail(
             new Error(
               "Call get_layout first for this generation/language/variant before transform_layout. Direct layout editing is locked until the current layout has been read.",
@@ -300,7 +327,8 @@ export function registerLayoutTools(
           );
         }
 
-        const transformed = await client.transformLayout(args);
+        const { readReceipt: _readReceipt, ...transformArgs } = args;
+        const transformed = await client.transformLayout(transformArgs);
         layoutReadReceipts.delete(receiptKey);
 
         const editorUrl = buildEditorUrl({

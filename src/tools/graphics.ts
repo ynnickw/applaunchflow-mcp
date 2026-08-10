@@ -11,11 +11,14 @@ import {
 import type { TemplateSelectionCoordinator } from "../template-selection.js";
 import {
   elicitUrl,
+  createHostedReadReceipt,
   fail,
+  hostedMcpEnabled,
   ok,
   openInBrowser,
   openUrl,
   startProgressHeartbeat,
+  verifyHostedReadReceipt,
 } from "./utils.js";
 
 function tryCreateCompletionNotifier(
@@ -634,6 +637,10 @@ export function registerGraphicsTools(
         graphicsReadReceipts.add(
           graphicsReceiptKey({ generationId, variantId, format }),
         );
+        const receiptKey = graphicsReceiptKey({ generationId, variantId, format });
+        const readReceipt = hostedMcpEnabled()
+          ? createHostedReadReceipt(receiptKey, client.credentials.token)
+          : undefined;
 
         return {
           content: [
@@ -648,7 +655,12 @@ export function registerGraphicsTools(
           ],
           structuredContent: {
             success: true,
-            data: { ...result, editorUrl, readBeforeEditSatisfied: true },
+            data: {
+              ...result,
+              editorUrl,
+              readBeforeEditSatisfied: true,
+              readReceipt,
+            },
             message: "Fetched one social graphics format",
           },
         };
@@ -711,6 +723,12 @@ export function registerGraphicsTools(
             "Complete Layout object for this one format — the SAME shape screenshot layouts use, with exactly one entry in screens[] and canvasWidth/canvasHeight matching the format. " +
             "Full field reference: read the resource applaunchflow://schema/layout.",
           ),
+        readReceipt: z
+          .string()
+          .optional()
+          .describe(
+            "Hosted connector only: pass the readReceipt returned by the immediately preceding get_graphics_format call.",
+          ),
       },
     },
     async (args) => {
@@ -721,7 +739,14 @@ export function registerGraphicsTools(
           format: args.format,
         });
 
-        if (!graphicsReadReceipts.has(receiptKey)) {
+        const hasReceipt = hostedMcpEnabled()
+          ? verifyHostedReadReceipt(
+              args.readReceipt,
+              receiptKey,
+              client.credentials.token,
+            )
+          : graphicsReadReceipts.has(receiptKey);
+        if (!hasReceipt) {
           return fail(
             new Error(
               "Call get_graphics_format first for this generation/variant/format before save_graphics_format. Direct editing is locked until the current same-format state has been read.",
@@ -729,7 +754,8 @@ export function registerGraphicsTools(
           );
         }
 
-        const result = await client.saveGraphicsFormat(args);
+        const { readReceipt: _readReceipt, ...saveArgs } = args;
+        const result = await client.saveGraphicsFormat(saveArgs);
         graphicsReadReceipts.delete(receiptKey);
 
         const editorUrl = buildGraphicsEditorUrl(client, {

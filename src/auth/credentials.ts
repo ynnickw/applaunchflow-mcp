@@ -6,6 +6,7 @@ export interface StoredCredentials {
   baseUrl: string;
   token: string;
   cookieName: string;
+  authMode?: "cookie" | "bearer";
   createdAt: string;
   expiresAt?: string;
 }

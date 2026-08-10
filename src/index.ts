@@ -2,6 +2,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { pathToFileURL } from "node:url";
 import {
   clearStoredCredentials,
   getCredentialsPath,
@@ -24,8 +25,9 @@ import { registerMockupTools } from "./tools/mockups.js";
 import { registerLocalizationTools } from "./tools/localization.js";
 import { registerVariantTools } from "./tools/variants.js";
 import { registerKeywordTools } from "./tools/keywords.js";
+import { installToolMetadataPolicy } from "./tool-metadata.js";
 
-const SERVER_INSTRUCTIONS = `
+export const SERVER_INSTRUCTIONS = `
 AppLaunchFlow MCP supports four content types: app store screenshots, social graphics, promo videos, and mockup animations.
 Use it for project setup, screenshot uploads, AI generation of screenshots/graphics/videos, mockup animation editing, variant management, direct layout editing, and translation.
 Do not treat this MCP as an ASO or generic graphics-design assistant — every tool is scoped to one of those four content types.
@@ -64,7 +66,7 @@ Screenshot workflows:
 - When adding or editing elements, ensure text and screenshots do not overlap. Verify that positions place elements in distinct, non-conflicting areas of the canvas.
 - After composition-sensitive edits, inspect the returned translation or re-fetch the layout before reporting success. If elements overlap or are poorly positioned, fix them before telling the user the edit is done.
 - get_layout is mandatory before every direct transform_layout call. Do not edit a layout without a fresh read of the current state first.
-- ALWAYS use browse_templates after prepare_screenshot_styles when a screenshot template choice is needed. Pass the prepared templateIds, generationId, and catalogKey. Never offer templates via text bullet points or AskUserQuestion. The gallery opens the personalized previews in the browser and returns the user's selection automatically.
+- ALWAYS use browse_templates after prepare_screenshot_styles when a screenshot template choice is needed. Pass the prepared templateIds, generationId, and catalogKey. Never offer templates via text bullet points. A local connector can return the selection automatically; a hosted connector returns a gallery URL, which you must show to the user and then wait for the user to reply with the selected template id before applying it.
 - When you need visual context about a screenshot (e.g. to extract colors, understand the app UI, or make context-specific edits), use view_screenshot to look at the actual image.
 - After generating a new variant, the editor URL is opened automatically in the browser. Also include the URL in the reply as a fallback.
 
@@ -102,6 +104,16 @@ Project creation should be fast and simple:
 2. Autofill category and description from context (e.g. "Skyscanner" → category "Travel"). Do not ask the user for these.
 3. Call create_project immediately. Do not ask for confirmation or optional fields unless the user volunteers them.
 4. After creation, recommend uploading screenshots as the next step (screenshots are the input for both social graphics and promo video generation too).
+`.trim();
+
+const HOSTED_SERVER_INSTRUCTIONS = `
+HOSTED CONNECTOR SAFETY RULES:
+- Never reveal, repeat, log, or place OAuth access tokens, refresh tokens, authorization codes, PKCE verifiers, or read receipts in user-facing text.
+- A readReceipt returned inside structured tool data is an opaque safety input. Pass it only to the matching edit tool, for the exact same project, variant, language, and format.
+- Before deleting, clearing, overwriting, or replacing user content, require clear user intent for that exact action. Do not infer destructive intent from a broad request.
+- Hosted gallery tools return a URL instead of opening a local browser. Show the exact URL, stop, and wait for the user's chosen template id. Do not guess or apply a style before the user selects it.
+
+${SERVER_INSTRUCTIONS}
 `.trim();
 
 async function runAuthCommand(args: string[]) {
@@ -144,17 +156,25 @@ async function runAuthCommand(args: string[]) {
   process.exitCode = 1;
 }
 
-async function startServer() {
-  const credentials = await resolveCredentials();
+export function createAppLaunchFlowServer(
+  credentials: Awaited<ReturnType<typeof resolveCredentials>>,
+  options: { localInteractive?: boolean } = {},
+): McpServer {
   const client = new AppLaunchFlowClient(credentials);
-  const templateSelectionCoordinator = new TemplateSelectionCoordinator();
+  const templateSelectionCoordinator = options.localInteractive
+    ? new TemplateSelectionCoordinator()
+    : undefined;
 
   const server = new McpServer({
     name: "applaunchflow-mcp",
-    version: "0.2.4",
+    version: "0.3.0",
   }, {
-    instructions: SERVER_INSTRUCTIONS,
+    instructions: options.localInteractive
+      ? SERVER_INSTRUCTIONS
+      : HOSTED_SERVER_INSTRUCTIONS,
   });
+
+  installToolMetadataPolicy(server, { hosted: !options.localInteractive });
 
   registerPrompts(server);
   registerResources(server, client);
@@ -169,6 +189,15 @@ async function startServer() {
   registerLocalizationTools(server, client);
   registerVariantTools(server, client);
   registerKeywordTools(server, client);
+
+  return server;
+}
+
+async function startServer() {
+  const credentials = await resolveCredentials();
+  const server = createAppLaunchFlowServer(credentials, {
+    localInteractive: true,
+  });
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
@@ -192,4 +221,10 @@ async function main() {
   }
 }
 
-void main();
+const entryPoint = process.argv[1]
+  ? pathToFileURL(process.argv[1]).href
+  : undefined;
+
+if (entryPoint === import.meta.url) {
+  void main();
+}

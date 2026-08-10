@@ -347,11 +347,14 @@ export function registerScreenshotTools(
         const previewUrl = `${client.credentials.baseUrl}/api/preview?path=${encodeURIComponent(fullPath)}&w=320`;
 
         const headers = new Headers();
-        headers.set(
-          "Cookie",
-          `${client.credentials.cookieName}=${client.credentials.token}`,
-        );
-        headers.set("Authorization", `Bearer ${client.credentials.token}`);
+        if (client.credentials.authMode === "bearer") {
+          headers.set("Authorization", `Bearer ${client.credentials.token}`);
+        } else {
+          headers.set(
+            "Cookie",
+            `${client.credentials.cookieName}=${client.credentials.token}`,
+          );
+        }
 
         const response = await fetch(previewUrl, { headers });
         if (!response.ok) {
@@ -370,6 +373,16 @@ export function registerScreenshotTools(
               mimeType,
             },
           ],
+          structuredContent: {
+            success: true,
+            data: {
+              projectId,
+              path,
+              mimeType,
+              renderedAsImageContent: true,
+            },
+            message: "Fetched screenshot image",
+          },
         };
       } catch (error) {
         return fail(error);
