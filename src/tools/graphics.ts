@@ -57,7 +57,8 @@ export function registerGraphicsTools(
       description:
         "Generate or reuse the project's personalized social-graphics style catalog before the user chooses a style. " +
         "This prepares every social template across OG image, social post, Instagram story, Play Store feature graphic, X banner, and LinkedIn banner in one AI call and returns a catalogKey. " +
-        "Next call browse_social_templates with the returned templateIds, generationId, and catalogKey, then apply_social_graphics_style. Repeating the same app context and screenshot paths reuses the cache.",
+        "The personalized gallery opens automatically and creates the chosen variant directly in the graphics editor. " +
+        "Repeating the same app context and screenshot paths reuses the cache.",
       inputSchema: {
         generationId: z.string().uuid(),
         selectedScreenshotPaths: z
@@ -97,6 +98,22 @@ export function registerGraphicsTools(
             "The social graphics catalog response did not include a cache key and templates",
           );
         }
+        const galleryUrl = buildSocialTemplateGalleryUrl(
+          client.credentials.baseUrl,
+          {
+            format: primaryFormat,
+            templateIds,
+            generationId,
+            catalogKey: result.catalogKey,
+            applySelection: true,
+          },
+        );
+        const opened = await openUrl(
+          server,
+          galleryUrl,
+          "Choose a personalized social-graphics style, then create the new variant in the editor.",
+          { signal: extra.signal },
+        );
         return {
           content: [
             {
@@ -107,8 +124,19 @@ export function registerGraphicsTools(
                   : "Prepared personalized social graphics across all six formats.",
                 `Catalog key: ${result.catalogKey}`,
                 `Available template ids: ${templateIds.join(", ")}`,
-                "Next: call browse_social_templates with these templateIds, generationId, and this catalog key so the gallery shows the personalized results; then apply_social_graphics_style with the selected id.",
+                opened
+                  ? "Opened the personalized social-graphics gallery in the browser."
+                  : `Open the personalized social-graphics gallery: ${galleryUrl}`,
+                "Confirming a style creates a new variant containing all six formats and opens it in the graphics editor; no template id needs to be pasted back into chat.",
               ].join("\n"),
+            },
+            {
+              type: "resource_link" as const,
+              uri: galleryUrl,
+              name: "Open Personalized Social Graphics Gallery",
+              mimeType: "text/html",
+              description:
+                "Personalized social-graphics previews with direct variant creation.",
             },
           ],
           structuredContent: {
@@ -121,6 +149,8 @@ export function registerGraphicsTools(
               formats: [...SOCIAL_FORMATS],
               primaryFormat,
               selectedScreenshotPaths,
+              galleryUrl,
+              browserOpened: opened,
             },
             message: result.cacheHit
               ? "Reused personalized social graphics styles"
@@ -222,7 +252,7 @@ export function registerGraphicsTools(
     {
       title: "Browse & Select Social Template",
       description:
-        "Use this visual style gallery after prepare_social_graphics_styles, restricted to its returned templateIds, so the user can choose which prepared result to apply. It can also be used independently for static style discovery. Returns the selected template id. Never offer social templates via text or AskUserQuestion.",
+        "Open the visual social style gallery. With generationId and catalogKey from prepare_social_graphics_styles it renders personalized previews and creates the selected variant directly; without them it provides static style discovery. Never offer social templates via text or AskUserQuestion.",
       inputSchema: {
         format: z
           .enum(SOCIAL_FORMATS)
@@ -271,6 +301,13 @@ export function registerGraphicsTools(
       extra,
     ) => {
       try {
+        if (Boolean(generationId) !== Boolean(catalogKey)) {
+          return fail(
+            new Error(
+              "generationId and catalogKey must be passed together to open personalized previews.",
+            ),
+          );
+        }
         const payload = decorateSocialTemplatePayload(
           await client.listSocialTemplates(),
           client.credentials.baseUrl,
@@ -316,13 +353,16 @@ export function registerGraphicsTools(
             title,
             generationId,
             catalogKey,
+            applySelection: Boolean(generationId && catalogKey),
           },
         );
 
         const opened = await openUrl(
           server,
           galleryUrl,
-          "Browse personalized social-graphics styles in AppLaunchFlow.",
+          generationId && catalogKey
+            ? "Choose a personalized social-graphics style, then create the new variant in the editor."
+            : "Browse social-graphics styles in AppLaunchFlow.",
           { signal: extra.signal },
         );
 
@@ -335,7 +375,9 @@ export function registerGraphicsTools(
                   ? "Opened the social template gallery in the browser."
                   : "The client could not open the browser automatically; paste this exact gallery URL into the user-visible reply.",
                 `Social template gallery URL: ${galleryUrl}`,
-                "After you pick a template, reply with the template name or id.",
+                generationId && catalogKey
+                  ? "The gallery shows the personalized renders. Confirming a style creates the variant across all six formats and opens the graphics editor directly."
+                  : "Static discovery mode copies the chosen template id.",
               ].join("\n"),
             },
             {
@@ -355,6 +397,7 @@ export function registerGraphicsTools(
               format,
               templateIds: filteredTemplateIds,
               browserOpened: opened,
+              personalized: Boolean(generationId && catalogKey),
             },
             message: "Prepared social template gallery",
           },

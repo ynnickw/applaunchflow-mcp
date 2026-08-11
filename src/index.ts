@@ -63,7 +63,7 @@ Screenshot workflows:
 
 Social graphics workflows (mirror the screenshot flow):
 - Call list_source_screenshots, select 3-7 real screenshots in story order, then call prepare_social_graphics_styles. This generates or reuses every social template across all six formats in one catalog.
-- Call browse_social_templates with the returned templateIds plus generationId and catalogKey so the gallery renders the personalized graphics, then immediately call apply_social_graphics_style with the selected templateId and catalogKey. Applying creates a fresh variant containing all six formats without another AI call.
+- prepare_social_graphics_styles opens the personalized gallery automatically. Confirming a style creates a fresh variant containing all six formats and opens the graphics editor. Do not ask the user to paste a template id back into chat. Use browse_social_templates only to reopen the gallery, and apply_social_graphics_style only when a template id was supplied directly in chat or by an API client.
 - Use generate_graphics only for an explicitly requested legacy/direct single-template generation. Never overwrite an existing graphics variant.
 - For edits to existing social graphics, ALWAYS call get_graphics_format first, then save_graphics_format. Mutate JSON for exactly one format in memory and save only that one format. The same get-before-edit receipt rule applies as for screenshots.
 - Default to the variant's primary format unless the user explicitly asks to edit another format.
