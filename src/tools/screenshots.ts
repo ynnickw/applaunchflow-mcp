@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
+import { listPublicTemplateIds } from "../catalog.js";
 import { openUrl, fail, ok, startProgressHeartbeat } from "./utils.js";
 
 export function registerScreenshotTools(
@@ -52,7 +53,7 @@ export function registerScreenshotTools(
           deviceType,
           previewAllTemplates: true,
         });
-        const templateIds = Object.keys(result.templatePayloads || {}).sort();
+        const templateIds = listPublicTemplateIds(result.templatePayloads);
         if (!result.catalogKey || templateIds.length === 0) {
           throw new Error(
             "The screenshot catalog response did not include a cache key and templates",
