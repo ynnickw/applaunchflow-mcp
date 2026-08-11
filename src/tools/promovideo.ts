@@ -14,15 +14,32 @@ import {
 const promoReceiptKey = (generationId: string, variantId?: string) =>
   ["promo-video", generationId, variantId || "active"].join("::");
 
-function buildPromoVideoEditorUrl(
+export function buildPromoVideoEditorUrl(
   client: AppLaunchFlowClient,
-  args: { generationId: string; variantId?: string },
+  args: {
+    generationId: string;
+    variantId?: string;
+    candidateKey?: string;
+    replaceVariantId?: string;
+  },
 ): string {
   const params = new URLSearchParams({ projectId: args.generationId });
   if (args.variantId) {
     params.set("variantId", args.variantId);
   }
+  if (args.candidateKey) {
+    params.set("candidateKey", args.candidateKey);
+  }
+  if (args.replaceVariantId) {
+    params.set("replaceVariantId", args.replaceVariantId);
+  }
   return `${client.credentials.baseUrl}/promovideo?${params.toString()}`;
+}
+
+export function buildPromoVideoCandidateRequest<
+  TArgs extends Record<string, unknown>,
+>(args: TArgs): TArgs & { candidateCount: 3 } {
+  return { ...args, candidateCount: 3 };
 }
 
 export function registerPromoVideoTools(
@@ -36,47 +53,61 @@ export function registerPromoVideoTools(
     {
       title: "Generate Promo Video",
       description:
-        "Run AI generation against the project's screenshots and produce a complete Remotion promo video config. " +
-        "Omit variantId so a new variant is always created — never overwrite an existing promo-video variant. " +
-        "After generation, the promo video editor opens automatically. " +
-        "Use selectedScreenshotIndices to constrain which uploaded screenshots feed the LLM. " +
-        "Use the optional message field to pass natural-language regeneration feedback when iterating on an existing variant.",
+        "Generate or reuse three transient promo-video candidates from the project's screenshots. " +
+        "The dashboard picker opens automatically so the user can preview all three; only the chosen candidate becomes a saved variant. " +
+        "Use replaceVariantId only when the user explicitly chose to replace that existing variant, which also allows a safe swap at the plan limit. " +
+        "Use selectedScreenshotPaths to constrain which uploaded screenshots feed the candidates.",
       inputSchema: {
         projectId: z.string().uuid().describe("Project / generation UUID."),
         message: z
           .string()
           .optional()
           .describe(
-            "Optional natural-language feedback for regeneration. Only meaningful when iterating on an existing variant.",
+            "Optional creative direction applied to all three candidates.",
           ),
-        variantId: z
+        replaceVariantId: z
           .string()
           .uuid()
           .optional()
           .describe(
-            "DO NOT pass this for fresh takes. Only set when explicitly regenerating an existing variant.",
+            "Existing promo-video variant to replace after the user chooses a candidate. Only pass with explicit user approval.",
+          ),
+        selectedScreenshotPaths: z
+          .array(z.string().min(1))
+          .min(3)
+          .max(7)
+          .optional()
+          .describe(
+            "Optional project-relative phone screenshot paths from list_source_screenshots, in story order.",
           ),
         selectedScreenshotIndices: z
           .array(z.number().int().min(0))
           .optional()
           .describe(
-            "Optional indices into the project's screenshots array. If omitted, the generator uses the project's default platform set.",
+            "Legacy screenshot positions. Prefer selectedScreenshotPaths.",
           ),
       },
     },
     async (args, extra) => {
       try {
-        const result = await client.generatePromoVideo(args);
-        const variantId = result?.variantId || args.variantId || "";
+        const result = await client.generatePromoVideo(
+          buildPromoVideoCandidateRequest(args),
+        );
+        if (!result?.candidateKey || result?.candidates?.length !== 3) {
+          throw new Error(
+            "Promo video generation did not return a reusable three-option picker",
+          );
+        }
         const editorUrl = buildPromoVideoEditorUrl(client, {
           generationId: args.projectId,
-          variantId,
+          candidateKey: result.candidateKey,
+          replaceVariantId: args.replaceVariantId,
         });
 
         await openUrl(
           server,
           editorUrl,
-          "Opening the generated promo video in the editor.",
+          "Compare three personalized promo-video candidates and choose which one to create.",
           { signal: extra.signal },
         );
 
@@ -85,16 +116,16 @@ export function registerPromoVideoTools(
             {
               type: "text" as const,
               text: [
-                "Generated promo video successfully.",
-                `Editor URL: ${editorUrl}`,
-                "IMPORTANT: Paste this exact editor URL in the reply so the user can open it.",
+                "Prepared three personalized promo-video candidates without creating a saved variant yet.",
+                `Candidate picker URL: ${editorUrl}`,
+                "The dashboard picker previews all three options. Choosing one creates that variant and opens it in the promo-video editor.",
               ].join("\n"),
             },
           ],
           structuredContent: {
             success: true,
             data: { ...result, editorUrl },
-            message: "Generated promo video",
+            message: "Prepared promo video candidates",
           },
         };
       } catch (error) {

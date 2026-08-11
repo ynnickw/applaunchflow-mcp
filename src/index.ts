@@ -63,7 +63,7 @@ Screenshot workflows:
 
 Social graphics workflows (mirror the screenshot flow):
 - Call list_source_screenshots, select 3-7 real screenshots in story order, then call prepare_social_graphics_styles. This generates or reuses every social template across all six formats in one catalog.
-- Call browse_social_templates with the returned templateIds plus generationId and catalogKey so the gallery renders the personalized graphics, then immediately call apply_social_graphics_style with the selected templateId and catalogKey. Applying creates a fresh variant containing all six formats without another AI call.
+- prepare_social_graphics_styles opens the personalized gallery automatically. Confirming a style creates a fresh variant containing all six formats and opens the graphics editor. Do not ask the user to paste a template id back into chat. Use browse_social_templates only to reopen the gallery, and apply_social_graphics_style only when a template id was supplied directly in chat or by an API client.
 - Use generate_graphics only for an explicitly requested legacy/direct single-template generation. Never overwrite an existing graphics variant.
 - For edits to existing social graphics, ALWAYS call get_graphics_format first, then save_graphics_format. Mutate JSON for exactly one format in memory and save only that one format. The same get-before-edit receipt rule applies as for screenshots.
 - Default to the variant's primary format unless the user explicitly asks to edit another format.
@@ -72,7 +72,8 @@ Social graphics workflows (mirror the screenshot flow):
 - Use create_variant with contentType:"socialGraphics" or duplicate_variant to create a copy / fresh take without overwriting the current graphics variant.
 
 Promo video workflows:
-- generate_promo_video runs the AI generation pipeline against the project's screenshots and produces a complete Remotion video config. Omit variantId to create a new variant.
+- generate_promo_video prepares three transient, personalized candidates and opens the same dashboard picker used by the web app. No saved variant is created until the user chooses one. Do not summarize the three options in chat or ask for a candidate id.
+- To replace an existing promo-video variant, pass replaceVariantId only after explicit user approval. The chosen candidate is created first and the old variant is retired only after the new one saves successfully, so replacement works safely at the plan limit.
 - For edits to an existing promo video, ALWAYS call get_promo_video first to fetch the current config, mutate the config object in memory, then call update_promo_video with the full updated config. There is no granular transform tool for promo videos at this stage — full-config replace is the supported edit path. The same get-before-edit receipt rule as graphics applies: update_promo_video is locked until a fresh get_promo_video has been called for the same project/variant.
 - Use clear_promo_video to wipe a variant's video config when the user wants to start over.
 - Use create_variant with contentType:"promoVideo" or duplicate_variant for copies / A-B tests. duplicate_variant clones the source promo-video variant, including its config.
