@@ -268,6 +268,7 @@ export function registerGraphicsTools(
         generationId,
         catalogKey,
       },
+      extra,
     ) => {
       try {
         const payload = decorateSocialTemplatePayload(
@@ -318,12 +319,21 @@ export function registerGraphicsTools(
           },
         );
 
+        const opened = await openUrl(
+          server,
+          galleryUrl,
+          "Browse personalized social-graphics styles in AppLaunchFlow.",
+          { signal: extra.signal },
+        );
+
         return {
           content: [
             {
               type: "text" as const,
               text: [
-                "Paste this exact gallery URL into the user-visible reply.",
+                opened
+                  ? "Opened the social template gallery in the browser."
+                  : "The client could not open the browser automatically; paste this exact gallery URL into the user-visible reply.",
                 `Social template gallery URL: ${galleryUrl}`,
                 "After you pick a template, reply with the template name or id.",
               ].join("\n"),
@@ -344,6 +354,7 @@ export function registerGraphicsTools(
               userFacingUrl: galleryUrl,
               format,
               templateIds: filteredTemplateIds,
+              browserOpened: opened,
             },
             message: "Prepared social template gallery",
           },

@@ -46,7 +46,7 @@ Schema references (MCP resources — read them, they are not loaded automaticall
 Screenshot workflows:
 - Entry point without a known project: ask whether the user wants to create a new app or edit an existing project. If they want existing, list/select projects. If they want new, create the project first.
 - For the normal style-choice flow, call list_source_screenshots, choose 3-7 real screenshots in story order, then call prepare_screenshot_styles. This generates or reuses one personalized catalog containing every template for phone, tablet, and desktop.
-- After preparation, call browse_templates with exactly the returned templateIds plus generationId and catalogKey so the gallery renders the real personalized results. Then immediately call apply_screenshot_style with the returned catalogKey and selected templateId. Applying creates a new variant from cache without another AI call. Never overwrite an existing variant.
+- prepare_screenshot_styles opens the personalized gallery automatically. The user compares the real v1/v2 renders there; confirming a style creates a new variant from cache and opens the editor. Do not ask the user to paste a template id back into chat. Use browse_templates only to reopen the gallery, and apply_screenshot_style only when a template id was supplied directly in chat or by an API client. Never overwrite an existing variant.
 - Use generate_layouts only for an explicitly requested legacy/direct single-template generation. Do not use it for the normal visual style chooser.
 - For small, precise edits to existing known nodes, transform_layout can be used directly.
 - For any composition-sensitive edit, inspect the current layout first with get_layout. This includes adding screens, reusing screenshots, changing screenshot placement, moving text, changing spacing, or anything that should match the existing visual system.
@@ -57,7 +57,7 @@ Screenshot workflows:
 - When adding or editing elements, ensure text and screenshots do not overlap. Verify that positions place elements in distinct, non-conflicting areas of the canvas.
 - After composition-sensitive edits, inspect the returned translation or re-fetch the layout before reporting success. If elements overlap or are poorly positioned, fix them before telling the user the edit is done.
 - get_layout is mandatory before every direct transform_layout call. Do not edit a layout without a fresh read of the current state first.
-- ALWAYS use browse_templates after prepare_screenshot_styles when a screenshot template choice is needed. Pass the prepared templateIds, generationId, and catalogKey. Never offer templates via text bullet points. The connector returns a gallery URL, which you must show to the user before waiting for the selected template id.
+- Never offer screenshot templates via text bullet points. prepare_screenshot_styles opens the personalized picker automatically. If browser opening is unsupported, show its exact fallback gallery URL. Do not wait for a selected template id because the picker applies the choice directly.
 - When you need visual context about a screenshot (e.g. to extract colors, understand the app UI, or make context-specific edits), use view_screenshot to look at the actual image.
 - After generating a new variant, include the editor URL in the reply.
 
@@ -102,7 +102,7 @@ HOSTED CONNECTOR SAFETY RULES:
 - Never reveal, repeat, log, or place OAuth access tokens, refresh tokens, authorization codes, PKCE verifiers, or read receipts in user-facing text.
 - A readReceipt returned inside structured tool data is an opaque safety input. Pass it only to the matching edit tool, for the exact same project, variant, language, and format.
 - Before deleting, clearing, overwriting, or replacing user content, require clear user intent for that exact action. Do not infer destructive intent from a broad request.
-- Hosted gallery tools return a URL instead of opening a local browser. Show the exact URL, stop, and wait for the user's chosen template id. Do not guess or apply a style before the user selects it.
+- Hosted gallery tools request the MCP client to open the browser and always return the exact URL as a fallback. Personalized screenshot galleries apply the user's v1/v2 choice directly and open the new variant in the editor. Do not ask the user to relay the template id.
 
 ${SERVER_INSTRUCTIONS}
 `.trim();
@@ -114,7 +114,7 @@ export function createAppLaunchFlowServer(
 
   const server = new McpServer({
     name: "applaunchflow-mcp",
-    version: "0.3.0",
+    version: "0.3.3",
   }, {
     instructions: HOSTED_SERVER_INSTRUCTIONS,
   });

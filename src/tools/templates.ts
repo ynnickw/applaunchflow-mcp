@@ -7,7 +7,7 @@ import {
   type TemplatePreviewDeviceType,
   decorateTemplatePayload,
 } from "../template-previews.js";
-import { fail } from "./utils.js";
+import { fail, openUrl } from "./utils.js";
 
 type TemplateCatalogPayload = {
   templates: Array<{
@@ -156,7 +156,7 @@ export function registerTemplateTools(
     {
       title: "Browse & Select Template",
       description:
-        "Use this visual style gallery after prepare_screenshot_styles, restricted to its returned templateIds, so the user can choose which prepared result to apply. It can also be used independently for static style discovery. Returns the selected template id. Never offer templates via text or AskUserQuestion — always open this gallery.",
+        "Open the visual style gallery. With generationId and catalogKey from prepare_screenshot_styles it renders personalized v1/v2 previews and creates the selected variant directly; without them it provides static style discovery. Never offer templates via text or AskUserQuestion.",
       inputSchema: {
         deviceType: z
           .enum(TEMPLATE_PREVIEW_DEVICE_TYPES)
@@ -200,8 +200,16 @@ export function registerTemplateTools(
         generationId,
         catalogKey,
       },
+      extra,
     ) => {
       try {
+        if (Boolean(generationId) !== Boolean(catalogKey)) {
+          return fail(
+            new Error(
+              "generationId and catalogKey must be passed together to open personalized previews.",
+            ),
+          );
+        }
         const payload = decorateTemplatePayload(
           await client.listTemplates(),
           client.credentials.baseUrl,
@@ -245,17 +253,30 @@ export function registerTemplateTools(
           title,
           generationId,
           catalogKey,
+          applySelection: Boolean(generationId && catalogKey),
         });
+
+        const opened = await openUrl(
+          server,
+          galleryUrl,
+          generationId && catalogKey
+            ? "Choose a personalized screenshot style. Compare v1 and v2, then create the new variant in the editor."
+            : "Browse screenshot styles in AppLaunchFlow.",
+          { signal: extra.signal },
+        );
 
         return {
           content: [
             {
               type: "text" as const,
               text: [
-                "Paste this exact gallery URL into the user-visible reply.",
+                opened
+                  ? "Opened the template gallery in the browser."
+                  : "The client could not open the browser automatically; paste this exact gallery URL into the user-visible reply.",
                 `Template gallery URL: ${galleryUrl}`,
-                "Do not say 'link above' because tool results may be collapsed or hidden.",
-                "After you pick a template, reply with the template name or id.",
+                generationId && catalogKey
+                  ? "The gallery shows the personalized v1/v2 renders. Confirming a style creates the variant and opens the editor directly."
+                  : "Static discovery mode copies the chosen template id.",
               ].join("\n"),
             },
             {
@@ -274,6 +295,8 @@ export function registerTemplateTools(
               userFacingUrl: galleryUrl,
               deviceType,
               templateIds: filteredTemplateIds,
+              browserOpened: opened,
+              personalized: Boolean(generationId && catalogKey),
             },
             message: "Prepared template gallery",
           },
