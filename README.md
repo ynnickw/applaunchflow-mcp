@@ -86,8 +86,10 @@ For App Store screenshots:
 
 1. `list_source_screenshots`
 2. `prepare_screenshot_styles` with 3-7 ordered paths
-3. `browse_templates` with the returned `templateIds`, `generationId`, and `catalogKey`
-4. `apply_screenshot_style` with the returned `catalogKey`
+3. The personalized gallery opens automatically. Compare each template's V1/V2 render and confirm the choice; the gallery creates the new variant from cache and opens the editor.
+
+`browse_templates` can reopen a prepared catalog, and `apply_screenshot_style`
+remains available when an API client supplies a template id directly.
 
 For social graphics:
 

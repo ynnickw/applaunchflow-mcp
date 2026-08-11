@@ -708,7 +708,7 @@ export const WORKFLOW_GUIDE_RESOURCE = {
         "browse_templates",
       ],
       notes:
-        "Use browse_templates when the user needs to pick a template from the hosted visual gallery. Keep the full template catalog available unless the user asks for a shortlist.",
+        "Use browse_templates for static discovery or to reopen a prepared catalog. It asks the MCP client to open the hosted visual gallery automatically. Keep the full template catalog available unless the user asks for a shortlist.",
     },
     {
       name: "Start screenshot work",
@@ -725,11 +725,9 @@ export const WORKFLOW_GUIDE_RESOURCE = {
       preferredSteps: [
         "list_source_screenshots",
         "prepare_screenshot_styles",
-        "browse_templates",
-        "apply_screenshot_style",
       ],
       notes:
-        "Select 3-7 real screenshots in story order and prepare the personalized catalog once. Browse only the returned template ids, then apply the selection from the catalog cache. The new variant includes phone, tablet, and desktop without a second AI call.",
+        "Select 3-7 real screenshots in story order and prepare the personalized catalog once. Preparation opens the personalized v1/v2 gallery automatically; confirming there creates the cached selection as a new phone, tablet, and desktop variant without a second AI call.",
     },
     {
       name: "Prepare and apply personalized social graphics",
@@ -766,9 +764,9 @@ export const WORKFLOW_GUIDE_RESOURCE = {
     "Do not force menu-based interaction when the user already gave a concrete natural-language edit request.",
     "Do not reduce the template catalog to a tiny recommendation list unless the user explicitly asks for that.",
     "Do not describe templates without showing preview resources when template previews are available.",
-    "Do not read template previews one by one when browse_templates can show the full gallery in one step.",
+    "Do not read template previews one by one when prepare_screenshot_styles or browse_templates can open the full gallery.",
     "Do not begin a screenshot session with template browsing before the user has chosen create new app or edit existing project.",
-    "Do not use legacy generate_layouts or generate_graphics for the normal style chooser. Prepare a personalized catalog and apply the selected cached style instead.",
+    "Do not use legacy generate_layouts or generate_graphics for the normal style chooser. Prepare a personalized catalog and let its gallery apply the selected cached screenshot style.",
     "Do not invent fresh x/y positions, widths, screenshot scale values, or headline styling for new screens when the user wants to preserve the current design language.",
     "Do not report success for new screens or composition edits without checking that the new nodes match the surrounding screens and do not overlap key content.",
   ],

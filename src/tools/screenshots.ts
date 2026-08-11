@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { listPublicTemplateIds } from "../catalog.js";
+import { buildTemplateGalleryUrl } from "../template-previews.js";
 import { openUrl, fail, ok, startProgressHeartbeat } from "./utils.js";
 
 export function registerScreenshotTools(
@@ -16,7 +17,7 @@ export function registerScreenshotTools(
       description:
         "Generate or reuse the project's personalized screenshot-style catalog before the user chooses a style. " +
         "This prepares every screenshot template for phone, tablet, and desktop in one AI call and returns a catalogKey. " +
-        "Next call browse_templates with the returned templateIds, generationId, and catalogKey, then apply_screenshot_style with the selected templateId and catalogKey. " +
+        "The personalized gallery opens automatically, shows the real v1/v2 renders, and creates the chosen variant directly in the browser. " +
         "Repeating this with the same app context and screenshot paths is a cache hit and does not regenerate AI content.",
       inputSchema: {
         generationId: z.string().uuid().describe("Project/generation UUID."),
@@ -59,6 +60,19 @@ export function registerScreenshotTools(
             "The screenshot catalog response did not include a cache key and templates",
           );
         }
+        const galleryUrl = buildTemplateGalleryUrl(client.credentials.baseUrl, {
+          deviceType,
+          templateIds,
+          generationId,
+          catalogKey: result.catalogKey,
+          applySelection: true,
+        });
+        const opened = await openUrl(
+          server,
+          galleryUrl,
+          "Choose a personalized screenshot style. Compare v1 and v2, then create the new variant in the editor.",
+          { signal: extra.signal },
+        );
         return {
           content: [
             {
@@ -69,8 +83,19 @@ export function registerScreenshotTools(
                   : "Prepared personalized screenshot styles for phone, tablet, and desktop.",
                 `Catalog key: ${result.catalogKey}`,
                 `Available template ids: ${templateIds.join(", ")}`,
-                "Next: call browse_templates with these templateIds, generationId, and this catalog key so the gallery shows the personalized results; then apply_screenshot_style with the selected id.",
+                opened
+                  ? "Opened the personalized style gallery in the browser."
+                  : `Open the personalized style gallery: ${galleryUrl}`,
+                "The gallery renders v1 and v2 from this catalog. Confirming a style creates a new variant and opens it in the editor; no template id needs to be pasted back into chat.",
               ].join("\n"),
+            },
+            {
+              type: "resource_link" as const,
+              uri: galleryUrl,
+              name: "Open Personalized Style Gallery",
+              mimeType: "text/html",
+              description:
+                "Personalized screenshot previews with v1/v2 palette choices and direct variant creation.",
             },
           ],
           structuredContent: {
@@ -82,6 +107,8 @@ export function registerScreenshotTools(
               templateIds,
               devices: ["phone", "tablet", "desktop"],
               selectedScreenshotPaths,
+              galleryUrl,
+              browserOpened: opened,
             },
             message: result.cacheHit
               ? "Reused personalized screenshot styles"
@@ -102,7 +129,7 @@ export function registerScreenshotTools(
       title: "Apply Personalized Screenshot Style",
       description:
         "Create a new screenshot variant from a previously prepared personalized style catalog without another AI generation. " +
-        "Use only after prepare_screenshot_styles and browse_templates. The new variant includes phone, tablet, and desktop layouts and opens in the editor.",
+        "Fallback for applying a template id supplied directly in chat or by an API client. The normal prepare_screenshot_styles flow now lets the user compare v1/v2 and create the variant directly in the browser. The new variant includes phone, tablet, and desktop layouts and opens in the editor.",
       inputSchema: {
         generationId: z.string().uuid(),
         catalogKey: z.string().min(1).max(128),
@@ -184,7 +211,7 @@ export function registerScreenshotTools(
     {
       title: "Generate Layouts",
       description:
-        "Legacy direct generation for a single screenshot template. For the normal user-facing style chooser, prefer prepare_screenshot_styles → browse_templates → apply_screenshot_style so all personalized previews are generated once and the chosen style is applied from cache. " +
+        "Legacy direct generation for a single screenshot template. For the normal user-facing style chooser, prefer prepare_screenshot_styles so all personalized v1/v2 previews are generated once and the browser applies the chosen style from cache. " +
         "Generate screenshot layouts for a project. " +
         "For existing projects, pass generationId (same as projectId) — the API fetches screenshots from storage automatically. " +
         "Do NOT pass screenshots when using generationId. " +
