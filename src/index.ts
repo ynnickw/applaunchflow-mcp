@@ -1,19 +1,10 @@
-#!/usr/bin/env node
-
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { pathToFileURL } from "node:url";
 import {
-  clearStoredCredentials,
-  getCredentialsPath,
-  loadStoredCredentials,
-  resolveCredentials,
-} from "./auth/credentials.js";
-import { login } from "./auth/login.js";
-import { AppLaunchFlowClient } from "./client/api.js";
+  AppLaunchFlowClient,
+  type McpCredentials,
+} from "./client/api.js";
 import { registerPrompts } from "./prompts/register.js";
 import { registerResources } from "./resources/register.js";
-import { TemplateSelectionCoordinator } from "./template-selection.js";
 import { registerAssetTools } from "./tools/assets.js";
 import { registerLayoutTools } from "./tools/layouts.js";
 import { registerProjectTools } from "./tools/projects.js";
@@ -42,8 +33,8 @@ Default behavior:
 - Do not force menu-style "what would you like to do next?" steps after each tool call.
 - The user can edit layouts in natural language. Translate those requests into direct MCP actions.
 - If a tool returns a user-facing URL, repeat the exact URL in the assistant reply. Do not say "link above" or assume tool output is visible to the user.
-- The MCP opens the editor in the user's browser automatically on INITIAL CREATION ONLY: apply_screenshot_style, apply_social_graphics_style, generate_layouts, generate_graphics, generate_promo_video, create_mockup_animation, create_variant, duplicate_variant. For these, if the MCP's elicitation-based browser open fails, fall back ONCE to: open "<url>" (macOS) / xdg-open "<url>" (Linux).
-- For edit tools (transform_layout, save_graphics_format, update_promo_video, update_mockup_animation, save_layout, save_graphics), DO NOT run open / xdg-open. The user already has the editor open from the initial creation; popping a new tab on every edit is annoying. Just include the editor URL in the reply text as a reference link.
+- Initial creation tools return an editor URL. Include that exact URL in the reply so the user can open the result.
+- For edit tools (transform_layout, save_graphics_format, update_promo_video, update_mockup_animation, save_layout, save_graphics), include the editor URL as a reference without claiming a new browser tab was opened.
 
 Schema references (MCP resources — read them, they are not loaded automatically):
 - applaunchflow://schema/layout — every field of the layout JSON: all 11 node types, their properties, and valid value ranges. Used by BOTH screenshots and social graphics (a social layout is the same shape with exactly one screen and the format's canvas size).
@@ -66,9 +57,9 @@ Screenshot workflows:
 - When adding or editing elements, ensure text and screenshots do not overlap. Verify that positions place elements in distinct, non-conflicting areas of the canvas.
 - After composition-sensitive edits, inspect the returned translation or re-fetch the layout before reporting success. If elements overlap or are poorly positioned, fix them before telling the user the edit is done.
 - get_layout is mandatory before every direct transform_layout call. Do not edit a layout without a fresh read of the current state first.
-- ALWAYS use browse_templates after prepare_screenshot_styles when a screenshot template choice is needed. Pass the prepared templateIds, generationId, and catalogKey. Never offer templates via text bullet points. A local connector can return the selection automatically; a hosted connector returns a gallery URL, which you must show to the user and then wait for the user to reply with the selected template id before applying it.
+- ALWAYS use browse_templates after prepare_screenshot_styles when a screenshot template choice is needed. Pass the prepared templateIds, generationId, and catalogKey. Never offer templates via text bullet points. The connector returns a gallery URL, which you must show to the user before waiting for the selected template id.
 - When you need visual context about a screenshot (e.g. to extract colors, understand the app UI, or make context-specific edits), use view_screenshot to look at the actual image.
-- After generating a new variant, the editor URL is opened automatically in the browser. Also include the URL in the reply as a fallback.
+- After generating a new variant, include the editor URL in the reply.
 
 Social graphics workflows (mirror the screenshot flow):
 - Call list_source_screenshots, select 3-7 real screenshots in story order, then call prepare_social_graphics_styles. This generates or reuses every social template across all six formats in one catalog.
@@ -116,65 +107,19 @@ HOSTED CONNECTOR SAFETY RULES:
 ${SERVER_INSTRUCTIONS}
 `.trim();
 
-async function runAuthCommand(args: string[]) {
-  const [subcommand, ...rest] = args;
-
-  if (subcommand === "login") {
-    const baseUrlFlagIndex = rest.findIndex((value) => value === "--base-url");
-    const baseUrl =
-      baseUrlFlagIndex >= 0
-        ? rest[baseUrlFlagIndex + 1]
-        : process.env.APPLAUNCHFLOW_BASE_URL || "https://dashboard.applaunchflow.com";
-    await login(baseUrl);
-    return;
-  }
-
-  if (subcommand === "logout") {
-    await clearStoredCredentials();
-    console.error(`Removed credentials at ${getCredentialsPath()}`);
-    return;
-  }
-
-  if (subcommand === "status") {
-    const credentials = await loadStoredCredentials();
-    if (!credentials) {
-      console.error("No stored AppLaunchFlow MCP credentials");
-      process.exitCode = 1;
-      return;
-    }
-
-    console.error(`Base URL: ${credentials.baseUrl}`);
-    console.error(`Cookie name: ${credentials.cookieName}`);
-    if (credentials.expiresAt) {
-      console.error(`Expires at: ${credentials.expiresAt}`);
-    }
-    console.error(`Credentials file: ${getCredentialsPath()}`);
-    return;
-  }
-
-  console.error("Usage: applaunchflow-mcp auth <login|logout|status> [--base-url <url>]");
-  process.exitCode = 1;
-}
-
 export function createAppLaunchFlowServer(
-  credentials: Awaited<ReturnType<typeof resolveCredentials>>,
-  options: { localInteractive?: boolean } = {},
+  credentials: McpCredentials,
 ): McpServer {
   const client = new AppLaunchFlowClient(credentials);
-  const templateSelectionCoordinator = options.localInteractive
-    ? new TemplateSelectionCoordinator()
-    : undefined;
 
   const server = new McpServer({
     name: "applaunchflow-mcp",
     version: "0.3.0",
   }, {
-    instructions: options.localInteractive
-      ? SERVER_INSTRUCTIONS
-      : HOSTED_SERVER_INSTRUCTIONS,
+    instructions: HOSTED_SERVER_INSTRUCTIONS,
   });
 
-  installToolMetadataPolicy(server, { hosted: !options.localInteractive });
+  installToolMetadataPolicy(server, { hosted: true });
 
   registerPrompts(server);
   registerResources(server, client);
@@ -182,8 +127,8 @@ export function createAppLaunchFlowServer(
   registerAssetTools(server, client);
   registerScreenshotTools(server, client);
   registerLayoutTools(server, client);
-  registerTemplateTools(server, client, templateSelectionCoordinator);
-  registerGraphicsTools(server, client, templateSelectionCoordinator);
+  registerTemplateTools(server, client);
+  registerGraphicsTools(server, client);
   registerPromoVideoTools(server, client);
   registerMockupTools(server, client);
   registerLocalizationTools(server, client);
@@ -191,40 +136,4 @@ export function createAppLaunchFlowServer(
   registerKeywordTools(server, client);
 
   return server;
-}
-
-async function startServer() {
-  const credentials = await resolveCredentials();
-  const server = createAppLaunchFlowServer(credentials, {
-    localInteractive: true,
-  });
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-}
-
-async function main() {
-  const [, , command, ...args] = process.argv;
-
-  if (command === "auth") {
-    await runAuthCommand(args);
-    return;
-  }
-
-  try {
-    await startServer();
-  } catch (error) {
-    console.error(
-      error instanceof Error ? error.stack || error.message : String(error),
-    );
-    process.exitCode = 1;
-  }
-}
-
-const entryPoint = process.argv[1]
-  ? pathToFileURL(process.argv[1]).href
-  : undefined;
-
-if (entryPoint === import.meta.url) {
-  void main();
 }

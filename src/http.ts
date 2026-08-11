@@ -159,14 +159,7 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
     {
       baseUrl: dashboardBaseUrl(),
       token,
-      cookieName: "",
-      authMode: "bearer",
-      createdAt: new Date().toISOString(),
-      expiresAt: auth.expiresAt
-        ? new Date(auth.expiresAt * 1000).toISOString()
-        : undefined,
     },
-    { localInteractive: false },
   );
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

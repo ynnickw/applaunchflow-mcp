@@ -1,5 +1,3 @@
-import { resolveCredentials, type StoredCredentials } from "../auth/credentials.js";
-
 type QueryValue =
   | string
   | number
@@ -13,6 +11,11 @@ interface RequestOptions {
   body?: unknown;
   query?: Record<string, QueryValue>;
   headers?: Record<string, string>;
+}
+
+export interface McpCredentials {
+  baseUrl: string;
+  token: string;
 }
 
 export class AppLaunchFlowApiError extends Error {
@@ -48,51 +51,21 @@ function buildSearchParams(query?: Record<string, QueryValue>): string {
 }
 
 export class AppLaunchFlowClient {
-  credentials: StoredCredentials;
+  credentials: McpCredentials;
 
-  constructor(credentials: StoredCredentials) {
+  constructor(credentials: McpCredentials) {
     this.credentials = credentials;
   }
 
   private buildHeaders(extraHeaders?: Record<string, string>): Headers {
     const headers = new Headers(extraHeaders);
-    if (this.credentials.authMode === "bearer") {
-      headers.set("Authorization", `Bearer ${this.credentials.token}`);
-    } else {
-      headers.set(
-        "Cookie",
-        `${this.credentials.cookieName}=${this.credentials.token}`,
-      );
-    }
+    headers.set("Authorization", `Bearer ${this.credentials.token}`);
     return headers;
-  }
-
-  /**
-   * Re-read credentials from disk (or env) and adopt them if the token changed.
-   * The process caches credentials at startup, so a token refreshed via
-   * `auth login` in another process is otherwise invisible until restart. This
-   * lets an in-flight 401 recover without reconnecting the MCP server.
-   */
-  private async reloadCredentials(): Promise<boolean> {
-    // Hosted request-scoped bearer credentials must never fall back to a local
-    // credentials file belonging to the server operator.
-    if (this.credentials.authMode === "bearer") return false;
-    try {
-      const fresh = await resolveCredentials();
-      if (fresh.token && fresh.token !== this.credentials.token) {
-        this.credentials = fresh;
-        return true;
-      }
-    } catch {
-      // No stored credentials / unreadable — nothing to refresh.
-    }
-    return false;
   }
 
   async requestJson<T>(
     path: string,
     options: RequestOptions = {},
-    retryOnAuth = true,
   ): Promise<T> {
     const url = `${this.credentials.baseUrl}${path}${buildSearchParams(options.query)}`;
     const headers = this.buildHeaders(options.headers);
@@ -114,17 +87,6 @@ export class AppLaunchFlowClient {
       : await response.text();
 
     if (!response.ok) {
-      // A 401 is usually a token that expired since startup. Re-read the
-      // credentials file once and retry before surfacing the error — the first
-      // attempt was rejected unprocessed, so retrying a POST is safe.
-      if (
-        response.status === 401 &&
-        retryOnAuth &&
-        (await this.reloadCredentials())
-      ) {
-        return this.requestJson<T>(path, options, false);
-      }
-
       const message =
         typeof payload === "string"
           ? payload

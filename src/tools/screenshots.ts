@@ -347,14 +347,7 @@ export function registerScreenshotTools(
         const previewUrl = `${client.credentials.baseUrl}/api/preview?path=${encodeURIComponent(fullPath)}&w=320`;
 
         const headers = new Headers();
-        if (client.credentials.authMode === "bearer") {
-          headers.set("Authorization", `Bearer ${client.credentials.token}`);
-        } else {
-          headers.set(
-            "Cookie",
-            `${client.credentials.cookieName}=${client.credentials.token}`,
-          );
-        }
+        headers.set("Authorization", `Bearer ${client.credentials.token}`);
 
         const response = await fetch(previewUrl, { headers });
         if (!response.ok) {

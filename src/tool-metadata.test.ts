@@ -11,11 +11,7 @@ test("all registered tools expose submission safety metadata and output schemas"
     {
       baseUrl: "https://dashboard.applaunchflow.com",
       token: "test-token",
-      cookieName: "",
-      authMode: "bearer",
-      createdAt: new Date(0).toISOString(),
     },
-    { localInteractive: false },
   );
   const client = new Client({ name: "metadata-test", version: "1.0.0" });
 

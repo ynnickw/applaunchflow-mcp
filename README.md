@@ -2,39 +2,56 @@
 
 MCP server for AppLaunchFlow — create App Store & Google Play screenshots with AI.
 
-## Setup
+## Connect
 
-Add to your MCP client config (e.g. Claude Desktop):
+AppLaunchFlow is a hosted MCP connector with OAuth 2.1 and PKCE. No API key,
+local token, or scoped npm package name is required.
 
-```json
-{
-  "mcpServers": {
-    "applaunchflow": {
-      "command": "npx",
-      "args": ["-y", "@applaunchflow/mcp@latest"]
-    }
-  }
-}
-```
+### Codex
 
-## Auth
+The shortest setup command configures the hosted connector and opens OAuth:
 
 ```bash
-npx -y @applaunchflow/mcp@latest auth login
+npx -y applaunchflow connect codex
 ```
 
-Credentials are stored in `~/.applaunchflow/credentials.json`.
+Useful follow-up commands:
 
-Environment overrides for the local connector:
+```bash
+npx -y applaunchflow status
+npx -y applaunchflow disconnect
+```
 
-- `APPLAUNCHFLOW_BASE_URL`
-- `APPLAUNCHFLOW_MCP_TOKEN`
-- `APPLAUNCHFLOW_MCP_COOKIE_NAME`
+The equivalent native Codex commands are:
 
-## Hosted connector (ChatGPT and Codex)
+```bash
+codex mcp add applaunchflow --url https://mcp.applaunchflow.com/mcp
+codex mcp login applaunchflow
+codex mcp get applaunchflow
+codex mcp remove applaunchflow
+```
 
-The same MCP server can run as a public Streamable HTTP service. It supports
-OAuth 2.1 authorization-code flow with PKCE through the AppLaunchFlow dashboard.
+### ChatGPT
+
+```bash
+npx -y applaunchflow connect chatgpt
+```
+
+Paste the displayed URL when creating a custom MCP connector in ChatGPT. The
+same URL is also available at any time with `npx -y applaunchflow url`.
+
+### Other MCP clients
+
+Use this Streamable HTTP endpoint and enable OAuth when prompted:
+
+```text
+https://mcp.applaunchflow.com/mcp
+```
+
+## Hosted service
+
+The public Streamable HTTP service uses OAuth 2.1 authorization code flow with
+PKCE through the AppLaunchFlow dashboard.
 
 ```bash
 npm ci

@@ -1,4 +1,3 @@
-import { exec } from "node:child_process";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ElicitResultSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -33,22 +32,8 @@ export async function elicitUrl(
 }
 
 /**
- * Open a URL in the user's default browser.
- * Uses `open` on macOS, `xdg-open` on Linux, `start` on Windows.
- */
-export function openInBrowser(url: string): void {
-  const command =
-    process.platform === "darwin"
-      ? "open"
-      : process.platform === "win32"
-        ? "start"
-        : "xdg-open";
-  exec(`${command} ${JSON.stringify(url)}`);
-}
-
-/**
- * Try URL elicitation first, fall back to opening the URL directly in the browser.
- * Returns true if elicitation succeeded (user accepted), false otherwise.
+ * Ask the host to open a URL. Hosted connectors return false when the client
+ * does not support URL elicitation so the tool can still return the URL.
  */
 export async function openUrl(
   server: McpServer,
@@ -69,11 +54,7 @@ export async function openUrl(
     );
     return result.action === "accept";
   } catch {
-    if (process.env.APPLAUNCHFLOW_MCP_REMOTE === "1") {
-      return false;
-    }
-    openInBrowser(url);
-    return true;
+    return false;
   }
 }
 
