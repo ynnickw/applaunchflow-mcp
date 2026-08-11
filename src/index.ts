@@ -72,7 +72,8 @@ Social graphics workflows (mirror the screenshot flow):
 - Use create_variant with contentType:"socialGraphics" or duplicate_variant to create a copy / fresh take without overwriting the current graphics variant.
 
 Promo video workflows:
-- generate_promo_video runs the AI generation pipeline against the project's screenshots and produces a complete Remotion video config. Omit variantId to create a new variant.
+- generate_promo_video prepares three transient, personalized candidates and opens the same dashboard picker used by the web app. No saved variant is created until the user chooses one. Do not summarize the three options in chat or ask for a candidate id.
+- To replace an existing promo-video variant, pass replaceVariantId only after explicit user approval. The chosen candidate is created first and the old variant is retired only after the new one saves successfully, so replacement works safely at the plan limit.
 - For edits to an existing promo video, ALWAYS call get_promo_video first to fetch the current config, mutate the config object in memory, then call update_promo_video with the full updated config. There is no granular transform tool for promo videos at this stage — full-config replace is the supported edit path. The same get-before-edit receipt rule as graphics applies: update_promo_video is locked until a fresh get_promo_video has been called for the same project/variant.
 - Use clear_promo_video to wipe a variant's video config when the user wants to start over.
 - Use create_variant with contentType:"promoVideo" or duplicate_variant for copies / A-B tests. duplicate_variant clones the source promo-video variant, including its config.
