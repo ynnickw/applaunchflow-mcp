@@ -14,7 +14,7 @@ import {
 const promoReceiptKey = (generationId: string, variantId?: string) =>
   ["promo-video", generationId, variantId || "active"].join("::");
 
-export function buildPromoVideoEditorUrl(
+export function buildPromoVideoDashboardUrl(
   client: AppLaunchFlowClient,
   args: {
     generationId: string;
@@ -33,7 +33,10 @@ export function buildPromoVideoEditorUrl(
   if (args.replaceVariantId) {
     params.set("replaceVariantId", args.replaceVariantId);
   }
-  return `${client.credentials.baseUrl}/promovideo?${params.toString()}`;
+  const pathname = args.candidateKey
+    ? "/promo-video-picker"
+    : "/promovideo";
+  return `${client.credentials.baseUrl}${pathname}?${params.toString()}`;
 }
 
 export function buildPromoVideoCandidateRequest<
@@ -98,7 +101,7 @@ export function registerPromoVideoTools(
             "Promo video generation did not return a reusable three-option picker",
           );
         }
-        const editorUrl = buildPromoVideoEditorUrl(client, {
+        const pickerUrl = buildPromoVideoDashboardUrl(client, {
           generationId: args.projectId,
           candidateKey: result.candidateKey,
           replaceVariantId: args.replaceVariantId,
@@ -106,7 +109,7 @@ export function registerPromoVideoTools(
 
         await openUrl(
           server,
-          editorUrl,
+          pickerUrl,
           "Compare three personalized promo-video candidates and choose which one to create.",
           { signal: extra.signal },
         );
@@ -117,14 +120,14 @@ export function registerPromoVideoTools(
               type: "text" as const,
               text: [
                 "Prepared three personalized promo-video candidates without creating a saved variant yet.",
-                `Candidate picker URL: ${editorUrl}`,
+                `Candidate picker URL: ${pickerUrl}`,
                 "The dashboard picker previews all three options. Choosing one creates that variant and opens it in the promo-video editor.",
               ].join("\n"),
             },
           ],
           structuredContent: {
             success: true,
-            data: { ...result, editorUrl },
+            data: { ...result, editorUrl: pickerUrl },
             message: "Prepared promo video candidates",
           },
         };
@@ -149,7 +152,7 @@ export function registerPromoVideoTools(
     async ({ generationId, variantId }) => {
       try {
         const result = await client.getPromoVideo(generationId, variantId);
-        const editorUrl = buildPromoVideoEditorUrl(client, {
+        const editorUrl = buildPromoVideoDashboardUrl(client, {
           generationId,
           variantId,
         });
@@ -248,7 +251,7 @@ export function registerPromoVideoTools(
         const result = await client.updatePromoVideo(updateArgs);
         promoVideoReadReceipts.consume(receiptArgs);
 
-        const editorUrl = buildPromoVideoEditorUrl(client, {
+        const editorUrl = buildPromoVideoDashboardUrl(client, {
           generationId: args.projectId,
           variantId: args.variantId,
         });

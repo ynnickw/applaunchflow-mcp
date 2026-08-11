@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildPromoVideoCandidateRequest,
-  buildPromoVideoEditorUrl,
+  buildPromoVideoDashboardUrl,
 } from "./tools/promovideo.js";
 
 test("generate_promo_video requests three transient candidates", () => {
@@ -14,7 +14,7 @@ test("generate_promo_video requests three transient candidates", () => {
 
 test("the MCP opens the dashboard candidate picker instead of a saved variant", () => {
   const url = new URL(
-    buildPromoVideoEditorUrl(
+    buildPromoVideoDashboardUrl(
       {
         credentials: { baseUrl: "https://dashboard.applaunchflow.com" },
       } as never,
@@ -26,7 +26,7 @@ test("the MCP opens the dashboard candidate picker instead of a saved variant", 
     ),
   );
 
-  assert.equal(url.pathname, "/promovideo");
+  assert.equal(url.pathname, "/promo-video-picker");
   assert.equal(url.searchParams.get("candidateKey"), "candidate-key");
   assert.equal(
     url.searchParams.get("replaceVariantId"),
