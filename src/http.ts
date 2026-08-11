@@ -1,0 +1,232 @@
+#!/usr/bin/env node
+
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { pathToFileURL } from "node:url";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import { createAppLaunchFlowServer } from "./index.js";
+
+const DEFAULT_PORT = 8787;
+const DEFAULT_DASHBOARD_URL = "https://dashboard.applaunchflow.com";
+const REQUIRED_SCOPES = [
+  "projects:read",
+  "projects:write",
+  "assets:write",
+  "generations:write",
+] as const;
+
+type IntrospectionPayload = {
+  active: boolean;
+  clientId?: string;
+  scopes?: string[];
+  expiresAt?: number;
+  userId?: string;
+  resource?: string;
+};
+
+function normalizeBaseUrl(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+function dashboardBaseUrl(): string {
+  return normalizeBaseUrl(
+    process.env.APPLAUNCHFLOW_BASE_URL || DEFAULT_DASHBOARD_URL,
+  );
+}
+
+function publicBaseUrl(request?: IncomingMessage): string {
+  const configured = process.env.APPLAUNCHFLOW_MCP_PUBLIC_URL;
+  if (configured) {
+    const parsed = new URL(configured);
+    if (process.env.NODE_ENV === "production" && parsed.protocol !== "https:") {
+      throw new Error("APPLAUNCHFLOW_MCP_PUBLIC_URL must use HTTPS in production");
+    }
+    parsed.pathname = parsed.pathname.replace(/\/mcp\/?$/, "");
+    parsed.search = "";
+    parsed.hash = "";
+    return normalizeBaseUrl(parsed.toString());
+  }
+
+  const host = request?.headers.host || `127.0.0.1:${DEFAULT_PORT}`;
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  return `${protocol}://${host}`;
+}
+
+function resourceIdentifier(request?: IncomingMessage): string {
+  return `${publicBaseUrl(request)}/mcp`;
+}
+
+function resourceMetadataUrl(request?: IncomingMessage): string {
+  return `${publicBaseUrl(request)}/.well-known/oauth-protected-resource`;
+}
+
+function json(
+  response: ServerResponse,
+  status: number,
+  payload: unknown,
+  headers: Record<string, string> = {},
+): void {
+  response.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    ...headers,
+  });
+  response.end(JSON.stringify(payload));
+}
+
+function bearerToken(request: IncomingMessage): string | null {
+  const header = request.headers.authorization;
+  if (!header) return null;
+  const match = /^Bearer\s+(.+)$/i.exec(header);
+  return match?.[1]?.trim() || null;
+}
+
+function unauthorized(request: IncomingMessage, response: ServerResponse): void {
+  json(
+    response,
+    401,
+    {
+      jsonrpc: "2.0",
+      error: { code: -32001, message: "Authorization required" },
+      id: null,
+    },
+    {
+      "www-authenticate": `Bearer resource_metadata="${resourceMetadataUrl(request)}"`,
+    },
+  );
+}
+
+async function introspectToken(
+  request: IncomingMessage,
+  token: string,
+): Promise<AuthInfo | null> {
+  const response = await fetch(`${dashboardBaseUrl()}/api/auth/mcp/introspect`, {
+    headers: {
+      authorization: `Bearer ${token}`,
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) return null;
+  const payload = (await response.json()) as IntrospectionPayload;
+  if (
+    !payload.active ||
+    !payload.userId ||
+    REQUIRED_SCOPES.some((scope) => !payload.scopes?.includes(scope))
+  ) {
+    return null;
+  }
+
+  const expectedResource = resourceIdentifier(request);
+  if (payload.resource && payload.resource !== expectedResource) return null;
+
+  return {
+    token,
+    clientId: payload.clientId || "applaunchflow-mcp",
+    scopes: payload.scopes || [],
+    expiresAt: payload.expiresAt,
+    resource: new URL(expectedResource),
+    extra: { userId: payload.userId },
+  };
+}
+
+async function handleMcp(request: IncomingMessage, response: ServerResponse) {
+  const token = bearerToken(request);
+  if (!token) {
+    unauthorized(request, response);
+    return;
+  }
+
+  let auth: AuthInfo | null = null;
+  try {
+    auth = await introspectToken(request, token);
+  } catch (error) {
+    console.error("Token introspection failed", error);
+    json(response, 503, {
+      jsonrpc: "2.0",
+      error: { code: -32002, message: "Authorization service unavailable" },
+      id: null,
+    });
+    return;
+  }
+
+  if (!auth) {
+    unauthorized(request, response);
+    return;
+  }
+
+  const server = createAppLaunchFlowServer(
+    {
+      baseUrl: dashboardBaseUrl(),
+      token,
+    },
+  );
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+  });
+
+  (request as IncomingMessage & { auth?: AuthInfo }).auth = auth;
+
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(request, response);
+  } catch (error) {
+    console.error("MCP request failed", error);
+    if (!response.headersSent) {
+      json(response, 500, {
+        jsonrpc: "2.0",
+        error: { code: -32603, message: "Internal server error" },
+        id: null,
+      });
+    }
+  } finally {
+    await transport.close().catch(() => undefined);
+    await server.close().catch(() => undefined);
+  }
+}
+
+export function createHttpServer() {
+  process.env.APPLAUNCHFLOW_MCP_REMOTE = "1";
+
+  return createServer(async (request, response) => {
+    const url = new URL(request.url || "/", publicBaseUrl(request));
+
+    if (request.method === "GET" && url.pathname === "/healthz") {
+      json(response, 200, { ok: true, service: "applaunchflow-mcp" });
+      return;
+    }
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/.well-known/oauth-protected-resource"
+    ) {
+      json(response, 200, {
+        resource: resourceIdentifier(request),
+        authorization_servers: [dashboardBaseUrl()],
+        scopes_supported: REQUIRED_SCOPES,
+        bearer_methods_supported: ["header"],
+        resource_documentation: `${dashboardBaseUrl()}/docs/mcp`,
+      });
+      return;
+    }
+
+    if (url.pathname === "/mcp") {
+      await handleMcp(request, response);
+      return;
+    }
+
+    json(response, 404, { error: "Not found" });
+  });
+}
+
+async function main() {
+  const port = Number(process.env.PORT || DEFAULT_PORT);
+  const server = createHttpServer();
+  server.listen(port, "0.0.0.0", () => {
+    console.error(`AppLaunchFlow MCP HTTP server listening on port ${port}`);
+  });
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  void main();
+}

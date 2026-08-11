@@ -1,7 +1,18 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
-import { createReadReceiptStore, fail, ok, openUrl } from "./utils.js";
+import {
+  createHostedReadReceipt,
+  createReadReceiptStore,
+  fail,
+  hostedMcpEnabled,
+  ok,
+  openUrl,
+  verifyHostedReadReceipt,
+} from "./utils.js";
+
+const promoReceiptKey = (generationId: string, variantId?: string) =>
+  ["promo-video", generationId, variantId || "active"].join("::");
 
 function buildPromoVideoEditorUrl(
   client: AppLaunchFlowClient,
@@ -112,6 +123,12 @@ export function registerPromoVideoTools(
           variantId,
         });
         promoVideoReadReceipts.record({ generationId, variantId });
+        const readReceipt = hostedMcpEnabled()
+          ? createHostedReadReceipt(
+              promoReceiptKey(generationId, variantId),
+              client.credentials.token,
+            )
+          : undefined;
         return {
           content: [
             {
@@ -125,7 +142,12 @@ export function registerPromoVideoTools(
           ],
           structuredContent: {
             success: true,
-            data: { ...result, editorUrl, readBeforeEditSatisfied: true },
+            data: {
+              ...result,
+              editorUrl,
+              readBeforeEditSatisfied: true,
+              readReceipt,
+            },
             message: "Fetched promo video",
           },
         };
@@ -161,6 +183,12 @@ export function registerPromoVideoTools(
           ),
         appName: z.string().optional(),
         projectName: z.string().optional(),
+        readReceipt: z
+          .string()
+          .optional()
+          .describe(
+            "Hosted connector only: pass the readReceipt returned by the immediately preceding get_promo_video call.",
+          ),
       },
     },
     async (args) => {
@@ -170,7 +198,14 @@ export function registerPromoVideoTools(
           variantId: args.variantId,
         };
 
-        if (!promoVideoReadReceipts.has(receiptArgs)) {
+        const hasReceipt = hostedMcpEnabled()
+          ? verifyHostedReadReceipt(
+              args.readReceipt,
+              promoReceiptKey(args.projectId, args.variantId),
+              client.credentials.token,
+            )
+          : promoVideoReadReceipts.has(receiptArgs);
+        if (!hasReceipt) {
           return fail(
             new Error(
               "Call get_promo_video first for this project/variant before update_promo_video. Direct editing is locked until the current state has been read.",
@@ -178,7 +213,8 @@ export function registerPromoVideoTools(
           );
         }
 
-        const result = await client.updatePromoVideo(args);
+        const { readReceipt: _readReceipt, ...updateArgs } = args;
+        const result = await client.updatePromoVideo(updateArgs);
         promoVideoReadReceipts.consume(receiptArgs);
 
         const editorUrl = buildPromoVideoEditorUrl(client, {

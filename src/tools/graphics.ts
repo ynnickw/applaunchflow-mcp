@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
@@ -8,36 +7,15 @@ import {
   SOCIAL_FORMATS,
   type SocialFormat,
 } from "../social-template-previews.js";
-import type { TemplateSelectionCoordinator } from "../template-selection.js";
 import {
-  elicitUrl,
+  createHostedReadReceipt,
   fail,
+  hostedMcpEnabled,
   ok,
-  openInBrowser,
   openUrl,
   startProgressHeartbeat,
+  verifyHostedReadReceipt,
 } from "./utils.js";
-
-function tryCreateCompletionNotifier(
-  server: McpServer,
-  elicitationId: string,
-): (() => Promise<void>) | undefined {
-  try {
-    return server.server.createElicitationCompletionNotifier(elicitationId);
-  } catch {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const proto = server.server as any;
-      return () =>
-        proto.notification({
-          method: "notifications/elicitation/complete",
-          params: { elicitationId },
-        });
-    } catch {
-      return undefined;
-    }
-  }
-}
 
 type SocialTemplateCatalogPayload = {
   templates: Array<{
@@ -70,7 +48,6 @@ function buildGraphicsEditorUrl(
 export function registerGraphicsTools(
   server: McpServer,
   client: AppLaunchFlowClient,
-  selectionCoordinator?: TemplateSelectionCoordinator,
 ): void {
   server.registerTool(
     "prepare_social_graphics_styles",
@@ -290,7 +267,6 @@ export function registerGraphicsTools(
         generationId,
         catalogKey,
       },
-      extra,
     ) => {
       try {
         const payload = decorateSocialTemplatePayload(
@@ -298,9 +274,6 @@ export function registerGraphicsTools(
           client.credentials.baseUrl,
         ) as SocialTemplateCatalogPayload;
         const availableIds = new Set(payload.templates.map((t) => t.id));
-        const availableTemplateMap = new Map(
-          payload.templates.map((t) => [t.id, t]),
-        );
         const filteredTemplateIds =
           templateIds?.filter((id) => availableIds.has(id)) || [];
         const droppedTemplateIds =
@@ -328,115 +301,6 @@ export function registerGraphicsTools(
           );
         }
 
-        if (selectionCoordinator) {
-          const selection = await selectionCoordinator.createSelection({
-            templateIds:
-              filteredTemplateIds.length > 0 ? filteredTemplateIds : undefined,
-            buildGalleryUrl: (callbackUrl) =>
-              buildSocialTemplateGalleryUrl(client.credentials.baseUrl, {
-                format,
-                templateIds:
-                  filteredTemplateIds.length > 0
-                    ? filteredTemplateIds
-                    : undefined,
-                selectedTemplateId:
-                  selectedTemplateId && availableIds.has(selectedTemplateId)
-                    ? selectedTemplateId
-                    : undefined,
-                title,
-                returnTo: callbackUrl,
-                generationId,
-                catalogKey,
-              }),
-          });
-
-          try {
-            const elicitationId = randomUUID();
-            selection.setCompletionNotifier(
-              tryCreateCompletionNotifier(server, elicitationId),
-            );
-
-            const elicitationResult = await elicitUrl(
-              server,
-              {
-                mode: "url",
-                elicitationId,
-                message:
-                  "Browse the social template gallery and click a template to select it.",
-                url: selection.galleryUrl,
-              },
-              { signal: extra.signal },
-            );
-
-            if (elicitationResult.action !== "accept") {
-              selection.cleanup();
-              return {
-                content: [
-                  {
-                    type: "text" as const,
-                    text:
-                      elicitationResult.action === "decline"
-                        ? "Template browsing was dismissed."
-                        : "Template browsing was cancelled.",
-                  },
-                ],
-                structuredContent: {
-                  success: false,
-                  data: { action: elicitationResult.action, cancelled: true },
-                  message: "Template browsing not completed",
-                },
-              };
-            }
-          } catch {
-            openInBrowser(selection.galleryUrl);
-          }
-
-          try {
-            const chosenTemplateId = await selection.waitForSelection(
-              extra.signal,
-            );
-            const chosenTemplate = availableTemplateMap.get(chosenTemplateId);
-            if (!chosenTemplate) {
-              throw new Error(
-                `Selected template ${chosenTemplateId} is not available`,
-              );
-            }
-
-            return {
-              content: [
-                {
-                  type: "text" as const,
-                  text: `Selected social template ${chosenTemplate.name} (${chosenTemplate.id}).`,
-                },
-                {
-                  type: "resource_link" as const,
-                  uri: chosenTemplate.previewResourceUris[format],
-                  name: `${chosenTemplate.name} (${format} preview)`,
-                  mimeType: "image/png",
-                  description:
-                    chosenTemplate.description ||
-                    `Visual preview for the ${chosenTemplate.name} social template.`,
-                },
-              ],
-              structuredContent: {
-                success: true,
-                data: {
-                  template: chosenTemplate,
-                  templateId: chosenTemplate.id,
-                  templateName: chosenTemplate.name,
-                  format,
-                  galleryUrl: selection.galleryUrl,
-                },
-                message: "Selected social template",
-              },
-            };
-          } catch (error) {
-            selection.cleanup();
-            throw error;
-          }
-        }
-
-        // No coordinator — fall back to returning the URL
         const galleryUrl = buildSocialTemplateGalleryUrl(
           client.credentials.baseUrl,
           {
@@ -634,6 +498,10 @@ export function registerGraphicsTools(
         graphicsReadReceipts.add(
           graphicsReceiptKey({ generationId, variantId, format }),
         );
+        const receiptKey = graphicsReceiptKey({ generationId, variantId, format });
+        const readReceipt = hostedMcpEnabled()
+          ? createHostedReadReceipt(receiptKey, client.credentials.token)
+          : undefined;
 
         return {
           content: [
@@ -648,7 +516,12 @@ export function registerGraphicsTools(
           ],
           structuredContent: {
             success: true,
-            data: { ...result, editorUrl, readBeforeEditSatisfied: true },
+            data: {
+              ...result,
+              editorUrl,
+              readBeforeEditSatisfied: true,
+              readReceipt,
+            },
             message: "Fetched one social graphics format",
           },
         };
@@ -711,6 +584,12 @@ export function registerGraphicsTools(
             "Complete Layout object for this one format — the SAME shape screenshot layouts use, with exactly one entry in screens[] and canvasWidth/canvasHeight matching the format. " +
             "Full field reference: read the resource applaunchflow://schema/layout.",
           ),
+        readReceipt: z
+          .string()
+          .optional()
+          .describe(
+            "Hosted connector only: pass the readReceipt returned by the immediately preceding get_graphics_format call.",
+          ),
       },
     },
     async (args) => {
@@ -721,7 +600,14 @@ export function registerGraphicsTools(
           format: args.format,
         });
 
-        if (!graphicsReadReceipts.has(receiptKey)) {
+        const hasReceipt = hostedMcpEnabled()
+          ? verifyHostedReadReceipt(
+              args.readReceipt,
+              receiptKey,
+              client.credentials.token,
+            )
+          : graphicsReadReceipts.has(receiptKey);
+        if (!hasReceipt) {
           return fail(
             new Error(
               "Call get_graphics_format first for this generation/variant/format before save_graphics_format. Direct editing is locked until the current same-format state has been read.",
@@ -729,7 +615,8 @@ export function registerGraphicsTools(
           );
         }
 
-        const result = await client.saveGraphicsFormat(args);
+        const { readReceipt: _readReceipt, ...saveArgs } = args;
+        const result = await client.saveGraphicsFormat(saveArgs);
         graphicsReadReceipts.delete(receiptKey);
 
         const editorUrl = buildGraphicsEditorUrl(client, {

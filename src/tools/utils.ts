@@ -1,4 +1,4 @@
-import { exec } from "node:child_process";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ElicitResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js";
@@ -32,22 +32,8 @@ export async function elicitUrl(
 }
 
 /**
- * Open a URL in the user's default browser.
- * Uses `open` on macOS, `xdg-open` on Linux, `start` on Windows.
- */
-export function openInBrowser(url: string): void {
-  const command =
-    process.platform === "darwin"
-      ? "open"
-      : process.platform === "win32"
-        ? "start"
-        : "xdg-open";
-  exec(`${command} ${JSON.stringify(url)}`);
-}
-
-/**
- * Try URL elicitation first, fall back to opening the URL directly in the browser.
- * Returns true if elicitation succeeded (user accepted), false otherwise.
+ * Ask the host to open a URL. Hosted connectors return false when the client
+ * does not support URL elicitation so the tool can still return the URL.
  */
 export async function openUrl(
   server: McpServer,
@@ -68,8 +54,7 @@ export async function openUrl(
     );
     return result.action === "accept";
   } catch {
-    openInBrowser(url);
-    return true;
+    return false;
   }
 }
 
@@ -155,6 +140,70 @@ export function createReadReceiptStore(): ReadReceiptStore {
       receipts.delete(keyFor(args));
     },
   };
+}
+
+const READ_RECEIPT_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Hosted MCP requests are intentionally stateless, so the local in-memory
+ * get-before-edit gate cannot span two tool calls. These signed, short-lived
+ * receipts prove that the same access token fetched the exact target shortly
+ * before attempting an edit, without storing bearer tokens or server state.
+ */
+export function createHostedReadReceipt(
+  target: string,
+  bearerToken: string,
+  now = Date.now(),
+): string {
+  const payload = Buffer.from(JSON.stringify({ target, issuedAt: now })).toString(
+    "base64url",
+  );
+  const signature = createHmac("sha256", bearerToken)
+    .update(payload)
+    .digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+export function verifyHostedReadReceipt(
+  receipt: string | undefined,
+  target: string,
+  bearerToken: string,
+  now = Date.now(),
+): boolean {
+  if (!receipt) return false;
+  const [payload, signature, extra] = receipt.split(".");
+  if (!payload || !signature || extra) return false;
+
+  const expected = createHmac("sha256", bearerToken)
+    .update(payload)
+    .digest("base64url");
+  const providedBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (
+    providedBuffer.length !== expectedBuffer.length ||
+    !timingSafeEqual(providedBuffer, expectedBuffer)
+  ) {
+    return false;
+  }
+
+  try {
+    const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
+      target?: unknown;
+      issuedAt?: unknown;
+    };
+    return (
+      decoded.target === target &&
+      typeof decoded.issuedAt === "number" &&
+      decoded.issuedAt <= now &&
+      now - decoded.issuedAt <= READ_RECEIPT_TTL_MS
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function hostedMcpEnabled(): boolean {
+  return process.env.APPLAUNCHFLOW_MCP_REMOTE === "1";
 }
 
 export function ok(data: unknown, message?: string) {

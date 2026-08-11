@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
@@ -8,34 +7,7 @@ import {
   type TemplatePreviewDeviceType,
   decorateTemplatePayload,
 } from "../template-previews.js";
-import type { TemplateSelectionCoordinator } from "../template-selection.js";
-import { elicitUrl, openInBrowser, fail } from "./utils.js";
-
-/**
- * Try to create an elicitation completion notifier.  The SDK gates this behind
- * `capabilities.elicitation.url` too, so fall back silently.
- */
-function tryCreateCompletionNotifier(
-  server: McpServer,
-  elicitationId: string,
-): (() => Promise<void>) | undefined {
-  try {
-    return server.server.createElicitationCompletionNotifier(elicitationId);
-  } catch {
-    // SDK capability check failed — send the notification manually.
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const proto = server.server as any;
-      return () =>
-        proto.notification({
-          method: "notifications/elicitation/complete",
-          params: { elicitationId },
-        });
-    } catch {
-      return undefined;
-    }
-  }
-}
+import { fail } from "./utils.js";
 
 type TemplateCatalogPayload = {
   templates: Array<{
@@ -178,7 +150,6 @@ function buildTemplateDetailsResult(payload: TemplateDetailsPayload) {
 export function registerTemplateTools(
   server: McpServer,
   client: AppLaunchFlowClient,
-  selectionCoordinator?: TemplateSelectionCoordinator,
 ): void {
   server.registerTool(
     "browse_templates",
@@ -229,7 +200,6 @@ export function registerTemplateTools(
         generationId,
         catalogKey,
       },
-      extra,
     ) => {
       try {
         const payload = decorateTemplatePayload(
@@ -237,9 +207,6 @@ export function registerTemplateTools(
           client.credentials.baseUrl,
         ) as TemplateCatalogPayload;
         const availableIds = new Set(payload.templates.map((template) => template.id));
-        const availableTemplateMap = new Map(
-          payload.templates.map((template) => [template.id, template]),
-        );
         const filteredTemplateIds =
           templateIds?.filter((templateId) => availableIds.has(templateId)) || [];
         const droppedTemplateIds =
@@ -268,130 +235,6 @@ export function registerTemplateTools(
           );
         }
 
-        // If coordinator is available, set up a callback so clicking a template works
-        if (selectionCoordinator) {
-          const selection = await selectionCoordinator.createSelection({
-            templateIds: filteredTemplateIds.length > 0 ? filteredTemplateIds : undefined,
-            buildGalleryUrl: (callbackUrl) =>
-              buildTemplateGalleryUrl(client.credentials.baseUrl, {
-                deviceType,
-                templateIds:
-                  filteredTemplateIds.length > 0 ? filteredTemplateIds : undefined,
-                selectedTemplateId:
-                  selectedTemplateId && availableIds.has(selectedTemplateId)
-                    ? selectedTemplateId
-                    : undefined,
-                title,
-                returnTo: callbackUrl,
-                generationId,
-                catalogKey,
-              }),
-          });
-
-          const fallbackGalleryUrl = buildTemplateGalleryUrl(client.credentials.baseUrl, {
-            deviceType,
-            templateIds: filteredTemplateIds.length > 0 ? filteredTemplateIds : undefined,
-            selectedTemplateId:
-              selectedTemplateId && availableIds.has(selectedTemplateId)
-                ? selectedTemplateId
-                : undefined,
-            title,
-            generationId,
-            catalogKey,
-          });
-
-          // Try URL elicitation first; if the client doesn't support it,
-          // open the gallery directly in the user's browser.
-          let elicitationWorked = false;
-          try {
-            const elicitationId = randomUUID();
-
-            selection.setCompletionNotifier(
-              tryCreateCompletionNotifier(server, elicitationId),
-            );
-
-            const elicitationResult = await elicitUrl(
-              server,
-              {
-                mode: "url",
-                elicitationId,
-                message:
-                  "Browse the template gallery and click a template to select it.",
-                url: selection.galleryUrl,
-              },
-              { signal: extra.signal },
-            );
-
-            if (elicitationResult.action !== "accept") {
-              selection.cleanup();
-
-              return {
-                content: [
-                  {
-                    type: "text" as const,
-                    text:
-                      elicitationResult.action === "decline"
-                        ? "Template browsing was dismissed."
-                        : "Template browsing was cancelled.",
-                  },
-                ],
-                structuredContent: {
-                  success: false,
-                  data: { action: elicitationResult.action, cancelled: true },
-                  message: "Template browsing not completed",
-                },
-              };
-            }
-
-            elicitationWorked = true;
-          } catch {
-            // Client doesn't support URL elicitation — open directly in the browser.
-            openInBrowser(selection.galleryUrl);
-          }
-
-          try {
-            const chosenTemplateId = await selection.waitForSelection(extra.signal);
-            const chosenTemplate = availableTemplateMap.get(chosenTemplateId);
-
-            if (!chosenTemplate) {
-              throw new Error(`Selected template ${chosenTemplateId} is not available`);
-            }
-
-            return {
-              content: [
-                {
-                  type: "text" as const,
-                  text: `Selected template ${chosenTemplate.name} (${chosenTemplate.id}).`,
-                },
-                {
-                  type: "resource_link" as const,
-                  uri: chosenTemplate.previewResourceUris[deviceType],
-                  name: `${chosenTemplate.name} (${deviceType} preview)`,
-                  mimeType: "image/png",
-                  description:
-                    chosenTemplate.description ||
-                    `Visual preview for the ${chosenTemplate.name} screenshot template.`,
-                },
-              ],
-              structuredContent: {
-                success: true,
-                data: {
-                  template: chosenTemplate,
-                  templateId: chosenTemplate.id,
-                  templateName: chosenTemplate.name,
-                  deviceType,
-                  galleryUrl: selection.galleryUrl,
-                },
-                message: "Selected template",
-              },
-            };
-          } catch (error) {
-            selection.cleanup();
-            throw error;
-          }
-        }
-
-        // No coordinator — fall back to returning the URL
         const galleryUrl = buildTemplateGalleryUrl(client.credentials.baseUrl, {
           deviceType,
           templateIds: filteredTemplateIds.length > 0 ? filteredTemplateIds : undefined,

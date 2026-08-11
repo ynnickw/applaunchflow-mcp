@@ -1,26 +1,28 @@
 {
-  "name": "@applaunchflow/mcp",
-  "version": "0.2.4",
-  "description": "MCP server for AppLaunchFlow — create App Store & Google Play screenshots with AI.",
+  "name": "applaunchflow",
+  "version": "0.3.0",
+  "description": "Hosted OAuth MCP connector for AppLaunchFlow.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ynnickw/applaunchflow-mcp"
+    "url": "git+https://github.com/ynnickw/applaunchflow-mcp.git"
   },
   "type": "module",
   "bin": {
-    "applaunchflow-mcp": "./build/index.js"
+    "applaunchflow": "build/cli.js"
   },
   "files": [
     "build"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && chmod 755 build/index.js",
-    "dev": "tsx src/index.ts",
-    "start": "node build/index.js"
+    "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsc -p tsconfig.json && chmod 755 build/cli.js",
+    "dev:http": "tsx src/http.ts",
+    "start:http": "node build/http.js",
+    "test": "npm run build && node --test build/*.test.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.20.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

@@ -1,18 +1,10 @@
-#!/usr/bin/env node
-
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
-  clearStoredCredentials,
-  getCredentialsPath,
-  loadStoredCredentials,
-  resolveCredentials,
-} from "./auth/credentials.js";
-import { login } from "./auth/login.js";
-import { AppLaunchFlowClient } from "./client/api.js";
+  AppLaunchFlowClient,
+  type McpCredentials,
+} from "./client/api.js";
 import { registerPrompts } from "./prompts/register.js";
 import { registerResources } from "./resources/register.js";
-import { TemplateSelectionCoordinator } from "./template-selection.js";
 import { registerAssetTools } from "./tools/assets.js";
 import { registerLayoutTools } from "./tools/layouts.js";
 import { registerProjectTools } from "./tools/projects.js";
@@ -24,8 +16,9 @@ import { registerMockupTools } from "./tools/mockups.js";
 import { registerLocalizationTools } from "./tools/localization.js";
 import { registerVariantTools } from "./tools/variants.js";
 import { registerKeywordTools } from "./tools/keywords.js";
+import { installToolMetadataPolicy } from "./tool-metadata.js";
 
-const SERVER_INSTRUCTIONS = `
+export const SERVER_INSTRUCTIONS = `
 AppLaunchFlow MCP supports four content types: app store screenshots, social graphics, promo videos, and mockup animations.
 Use it for project setup, screenshot uploads, AI generation of screenshots/graphics/videos, mockup animation editing, variant management, direct layout editing, and translation.
 Do not treat this MCP as an ASO or generic graphics-design assistant — every tool is scoped to one of those four content types.
@@ -40,8 +33,8 @@ Default behavior:
 - Do not force menu-style "what would you like to do next?" steps after each tool call.
 - The user can edit layouts in natural language. Translate those requests into direct MCP actions.
 - If a tool returns a user-facing URL, repeat the exact URL in the assistant reply. Do not say "link above" or assume tool output is visible to the user.
-- The MCP opens the editor in the user's browser automatically on INITIAL CREATION ONLY: apply_screenshot_style, apply_social_graphics_style, generate_layouts, generate_graphics, generate_promo_video, create_mockup_animation, create_variant, duplicate_variant. For these, if the MCP's elicitation-based browser open fails, fall back ONCE to: open "<url>" (macOS) / xdg-open "<url>" (Linux).
-- For edit tools (transform_layout, save_graphics_format, update_promo_video, update_mockup_animation, save_layout, save_graphics), DO NOT run open / xdg-open. The user already has the editor open from the initial creation; popping a new tab on every edit is annoying. Just include the editor URL in the reply text as a reference link.
+- Initial creation tools return an editor URL. Include that exact URL in the reply so the user can open the result.
+- For edit tools (transform_layout, save_graphics_format, update_promo_video, update_mockup_animation, save_layout, save_graphics), include the editor URL as a reference without claiming a new browser tab was opened.
 
 Schema references (MCP resources — read them, they are not loaded automatically):
 - applaunchflow://schema/layout — every field of the layout JSON: all 11 node types, their properties, and valid value ranges. Used by BOTH screenshots and social graphics (a social layout is the same shape with exactly one screen and the format's canvas size).
@@ -64,9 +57,9 @@ Screenshot workflows:
 - When adding or editing elements, ensure text and screenshots do not overlap. Verify that positions place elements in distinct, non-conflicting areas of the canvas.
 - After composition-sensitive edits, inspect the returned translation or re-fetch the layout before reporting success. If elements overlap or are poorly positioned, fix them before telling the user the edit is done.
 - get_layout is mandatory before every direct transform_layout call. Do not edit a layout without a fresh read of the current state first.
-- ALWAYS use browse_templates after prepare_screenshot_styles when a screenshot template choice is needed. Pass the prepared templateIds, generationId, and catalogKey. Never offer templates via text bullet points or AskUserQuestion. The gallery opens the personalized previews in the browser and returns the user's selection automatically.
+- ALWAYS use browse_templates after prepare_screenshot_styles when a screenshot template choice is needed. Pass the prepared templateIds, generationId, and catalogKey. Never offer templates via text bullet points. The connector returns a gallery URL, which you must show to the user before waiting for the selected template id.
 - When you need visual context about a screenshot (e.g. to extract colors, understand the app UI, or make context-specific edits), use view_screenshot to look at the actual image.
-- After generating a new variant, the editor URL is opened automatically in the browser. Also include the URL in the reply as a fallback.
+- After generating a new variant, include the editor URL in the reply.
 
 Social graphics workflows (mirror the screenshot flow):
 - Call list_source_screenshots, select 3-7 real screenshots in story order, then call prepare_social_graphics_styles. This generates or reuses every social template across all six formats in one catalog.
@@ -104,57 +97,29 @@ Project creation should be fast and simple:
 4. After creation, recommend uploading screenshots as the next step (screenshots are the input for both social graphics and promo video generation too).
 `.trim();
 
-async function runAuthCommand(args: string[]) {
-  const [subcommand, ...rest] = args;
+const HOSTED_SERVER_INSTRUCTIONS = `
+HOSTED CONNECTOR SAFETY RULES:
+- Never reveal, repeat, log, or place OAuth access tokens, refresh tokens, authorization codes, PKCE verifiers, or read receipts in user-facing text.
+- A readReceipt returned inside structured tool data is an opaque safety input. Pass it only to the matching edit tool, for the exact same project, variant, language, and format.
+- Before deleting, clearing, overwriting, or replacing user content, require clear user intent for that exact action. Do not infer destructive intent from a broad request.
+- Hosted gallery tools return a URL instead of opening a local browser. Show the exact URL, stop, and wait for the user's chosen template id. Do not guess or apply a style before the user selects it.
 
-  if (subcommand === "login") {
-    const baseUrlFlagIndex = rest.findIndex((value) => value === "--base-url");
-    const baseUrl =
-      baseUrlFlagIndex >= 0
-        ? rest[baseUrlFlagIndex + 1]
-        : process.env.APPLAUNCHFLOW_BASE_URL || "https://dashboard.applaunchflow.com";
-    await login(baseUrl);
-    return;
-  }
+${SERVER_INSTRUCTIONS}
+`.trim();
 
-  if (subcommand === "logout") {
-    await clearStoredCredentials();
-    console.error(`Removed credentials at ${getCredentialsPath()}`);
-    return;
-  }
-
-  if (subcommand === "status") {
-    const credentials = await loadStoredCredentials();
-    if (!credentials) {
-      console.error("No stored AppLaunchFlow MCP credentials");
-      process.exitCode = 1;
-      return;
-    }
-
-    console.error(`Base URL: ${credentials.baseUrl}`);
-    console.error(`Cookie name: ${credentials.cookieName}`);
-    if (credentials.expiresAt) {
-      console.error(`Expires at: ${credentials.expiresAt}`);
-    }
-    console.error(`Credentials file: ${getCredentialsPath()}`);
-    return;
-  }
-
-  console.error("Usage: applaunchflow-mcp auth <login|logout|status> [--base-url <url>]");
-  process.exitCode = 1;
-}
-
-async function startServer() {
-  const credentials = await resolveCredentials();
+export function createAppLaunchFlowServer(
+  credentials: McpCredentials,
+): McpServer {
   const client = new AppLaunchFlowClient(credentials);
-  const templateSelectionCoordinator = new TemplateSelectionCoordinator();
 
   const server = new McpServer({
     name: "applaunchflow-mcp",
-    version: "0.2.4",
+    version: "0.3.0",
   }, {
-    instructions: SERVER_INSTRUCTIONS,
+    instructions: HOSTED_SERVER_INSTRUCTIONS,
   });
+
+  installToolMetadataPolicy(server, { hosted: true });
 
   registerPrompts(server);
   registerResources(server, client);
@@ -162,34 +127,13 @@ async function startServer() {
   registerAssetTools(server, client);
   registerScreenshotTools(server, client);
   registerLayoutTools(server, client);
-  registerTemplateTools(server, client, templateSelectionCoordinator);
-  registerGraphicsTools(server, client, templateSelectionCoordinator);
+  registerTemplateTools(server, client);
+  registerGraphicsTools(server, client);
   registerPromoVideoTools(server, client);
   registerMockupTools(server, client);
   registerLocalizationTools(server, client);
   registerVariantTools(server, client);
   registerKeywordTools(server, client);
 
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  return server;
 }
-
-async function main() {
-  const [, , command, ...args] = process.argv;
-
-  if (command === "auth") {
-    await runAuthCommand(args);
-    return;
-  }
-
-  try {
-    await startServer();
-  } catch (error) {
-    console.error(
-      error instanceof Error ? error.stack || error.message : String(error),
-    );
-    process.exitCode = 1;
-  }
-}
-
-void main();
