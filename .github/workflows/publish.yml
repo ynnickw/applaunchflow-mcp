@@ -1,8 +1,12 @@
-name: Publish to npm
+name: Publish npm package
 
 on:
   push:
     branches: [main]
+
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -12,16 +16,63 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect version increase
+        id: version
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          current_version=$(node -p "require('./package.json').version")
+          if ! git cat-file -e "${BEFORE_SHA}:package.json" 2>/dev/null; then
+            echo "Unable to read package.json at the previous push commit: ${BEFORE_SHA}" >&2
+            exit 1
+          fi
+          previous_version=$(git show "${BEFORE_SHA}:package.json" | node -e "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => process.stdout.write(JSON.parse(input).version));")
+          if node scripts/release-version.mjs "${previous_version}" "${current_version}"; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "previous_version=${previous_version}" >> "$GITHUB_OUTPUT"
+          echo "current_version=${current_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Report unchanged version
+        if: steps.version.outputs.should_publish != 'true'
+        run: echo "Skipping npm publish because package version did not increase (${{ steps.version.outputs.previous_version }} -> ${{ steps.version.outputs.current_version }})."
 
       - uses: actions/setup-node@v4
+        if: steps.version.outputs.should_publish == 'true'
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org
+          cache: npm
 
-      - run: npm ci
+      - name: Install dependencies
+        if: steps.version.outputs.should_publish == 'true'
+        run: npm ci
 
-      - run: npm run build
+      - name: Test package
+        if: steps.version.outputs.should_publish == 'true'
+        run: npm test
 
-      - run: npm publish --provenance --access public
+      - name: Verify package contents
+        if: steps.version.outputs.should_publish == 'true'
+        run: npm pack --dry-run
+
+      - name: Check registry
+        if: steps.version.outputs.should_publish == 'true'
+        id: registry
+        run: |
+          if npm view "$(node -p "require('./package.json').name")@$(node -p "require('./package.json').version")" version >/dev/null 2>&1; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm
+        if: steps.version.outputs.should_publish == 'true' && steps.registry.outputs.already_published != 'true'
+        run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

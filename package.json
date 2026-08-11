@@ -1,6 +1,6 @@
 {
   "name": "applaunchflow",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Hosted OAuth MCP connector for AppLaunchFlow.",
   "license": "MIT",
   "repository": {
@@ -19,7 +19,7 @@
     "build": "npm run clean && tsc -p tsconfig.json && chmod 755 build/cli.js",
     "dev:http": "tsx src/http.ts",
     "start:http": "node build/http.js",
-    "test": "npm run build && node --test build/*.test.js"
+    "test": "npm run build && node --test build/*.test.js scripts/*.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
