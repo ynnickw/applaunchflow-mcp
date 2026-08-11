@@ -198,6 +198,24 @@ export function createHttpServer() {
 
     if (
       request.method === "GET" &&
+      url.pathname === "/.well-known/openai-apps-challenge"
+    ) {
+      const token = process.env.OPENAI_APPS_CHALLENGE_TOKEN?.trim();
+      if (!token) {
+        json(response, 404, { error: "Challenge token not configured" });
+        return;
+      }
+
+      response.writeHead(200, {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "no-store",
+      });
+      response.end(token);
+      return;
+    }
+
+    if (
+      request.method === "GET" &&
       url.pathname === "/.well-known/oauth-protected-resource"
     ) {
       json(response, 200, {

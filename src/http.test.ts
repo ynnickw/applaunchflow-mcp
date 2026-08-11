@@ -45,6 +45,49 @@ test("HTTP server exposes health and protected-resource metadata", async () => {
   });
 });
 
+test("HTTP server exposes the configured OpenAI domain challenge", async () => {
+  const previousToken = process.env.OPENAI_APPS_CHALLENGE_TOKEN;
+  process.env.OPENAI_APPS_CHALLENGE_TOKEN = "openai-domain-challenge";
+
+  try {
+    await withServer(async (baseUrl) => {
+      const response = await fetch(
+        `${baseUrl}/.well-known/openai-apps-challenge`,
+      );
+      assert.equal(response.status, 200);
+      assert.equal(
+        response.headers.get("content-type"),
+        "text/plain; charset=utf-8",
+      );
+      assert.equal(await response.text(), "openai-domain-challenge");
+    });
+  } finally {
+    if (previousToken === undefined) {
+      delete process.env.OPENAI_APPS_CHALLENGE_TOKEN;
+    } else {
+      process.env.OPENAI_APPS_CHALLENGE_TOKEN = previousToken;
+    }
+  }
+});
+
+test("OpenAI domain challenge returns 404 when it is not configured", async () => {
+  const previousToken = process.env.OPENAI_APPS_CHALLENGE_TOKEN;
+  delete process.env.OPENAI_APPS_CHALLENGE_TOKEN;
+
+  try {
+    await withServer(async (baseUrl) => {
+      const response = await fetch(
+        `${baseUrl}/.well-known/openai-apps-challenge`,
+      );
+      assert.equal(response.status, 404);
+    });
+  } finally {
+    if (previousToken !== undefined) {
+      process.env.OPENAI_APPS_CHALLENGE_TOKEN = previousToken;
+    }
+  }
+});
+
 test("MCP endpoint challenges unauthenticated callers with resource metadata", async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/mcp`, {
