@@ -5,8 +5,10 @@ import {
   APPLAUNCHFLOW_MCP_URL,
   codexAddArgs,
   codexDisconnectArgs,
+  codexInspectArgs,
   codexLoginArgs,
   codexStatusArgs,
+  isHostedCodexConfig,
 } from "./cli-core.js";
 
 function printHelp(): void {
@@ -30,17 +32,34 @@ function runCodex(args: string[]): void {
   }
 }
 
-function codexIsConfigured(): boolean {
-  const result = spawnSync("codex", codexStatusArgs(), { stdio: "ignore" });
+function getCodexConfiguration(): "missing" | "hosted" | "legacy" {
+  const result = spawnSync("codex", codexInspectArgs(), {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
   if (result.error) {
     throw new Error(`Could not run Codex: ${result.error.message}`);
   }
-  return result.status === 0;
+  if (result.status !== 0) return "missing";
+
+  try {
+    return isHostedCodexConfig(JSON.parse(result.stdout))
+      ? "hosted"
+      : "legacy";
+  } catch {
+    return "legacy";
+  }
 }
 
 function connectCodex(): void {
-  if (!codexIsConfigured()) {
+  const configuration = getCodexConfiguration();
+  if (configuration === "legacy") {
+    console.log("Replacing the legacy local AppLaunchFlow MCP configuration...");
+    runCodex(codexDisconnectArgs());
+  }
+  if (configuration !== "hosted") {
     runCodex(codexAddArgs());
+    return;
   }
   runCodex(codexLoginArgs());
 }

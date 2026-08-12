@@ -5,8 +5,10 @@ import {
   APPLAUNCHFLOW_MCP_URL,
   codexAddArgs,
   codexDisconnectArgs,
+  codexInspectArgs,
   codexLoginArgs,
   codexStatusArgs,
+  isHostedCodexConfig,
 } from "./cli-core.js";
 
 test("Codex convenience commands use the hosted OAuth connector", () => {
@@ -19,11 +21,49 @@ test("Codex convenience commands use the hosted OAuth connector", () => {
   ]);
   assert.deepEqual(codexLoginArgs(), ["mcp", "login", "applaunchflow"]);
   assert.deepEqual(codexStatusArgs(), ["mcp", "get", "applaunchflow"]);
+  assert.deepEqual(codexInspectArgs(), [
+    "mcp",
+    "get",
+    "applaunchflow",
+    "--json",
+  ]);
   assert.deepEqual(codexDisconnectArgs(), [
     "mcp",
     "remove",
     "applaunchflow",
   ]);
+});
+
+test("detects whether Codex already uses the hosted connector", () => {
+  assert.equal(
+    isHostedCodexConfig({
+      transport: {
+        type: "streamable_http",
+        url: APPLAUNCHFLOW_MCP_URL,
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    isHostedCodexConfig({
+      transport: {
+        type: "stdio",
+        command: "npx",
+        args: ["-y", "@applaunchflow/mcp@latest"],
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    isHostedCodexConfig({
+      transport: {
+        type: "streamable_http",
+        url: "https://example.com/mcp",
+      },
+    }),
+    false,
+  );
+  assert.equal(isHostedCodexConfig(null), false);
 });
 
 test("the public connector URL is a secure MCP endpoint", () => {

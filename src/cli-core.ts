@@ -19,6 +19,20 @@ export function codexStatusArgs(): string[] {
   return ["mcp", "get", APPLAUNCHFLOW_MCP_NAME];
 }
 
+export function codexInspectArgs(): string[] {
+  return [...codexStatusArgs(), "--json"];
+}
+
+export function isHostedCodexConfig(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+
+  const transport = (value as { transport?: unknown }).transport;
+  if (!transport || typeof transport !== "object") return false;
+
+  const { type, url } = transport as { type?: unknown; url?: unknown };
+  return type === "streamable_http" && url === APPLAUNCHFLOW_MCP_URL;
+}
+
 export function codexDisconnectArgs(): string[] {
   return ["mcp", "remove", APPLAUNCHFLOW_MCP_NAME];
 }
