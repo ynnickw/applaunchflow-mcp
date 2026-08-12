@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.ynnickw/applaunchflow",
+  "title": "AppLaunchFlow",
+  "description": "Create app-store screenshots, social graphics, promo videos, and animated device mockups.",
+  "version": "0.3.7",
+  "repository": {
+    "url": "https://github.com/ynnickw/applaunchflow-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://www.applaunchflow.com",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.applaunchflow.com/mcp"
+    }
+  ]
+}

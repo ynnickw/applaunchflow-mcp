@@ -68,6 +68,16 @@ Public endpoints:
 - Protected resource metadata: `https://mcp.applaunchflow.com/.well-known/oauth-protected-resource`
 - Health: `https://mcp.applaunchflow.com/healthz`
 
+## Official MCP Registry
+
+AppLaunchFlow is published as `io.github.ynnickw/applaunchflow` in the official
+MCP Registry. The checked-in [`server.json`](server.json) is the canonical
+registry manifest and points clients to the hosted OAuth connector.
+
+Registry publication runs automatically from GitHub Actions when the manifest
+changes on `main`. Keep the manifest version aligned with `package.json`; the
+test suite enforces this before publication.
+
 `APPLAUNCHFLOW_MCP_PUBLIC_URL` may be either the origin or the full `/mcp`
 URL; both services normalize it to the same canonical resource URL. Set
 `APPLAUNCHFLOW_MCP_PUBLIC_URL=https://mcp.applaunchflow.com/mcp` and
