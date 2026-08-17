@@ -149,6 +149,20 @@ test("authenticated Streamable HTTP clients can initialize and discover tools", 
   try {
     await withServer(async (baseUrl) => {
       process.env.APPLAUNCHFLOW_MCP_PUBLIC_URL = `${baseUrl}/mcp`;
+      for (const method of ["GET", "DELETE"]) {
+        const response = await fetch(`${baseUrl}/mcp`, {
+          method,
+          headers: { authorization: "Bearer test-access-token" },
+        });
+        assert.equal(response.status, 405);
+        assert.equal(response.headers.get("allow"), "POST");
+        assert.deepEqual(await response.json(), {
+          jsonrpc: "2.0",
+          error: { code: -32000, message: "Method not allowed" },
+          id: null,
+        });
+      }
+
       const transport = new StreamableHTTPClientTransport(
         new URL(`${baseUrl}/mcp`),
         {

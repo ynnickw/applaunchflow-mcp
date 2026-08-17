@@ -5,8 +5,10 @@ import { pathToFileURL } from "node:url";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { createAppLaunchFlowServer } from "./index.js";
+import { upstreamSignal } from "./request-context.js";
 
 const DEFAULT_PORT = 8787;
+const INTROSPECTION_TIMEOUT_MS = 10_000;
 const DEFAULT_DASHBOARD_URL = "https://dashboard.applaunchflow.com";
 const REQUIRED_SCOPES = [
   "projects:read",
@@ -96,11 +98,25 @@ function unauthorized(request: IncomingMessage, response: ServerResponse): void 
   );
 }
 
+function methodNotAllowed(response: ServerResponse): void {
+  json(
+    response,
+    405,
+    {
+      jsonrpc: "2.0",
+      error: { code: -32000, message: "Method not allowed" },
+      id: null,
+    },
+    { allow: "POST" },
+  );
+}
+
 async function introspectToken(
   request: IncomingMessage,
   token: string,
 ): Promise<AuthInfo | null> {
   const response = await fetch(`${dashboardBaseUrl()}/api/auth/mcp/introspect`, {
+    signal: upstreamSignal(INTROSPECTION_TIMEOUT_MS),
     headers: {
       authorization: `Bearer ${token}`,
       accept: "application/json",
@@ -152,6 +168,11 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
 
   if (!auth) {
     unauthorized(request, response);
+    return;
+  }
+
+  if (request.method !== "POST") {
+    methodNotAllowed(response);
     return;
   }
 
@@ -241,7 +262,7 @@ async function main() {
   const port = Number(process.env.PORT || DEFAULT_PORT);
   const server = createHttpServer();
   server.listen(port, "0.0.0.0", () => {
-    console.error(`AppLaunchFlow MCP HTTP server listening on port ${port}`);
+    console.log(`AppLaunchFlow MCP HTTP server listening on port ${port}`);
   });
 }
 

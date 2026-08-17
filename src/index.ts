@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createRequire } from "node:module";
 import {
   AppLaunchFlowClient,
   type McpCredentials,
@@ -17,6 +18,10 @@ import { registerLocalizationTools } from "./tools/localization.js";
 import { registerVariantTools } from "./tools/variants.js";
 import { registerKeywordTools } from "./tools/keywords.js";
 import { installToolMetadataPolicy } from "./tool-metadata.js";
+
+const packageJson = createRequire(import.meta.url)("../package.json") as {
+  version: string;
+};
 
 export const SERVER_INSTRUCTIONS = `
 AppLaunchFlow MCP supports four content types: app store screenshots, social graphics, promo videos, and mockup animations.
@@ -115,7 +120,7 @@ export function createAppLaunchFlowServer(
 
   const server = new McpServer({
     name: "applaunchflow-mcp",
-    version: "0.3.3",
+    version: packageJson.version,
   }, {
     instructions: HOSTED_SERVER_INSTRUCTIONS,
   });

@@ -5,6 +5,7 @@ import type { AppLaunchFlowClient } from "../client/api.js";
 import { listPublicTemplateIds } from "../catalog.js";
 import { buildTemplateGalleryUrl } from "../template-previews.js";
 import { openUrl, fail, ok, startProgressHeartbeat } from "./utils.js";
+import { upstreamSignal } from "../request-context.js";
 
 export function registerScreenshotTools(
   server: McpServer,
@@ -377,7 +378,10 @@ export function registerScreenshotTools(
         const headers = new Headers();
         headers.set("Authorization", `Bearer ${client.credentials.token}`);
 
-        const response = await fetch(previewUrl, { headers });
+        const response = await fetch(previewUrl, {
+          headers,
+          signal: upstreamSignal(30_000),
+        });
         if (!response.ok) {
           throw new Error(`Failed to fetch image: ${response.status}`);
         }

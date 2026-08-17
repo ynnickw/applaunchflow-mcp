@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { runWithRequestSignal } from "./request-context.js";
 
 const readOnly: ToolAnnotations = {
   readOnlyHint: true,
@@ -113,6 +114,44 @@ export function installToolMetadataPolicy(
     }
 
     const existingMeta = (config._meta || {}) as Record<string, unknown>;
+    const toolCallback = callback as (
+      ...args: unknown[]
+    ) => unknown | Promise<unknown>;
+    const instrumentedCallback = async (...args: unknown[]) => {
+      const startedAt = performance.now();
+      const extra = args[1] as { signal?: AbortSignal } | undefined;
+
+      try {
+        const result = await runWithRequestSignal(extra?.signal, () =>
+          toolCallback(...args),
+        );
+        const isError =
+          typeof result === "object" &&
+          result !== null &&
+          (result as { isError?: boolean }).isError === true;
+        console.log(
+          JSON.stringify({
+            event: "mcp_tool",
+            tool: name,
+            outcome: isError ? "error" : "success",
+            durationMs: Math.round(performance.now() - startedAt),
+          }),
+        );
+        return result;
+      } catch (error) {
+        console.error(
+          JSON.stringify({
+            event: "mcp_tool",
+            tool: name,
+            outcome: "exception",
+            durationMs: Math.round(performance.now() - startedAt),
+            errorType: error instanceof Error ? error.name : "UnknownError",
+          }),
+        );
+        throw error;
+      }
+    };
+
     return registerTool(
       name,
       {
@@ -129,7 +168,7 @@ export function installToolMetadataPolicy(
             : {}),
         },
       } as never,
-      callback as never,
+      instrumentedCallback as never,
     );
   }) as typeof server.registerTool;
 }

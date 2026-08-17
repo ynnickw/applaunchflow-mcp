@@ -5,6 +5,7 @@ import path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
+import { upstreamSignal } from "../request-context.js";
 import { fail, ok } from "./utils.js";
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -99,7 +100,7 @@ async function fetchRemoteAsset(value: string): Promise<{
   for (let redirectCount = 0; redirectCount <= MAX_REMOTE_REDIRECTS; redirectCount += 1) {
     const response = await fetch(current, {
       redirect: "manual",
-      signal: AbortSignal.timeout(20_000),
+      signal: upstreamSignal(20_000),
       headers: { accept: "image/*,font/*;q=0.8" },
     });
     if (response.status < 300 || response.status >= 400) {

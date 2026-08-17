@@ -3,7 +3,7 @@
   "name": "io.github.ynnickw/applaunchflow",
   "title": "AppLaunchFlow",
   "description": "Create app-store screenshots, social graphics, promo videos, and animated device mockups.",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "repository": {
     "url": "https://github.com/ynnickw/applaunchflow-mcp",
     "source": "github"

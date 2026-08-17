@@ -1,3 +1,5 @@
+import { upstreamSignal } from "../request-context.js";
+
 type QueryValue =
   | string
   | number
@@ -6,11 +8,17 @@ type QueryValue =
   | undefined
   | Array<string | number | boolean>;
 
-interface RequestOptions {
+const DEFAULT_API_TIMEOUT_MS = 30_000;
+const LONG_RUNNING_API_TIMEOUT_MS = 10 * 60_000;
+const UPLOAD_TIMEOUT_MS = 2 * 60_000;
+
+export interface RequestOptions {
   method?: string;
   body?: unknown;
   query?: Record<string, QueryValue>;
   headers?: Record<string, string>;
+  signal?: AbortSignal;
+  timeoutMs?: number;
 }
 
 export interface McpCredentials {
@@ -77,6 +85,10 @@ export class AppLaunchFlowClient {
     const response = await fetch(url, {
       method: options.method || "GET",
       headers,
+      signal: upstreamSignal(
+        options.timeoutMs ?? DEFAULT_API_TIMEOUT_MS,
+        options.signal,
+      ),
       body:
         options.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
@@ -135,6 +147,7 @@ export class AppLaunchFlowClient {
         "Content-Type": contentType,
       },
       body: new Uint8Array(buffer),
+      signal: upstreamSignal(UPLOAD_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -188,6 +201,7 @@ export class AppLaunchFlowClient {
     return this.requestJson<any>("/api/screenshots/generate", {
       method: "POST",
       body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
     });
   }
 
@@ -268,6 +282,7 @@ export class AppLaunchFlowClient {
     return this.requestJson<any>("/api/promovideo/generate", {
       method: "POST",
       body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
     });
   }
 
@@ -328,6 +343,7 @@ export class AppLaunchFlowClient {
     return this.requestJson<any>("/api/screenshots/translate", {
       method: "POST",
       body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
     });
   }
 
@@ -383,6 +399,7 @@ export class AppLaunchFlowClient {
     return this.requestJson<any>("/api/graphics/generate", {
       method: "POST",
       body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
     });
   }
 
@@ -423,6 +440,7 @@ export class AppLaunchFlowClient {
     return this.requestJson<any>("/api/aso/copy", {
       method: "POST",
       body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
     });
   }
 
@@ -437,6 +455,7 @@ export class AppLaunchFlowClient {
     return this.requestJson<any>("/api/aso/translate", {
       method: "POST",
       body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
     });
   }
 
@@ -444,6 +463,7 @@ export class AppLaunchFlowClient {
     return this.requestJson<any>("/api/aso/competitors/suggest", {
       method: "POST",
       body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
     });
   }
 
