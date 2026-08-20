@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "applaunchflow",
+  "displayName": "AppLaunchFlow",
+  "version": "0.3.8",
+  "description": "Create and edit app-store screenshots, social graphics, promo videos, and animated device mockups from your app screenshots.",
+  "author": {
+    "name": "Yannick Westermann Labs",
+    "email": "support@applaunchflow.com",
+    "url": "https://www.applaunchflow.com"
+  },
+  "homepage": "https://dashboard.applaunchflow.com/docs/mcp",
+  "repository": "https://github.com/ynnickw/applaunchflow-mcp",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "app-store",
+    "screenshots",
+    "social-graphics",
+    "promo-video",
+    "device-mockups"
+  ]
+}

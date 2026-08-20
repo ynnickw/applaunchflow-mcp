@@ -48,6 +48,22 @@ Use this Streamable HTTP endpoint and enable OAuth when prompted:
 https://mcp.applaunchflow.com/mcp
 ```
 
+### Claude Code plugin
+
+This repository is also a distributable Claude Code plugin. Its
+`.claude-plugin/plugin.json` manifest bundles the hosted OAuth connector from
+`.mcp.json`, so users do not need to copy a server configuration manually.
+
+To validate or try the plugin directly from a clone:
+
+```bash
+claude plugin validate . --strict
+claude --plugin-dir .
+```
+
+Claude Code starts the hosted connector when the plugin is enabled and opens
+the AppLaunchFlow OAuth flow when authentication is required.
+
 ## Hosted service
 
 The public Streamable HTTP service uses OAuth 2.1 authorization code flow with

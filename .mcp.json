@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "applaunchflow": {
+      "type": "http",
+      "url": "https://mcp.applaunchflow.com/mcp"
+    }
+  }
+}
