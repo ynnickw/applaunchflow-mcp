@@ -1,8 +1,34 @@
-# Anthropic connector submission pack
+# Anthropic submission pack
 
-Use this file to complete the Claude connector-directory submission portal. Do
-not accept the directory terms or compliance attestations until the publisher
-has reviewed them.
+Use this file to complete Anthropic's submission portals. Do not accept new
+directory terms or compliance attestations until the publisher has reviewed
+them.
+
+## Claude Code and Cowork plugin
+
+- **Repository:** `https://github.com/ynnickw/applaunchflow-mcp`
+- **Path within repository:** repository root (leave blank)
+- **Homepage:** `https://dashboard.applaunchflow.com/docs/mcp`
+- **Name:** AppLaunchFlow
+- **Description:** Create and edit app-store screenshots, social graphics,
+  promo videos, and animated device mockups from your app screenshots. The
+  plugin connects Claude Code and Cowork to AppLaunchFlow's hosted OAuth MCP
+  server, with browser-based visual pickers for design decisions.
+- **Example use cases:**
+  1. Turn uploaded iOS or Android screenshots into a personalized app-store
+     screenshot set and choose the visual direction in a browser picker.
+  2. Generate coordinated social graphics for six formats and edit individual
+     formats conversationally.
+  3. Compare three promo-video concepts, select one, and continue editing it in
+     the AppLaunchFlow dashboard.
+  4. Create animated phone, tablet, or laptop mockups and refine their motion,
+     timing, overlays, and audio.
+- **Plugin manifest:** `.claude-plugin/plugin.json`
+- **Bundled MCP configuration:** `.mcp.json`
+
+Validate before submission with `claude plugin validate . --strict`.
+
+## Connector directory listing
 
 ## Listing
 
