@@ -36,3 +36,33 @@ export function isHostedCodexConfig(value: unknown): boolean {
 export function codexDisconnectArgs(): string[] {
   return ["mcp", "remove", APPLAUNCHFLOW_MCP_NAME];
 }
+
+export function claudeAddArgs(): string[] {
+  return [
+    "mcp",
+    "add",
+    "--transport",
+    "http",
+    APPLAUNCHFLOW_MCP_NAME,
+    APPLAUNCHFLOW_MCP_URL,
+  ];
+}
+
+export function claudeLoginArgs(): string[] {
+  return ["mcp", "login", APPLAUNCHFLOW_MCP_NAME];
+}
+
+export function claudeStatusArgs(): string[] {
+  return ["mcp", "get", APPLAUNCHFLOW_MCP_NAME];
+}
+
+export function claudeDisconnectArgs(): string[] {
+  return ["mcp", "remove", APPLAUNCHFLOW_MCP_NAME];
+}
+
+export function isHostedClaudeConfig(output: string): boolean {
+  const normalized = output.replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, "");
+  const hasHttpTransport = /^\s*Type:\s*http\s*$/im.test(normalized);
+  const configuredUrl = normalized.match(/^\s*URL:\s*(\S+)\s*$/im)?.[1];
+  return hasHttpTransport && configuredUrl === APPLAUNCHFLOW_MCP_URL;
+}

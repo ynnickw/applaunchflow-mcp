@@ -31,6 +31,23 @@ codex mcp get applaunchflow
 codex mcp remove applaunchflow
 ```
 
+### Claude Code
+
+The same one-command setup is available for Claude Code. It replaces a legacy
+AppLaunchFlow entry when necessary, adds the hosted HTTP connector, and opens
+OAuth sign-in:
+
+```bash
+npx -y applaunchflow connect claude
+```
+
+The equivalent native Claude Code commands are:
+
+```bash
+claude mcp add --transport http applaunchflow https://mcp.applaunchflow.com/mcp
+claude mcp login applaunchflow
+```
+
 ### ChatGPT
 
 ```bash

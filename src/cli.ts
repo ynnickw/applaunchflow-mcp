@@ -3,11 +3,16 @@
 import { spawnSync } from "node:child_process";
 import {
   APPLAUNCHFLOW_MCP_URL,
+  claudeAddArgs,
+  claudeDisconnectArgs,
+  claudeLoginArgs,
+  claudeStatusArgs,
   codexAddArgs,
   codexDisconnectArgs,
   codexInspectArgs,
   codexLoginArgs,
   codexStatusArgs,
+  isHostedClaudeConfig,
   isHostedCodexConfig,
 } from "./cli-core.js";
 
@@ -16,6 +21,7 @@ function printHelp(): void {
 
 Usage:
   applaunchflow connect codex
+  applaunchflow connect claude
   applaunchflow connect chatgpt
   applaunchflow status
   applaunchflow disconnect
@@ -29,6 +35,18 @@ function runCodex(args: string[]): void {
   }
   if (result.status !== 0) {
     throw new Error(`Codex exited with status ${result.status ?? "unknown"}`);
+  }
+}
+
+function runClaude(args: string[]): void {
+  const result = spawnSync("claude", args, { stdio: "inherit" });
+  if (result.error) {
+    throw new Error(`Could not run Claude Code: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(
+      `Claude Code exited with status ${result.status ?? "unknown"}`,
+    );
   }
 }
 
@@ -64,6 +82,30 @@ function connectCodex(): void {
   runCodex(codexLoginArgs());
 }
 
+function getClaudeConfiguration(): "missing" | "hosted" | "legacy" {
+  const result = spawnSync("claude", claudeStatusArgs(), {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  if (result.error) {
+    throw new Error(`Could not run Claude Code: ${result.error.message}`);
+  }
+  if (result.status !== 0) return "missing";
+  return isHostedClaudeConfig(result.stdout) ? "hosted" : "legacy";
+}
+
+function connectClaude(): void {
+  const configuration = getClaudeConfiguration();
+  if (configuration === "legacy") {
+    console.log("Replacing the legacy local AppLaunchFlow MCP configuration...");
+    runClaude(claudeDisconnectArgs());
+  }
+  if (configuration !== "hosted") {
+    runClaude(claudeAddArgs());
+  }
+  runClaude(claudeLoginArgs());
+}
+
 function connectChatGpt(): void {
   console.log(`Add a custom MCP connector in ChatGPT using this URL:\n${APPLAUNCHFLOW_MCP_URL}`);
 }
@@ -73,6 +115,10 @@ function main(): void {
 
   if (command === "connect" && target === "codex") {
     connectCodex();
+    return;
+  }
+  if (command === "connect" && target === "claude") {
+    connectClaude();
     return;
   }
   if (command === "connect" && target === "chatgpt") {
