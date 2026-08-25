@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
+import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
@@ -41,7 +46,9 @@ function publicBaseUrl(request?: IncomingMessage): string {
   if (configured) {
     const parsed = new URL(configured);
     if (process.env.NODE_ENV === "production" && parsed.protocol !== "https:") {
-      throw new Error("APPLAUNCHFLOW_MCP_PUBLIC_URL must use HTTPS in production");
+      throw new Error(
+        "APPLAUNCHFLOW_MCP_PUBLIC_URL must use HTTPS in production",
+      );
     }
     parsed.pathname = parsed.pathname.replace(/\/mcp\/?$/, "");
     parsed.search = "";
@@ -83,7 +90,10 @@ function bearerToken(request: IncomingMessage): string | null {
   return match?.[1]?.trim() || null;
 }
 
-function unauthorized(request: IncomingMessage, response: ServerResponse): void {
+function unauthorized(
+  request: IncomingMessage,
+  response: ServerResponse,
+): void {
   json(
     response,
     401,
@@ -115,13 +125,16 @@ async function introspectToken(
   request: IncomingMessage,
   token: string,
 ): Promise<AuthInfo | null> {
-  const response = await fetch(`${dashboardBaseUrl()}/api/auth/mcp/introspect`, {
-    signal: upstreamSignal(INTROSPECTION_TIMEOUT_MS),
-    headers: {
-      authorization: `Bearer ${token}`,
-      accept: "application/json",
+  const response = await fetch(
+    `${dashboardBaseUrl()}/api/auth/mcp/introspect`,
+    {
+      signal: upstreamSignal(INTROSPECTION_TIMEOUT_MS),
+      headers: {
+        authorization: `Bearer ${token}`,
+        accept: "application/json",
+      },
     },
-  });
+  );
 
   if (!response.ok) return null;
   const payload = (await response.json()) as IntrospectionPayload;
@@ -147,16 +160,41 @@ async function introspectToken(
 }
 
 async function handleMcp(request: IncomingMessage, response: ServerResponse) {
+  const startedAt = Date.now();
+  const requestId =
+    (typeof request.headers["x-request-id"] === "string" &&
+      request.headers["x-request-id"].slice(0, 128)) ||
+    randomUUID();
+  let authStatus: "missing" | "pending" | "invalid" | "valid" | "unavailable" =
+    "missing";
+  response.setHeader("x-request-id", requestId);
+  response.once("finish", () => {
+    console.info(
+      JSON.stringify({
+        event: "mcp_http_request",
+        requestId,
+        method: request.method || "UNKNOWN",
+        path: request.url?.split("?", 1)[0] || "/mcp",
+        status: response.statusCode,
+        auth: authStatus,
+        durationMs: Date.now() - startedAt,
+        userAgent: request.headers["user-agent"]?.slice(0, 256) || null,
+      }),
+    );
+  });
+
   const token = bearerToken(request);
   if (!token) {
     unauthorized(request, response);
     return;
   }
+  authStatus = "pending";
 
   let auth: AuthInfo | null = null;
   try {
     auth = await introspectToken(request, token);
   } catch (error) {
+    authStatus = "unavailable";
     console.error("Token introspection failed", error);
     json(response, 503, {
       jsonrpc: "2.0",
@@ -167,21 +205,21 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
   }
 
   if (!auth) {
+    authStatus = "invalid";
     unauthorized(request, response);
     return;
   }
+  authStatus = "valid";
 
   if (request.method !== "POST") {
     methodNotAllowed(response);
     return;
   }
 
-  const server = createAppLaunchFlowServer(
-    {
-      baseUrl: dashboardBaseUrl(),
-      token,
-    },
-  );
+  const server = createAppLaunchFlowServer({
+    baseUrl: dashboardBaseUrl(),
+    token,
+  });
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
   });
@@ -237,7 +275,8 @@ export function createHttpServer() {
 
     if (
       request.method === "GET" &&
-      url.pathname === "/.well-known/oauth-protected-resource"
+      (url.pathname === "/.well-known/oauth-protected-resource" ||
+        url.pathname === "/.well-known/oauth-protected-resource/mcp")
     ) {
       json(response, 200, {
         resource: resourceIdentifier(request),
@@ -266,6 +305,9 @@ async function main() {
   });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   void main();
 }
