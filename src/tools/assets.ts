@@ -6,6 +6,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { upstreamSignal } from "../request-context.js";
+import { ToolInputError } from "../telemetry.js";
 import { fail, ok } from "./utils.js";
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -174,7 +175,8 @@ async function expandPathSource(sourcePath: string) {
 async function resolveUploadPayload(source: z.infer<typeof uploadSourceSchema>) {
   if (source.path) {
     if (process.env.APPLAUNCHFLOW_MCP_REMOTE === "1") {
-      throw new Error(
+      throw new ToolInputError(
+        "HOSTED_FILE_PATH_UNSUPPORTED",
         "Local file paths are unavailable to hosted connectors; use an HTTPS URL or base64 data",
       );
     }

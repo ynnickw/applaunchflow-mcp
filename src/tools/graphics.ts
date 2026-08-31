@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ToolInputError } from "../telemetry.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { listPublicTemplateIds } from "../catalog.js";
@@ -664,7 +665,8 @@ export function registerGraphicsTools(
           : graphicsReadReceipts.has(receiptKey);
         if (!hasReceipt) {
           return fail(
-            new Error(
+            new ToolInputError(
+              "READ_BEFORE_EDIT_REQUIRED",
               "Call get_graphics_format first for this generation/variant/format before save_graphics_format. Direct editing is locked until the current same-format state has been read.",
             ),
           );

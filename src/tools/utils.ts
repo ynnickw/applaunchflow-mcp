@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ElicitResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { AppLaunchFlowApiError } from "../client/api.js";
+import { ToolInputError } from "../telemetry.js";
 
 /**
  * Bypass the SDK's `elicitation.url` capability gate by calling the underlying
@@ -32,8 +33,8 @@ export async function elicitUrl(
 }
 
 /**
- * Ask the host to open a URL. Hosted connectors return false when the client
- * does not support URL elicitation so the tool can still return the URL.
+ * Ask a local host to open a URL. Stateless hosted requests cannot correlate
+ * elicitation replies across requests; return the tool's clickable URL instead.
  */
 export async function openUrl(
   server: McpServer,
@@ -41,6 +42,7 @@ export async function openUrl(
   message: string,
   options?: RequestOptions,
 ): Promise<boolean> {
+  if (hostedMcpEnabled()) return false;
   try {
     const result = await elicitUrl(
       server,
@@ -289,8 +291,11 @@ export function fail(error: unknown) {
           ...(issues ? { issues } : {}),
         }
       : {
-          code: "UNKNOWN",
-          type: "server",
+          code: error instanceof ToolInputError ? error.code
+            : error instanceof Error && error.name === "AbortError" ? "REQUEST_CANCELLED"
+            : error instanceof Error && error.name === "TimeoutError" ? "UPSTREAM_TIMEOUT"
+            : "UNKNOWN",
+          type: error instanceof ToolInputError ? "validation" : "server",
           message: error instanceof Error ? error.message : String(error),
         };
 

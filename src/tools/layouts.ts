@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
+import { ToolInputError } from "../telemetry.js";
 import {
   createHostedReadReceipt,
   fail,
@@ -321,7 +322,8 @@ export function registerLayoutTools(
           : layoutReadReceipts.has(receiptKey);
         if (!hasReceipt) {
           return fail(
-            new Error(
+            new ToolInputError(
+              "READ_BEFORE_EDIT_REQUIRED",
               "Call get_layout first for this generation/language/variant before transform_layout. Direct layout editing is locked until the current layout has been read.",
             ),
           );

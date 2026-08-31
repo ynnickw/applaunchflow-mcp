@@ -108,7 +108,7 @@ HOSTED CONNECTOR SAFETY RULES:
 - Never reveal, repeat, log, or place OAuth access tokens, refresh tokens, authorization codes, PKCE verifiers, or read receipts in user-facing text.
 - A readReceipt returned inside structured tool data is an opaque safety input. Pass it only to the matching edit tool, for the exact same project, variant, language, and format.
 - Before deleting, clearing, overwriting, or replacing user content, require clear user intent for that exact action. Do not infer destructive intent from a broad request.
-- Hosted gallery tools request the MCP client to open the browser and always return the exact URL as a fallback. Personalized screenshot galleries apply the user's v1/v2 choice directly and open the new variant in the editor. Do not ask the user to relay the template id.
+- Browser-opening language below describes the local connector. Stateless hosted connectors return clickable URLs without opening a browser; always show the exact returned URL and never claim it opened automatically. Personalized screenshot galleries apply the user's v1/v2 choice directly and open the new variant in the editor after the user follows the link. Do not ask the user to relay the template id.
 
 ${SERVER_INSTRUCTIONS}
 `.trim();

@@ -1,6 +1,15 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 const requestSignalStorage = new AsyncLocalStorage<AbortSignal>();
+const requestTelemetryStorage = new AsyncLocalStorage<{ requestId: string }>();
+
+export function runWithRequestTelemetry<T>(requestId: string, callback: () => T): T {
+  return requestTelemetryStorage.run({ requestId }, callback);
+}
+
+export function requestTelemetry(): { requestId?: string } {
+  return requestTelemetryStorage.getStore() || {};
+}
 
 export function runWithRequestSignal<T>(
   signal: AbortSignal | undefined,

@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ToolInputError } from "../telemetry.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import {
@@ -300,7 +301,8 @@ export function registerMockupTools(
           : mockupReadReceipts.has(receiptArgs);
         if (!hasReceipt) {
           return fail(
-            new Error(
+            new ToolInputError(
+              "READ_BEFORE_EDIT_REQUIRED",
               "Call get_mockup_animation first for this project/variant before update_mockup_animation. Direct editing is locked until the current state has been read.",
             ),
           );

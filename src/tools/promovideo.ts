@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ToolInputError } from "../telemetry.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import {
@@ -241,7 +242,8 @@ export function registerPromoVideoTools(
           : promoVideoReadReceipts.has(receiptArgs);
         if (!hasReceipt) {
           return fail(
-            new Error(
+            new ToolInputError(
+              "READ_BEFORE_EDIT_REQUIRED",
               "Call get_promo_video first for this project/variant before update_promo_video. Direct editing is locked until the current state has been read.",
             ),
           );

@@ -1,7 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { runWithRequestSignal } from "./request-context.js";
+import { requestTelemetry, runWithRequestSignal } from "./request-context.js";
+import { errorCategory, toolErrorCategory } from "./telemetry.js";
 
 const readOnly: ToolAnnotations = {
   readOnlyHint: true,
@@ -129,12 +130,15 @@ export function installToolMetadataPolicy(
           typeof result === "object" &&
           result !== null &&
           (result as { isError?: boolean }).isError === true;
-        console.log(
+        const log = isError ? console.warn : console.log;
+        log(
           JSON.stringify({
             event: "mcp_tool",
+            ...requestTelemetry(),
             tool: name,
             outcome: isError ? "error" : "success",
             durationMs: Math.round(performance.now() - startedAt),
+            ...(isError ? { errorCategory: toolErrorCategory(result) } : {}),
           }),
         );
         return result;
@@ -142,10 +146,11 @@ export function installToolMetadataPolicy(
         console.error(
           JSON.stringify({
             event: "mcp_tool",
+            ...requestTelemetry(),
             tool: name,
             outcome: "exception",
             durationMs: Math.round(performance.now() - startedAt),
-            errorType: error instanceof Error ? error.name : "UnknownError",
+            errorCategory: errorCategory(error),
           }),
         );
         throw error;

@@ -75,7 +75,9 @@ test("hosted tools emit privacy-safe structured outcome logs", async () => {
   const client = new Client({ name: "logging-test", version: "1.0.0" });
   const logs: string[] = [];
   const originalLog = console.log;
+  const originalWarn = console.warn;
   console.log = (...args: unknown[]) => logs.push(args.map(String).join(" "));
+  console.warn = console.log;
 
   try {
     await server.connect(serverTransport);
@@ -104,6 +106,7 @@ test("hosted tools emit privacy-safe structured outcome logs", async () => {
     assert.equal(logs.some((line) => line.includes("synthetic backend failure")), false);
   } finally {
     console.log = originalLog;
+    console.warn = originalWarn;
     await client.close();
     await server.close();
     await new Promise<void>((resolve, reject) =>

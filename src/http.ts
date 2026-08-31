@@ -10,7 +10,8 @@ import { pathToFileURL } from "node:url";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { createAppLaunchFlowServer } from "./index.js";
-import { upstreamSignal } from "./request-context.js";
+import { runWithRequestTelemetry, upstreamSignal } from "./request-context.js";
+import { errorCategory, protocolErrorCategory, safeRpcMethod } from "./telemetry.js";
 
 const DEFAULT_PORT = 8787;
 const INTROSPECTION_TIMEOUT_MS = 10_000;
@@ -124,6 +125,7 @@ function methodNotAllowed(response: ServerResponse): void {
 async function introspectToken(
   request: IncomingMessage,
   token: string,
+  onStatus: (status: number) => void,
 ): Promise<AuthInfo | null> {
   const response = await fetch(
     `${dashboardBaseUrl()}/api/auth/mcp/introspect`,
@@ -136,8 +138,26 @@ async function introspectToken(
     },
   );
 
-  if (!response.ok) return null;
+  onStatus(response.status);
+  if (!response.ok) {
+    // An unavailable introspection service must not trigger credential refresh.
+    await response.body?.cancel();
+    if (response.status === 401 || response.status === 403) return null;
+    throw new Error("Authorization service unavailable");
+  }
   const payload = (await response.json()) as IntrospectionPayload;
+  if (payload?.active === false) return null;
+  if (
+    payload?.active !== true ||
+    typeof payload.userId !== "string" ||
+    !Array.isArray(payload.scopes) ||
+    !payload.scopes.every((scope) => typeof scope === "string") ||
+    (payload.clientId !== undefined && typeof payload.clientId !== "string") ||
+    (payload.resource !== undefined && typeof payload.resource !== "string") ||
+    (payload.expiresAt !== undefined && !Number.isFinite(payload.expiresAt))
+  ) {
+    throw new Error("Invalid introspection response");
+  }
   if (
     !payload.active ||
     !payload.userId ||
@@ -167,21 +187,40 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
     randomUUID();
   let authStatus: "missing" | "pending" | "invalid" | "valid" | "unavailable" =
     "missing";
+  const diagnostics: {
+    authUpstreamStatus?: number;
+    authDurationMs?: number;
+    protocolVersion?: string;
+    rpcMethod?: string;
+    errorCategory?: string;
+  } = {};
+  const protocolVersion = request.headers["mcp-protocol-version"];
+  if (protocolVersion !== undefined) {
+    diagnostics.protocolVersion = typeof protocolVersion === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(protocolVersion) ? protocolVersion : "invalid";
+  }
   response.setHeader("x-request-id", requestId);
-  response.once("finish", () => {
+  let logged = false;
+  const logRequest = (aborted = false) => {
+    if (logged) return;
+    logged = true;
     console.info(
       JSON.stringify({
         event: "mcp_http_request",
         requestId,
         method: request.method || "UNKNOWN",
         path: request.url?.split("?", 1)[0] || "/mcp",
-        status: response.statusCode,
+        status: aborted ? 499 : response.statusCode,
         auth: authStatus,
         durationMs: Date.now() - startedAt,
         userAgent: request.headers["user-agent"]?.slice(0, 256) || null,
+        ...diagnostics,
+        ...(aborted ? { completion: "aborted" } : {}),
       }),
     );
-  });
+  };
+  response.once("finish", () => logRequest());
+  response.once("close", () => logRequest(!response.writableFinished));
 
   const token = bearerToken(request);
   if (!token) {
@@ -191,17 +230,28 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
   authStatus = "pending";
 
   let auth: AuthInfo | null = null;
+  const authStartedAt = Date.now();
   try {
-    auth = await introspectToken(request, token);
+    auth = await introspectToken(request, token, (status) => {
+      diagnostics.authUpstreamStatus = status;
+    });
   } catch (error) {
     authStatus = "unavailable";
-    console.error("Token introspection failed", error);
+    diagnostics.errorCategory = "authorization_service_unavailable";
+    console.error(JSON.stringify({
+      event: "mcp_auth_error", requestId,
+      errorCategory: errorCategory(error),
+      ...(diagnostics.authUpstreamStatus !== undefined
+        ? { upstreamStatus: diagnostics.authUpstreamStatus } : {}),
+    }));
     json(response, 503, {
       jsonrpc: "2.0",
       error: { code: -32002, message: "Authorization service unavailable" },
       id: null,
-    });
+    }, { "retry-after": "5" });
     return;
+  } finally {
+    diagnostics.authDurationMs = Date.now() - authStartedAt;
   }
 
   if (!auth) {
@@ -226,22 +276,38 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
 
   (request as IncomingMessage & { auth?: AuthInfo }).auth = auth;
 
-  try {
-    await server.connect(transport);
-    await transport.handleRequest(request, response);
-  } catch (error) {
-    console.error("MCP request failed", error);
-    if (!response.headersSent) {
-      json(response, 500, {
-        jsonrpc: "2.0",
-        error: { code: -32603, message: "Internal server error" },
-        id: null,
-      });
+  await runWithRequestTelemetry(requestId, async () => {
+    try {
+      await server.connect(transport);
+      // Observe only fixed protocol metadata, never request params or error text.
+      const onmessage = transport.onmessage;
+      transport.onmessage = (message, extra) => {
+        const method = safeRpcMethod("method" in message ? message.method : undefined);
+        if (method) diagnostics.rpcMethod = method;
+        onmessage?.(message, extra);
+      };
+      server.server.onerror = (error) => {
+        diagnostics.errorCategory = protocolErrorCategory(error);
+      };
+      await transport.handleRequest(request, response);
+    } catch (error) {
+      diagnostics.errorCategory = protocolErrorCategory(error);
+      console.error(JSON.stringify({
+        event: "mcp_transport_error", requestId,
+        errorCategory: diagnostics.errorCategory,
+      }));
+      if (!response.headersSent) {
+        json(response, 500, {
+          jsonrpc: "2.0",
+          error: { code: -32603, message: "Internal server error" },
+          id: null,
+        });
+      }
+    } finally {
+      await transport.close().catch(() => undefined);
+      await server.close().catch(() => undefined);
     }
-  } finally {
-    await transport.close().catch(() => undefined);
-    await server.close().catch(() => undefined);
-  }
+  });
 }
 
 export function createHttpServer() {

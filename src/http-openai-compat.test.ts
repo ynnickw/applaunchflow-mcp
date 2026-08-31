@@ -56,6 +56,8 @@ test("OpenAI discovery aliases and redacted MCP request logs are available", asy
       auth: "invalid",
       durationMs: entries[0]?.durationMs,
       userAgent: "OpenAI-Review-Test/1.0",
+      authUpstreamStatus: 401,
+      authDurationMs: entries[0]?.authDurationMs,
     });
     assert.equal(typeof entries[0]?.durationMs, "number");
     assert.equal(
