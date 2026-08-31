@@ -155,7 +155,7 @@ export function registerKeywordTools(
     {
       title: "Get Keyword History",
       description:
-        "Fetch the rank time series for a single tracked keyword. Returns up to 30 days on Free and up to 365 days on Pro. " +
+        "Fetch the rank time series for a single tracked keyword. Returns up to 30 days on Free and up to 365 days on Unlimited. " +
         "Pass appId to compute the history for a competitor app instead of the user's own app — defaults to the tracked keyword's owner app.",
       inputSchema: {
         trackedKeywordId: z
