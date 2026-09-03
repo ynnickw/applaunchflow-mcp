@@ -133,7 +133,7 @@ export function toSafeProjectState(value: unknown): Record<string, unknown> {
   const progress = isRecord(state.progress) ? state.progress : {};
 
   const safeContent = Object.fromEntries(
-    ["screenshots", "socialGraphics", "promoVideo", "mockups"]
+    ["screenshots", "socialGraphics", "promoVideo", "mockups", "website"]
       .filter((key) => isRecord(content[key]))
       .map((key) => [key, toContentSummary(content[key])]),
   );

@@ -83,6 +83,13 @@ the AppLaunchFlow OAuth flow when authentication is required.
 
 ## Hosted service
 
+### Inline screenshot picker
+
+MCP Apps-compatible hosts can call `render_screenshot_picker` after
+`prepare_screenshot_styles` to compare personalized V1/V2 previews inline and
+create a variant through the authenticated tool bridge. Other hosts retain the
+full-gallery link. See [local testing and deployment notes](docs/inline-picker.md).
+
 The public Streamable HTTP service uses OAuth 2.1 authorization code flow with
 PKCE through the AppLaunchFlow dashboard.
 
@@ -141,7 +148,7 @@ For social graphics:
 3. `browse_social_templates` with the returned `templateIds`, `generationId`, and `catalogKey`
 4. `apply_social_graphics_style` with the returned `catalogKey`
 
-The screenshot result includes phone, tablet, and desktop. The social result includes all six supported formats. `generate_layouts` and `generate_graphics` remain available for legacy direct single-template calls.
+The screenshot result includes phone, tablet, and desktop. The social result includes every supported social, store-listing, and mobile-ad format. `generate_layouts` and `generate_graphics` remain available for legacy direct single-template calls.
 
 ## Development
 

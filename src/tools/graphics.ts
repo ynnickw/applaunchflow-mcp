@@ -57,8 +57,9 @@ export function registerGraphicsTools(
       title: "Prepare Personalized Social Graphics Styles",
       description:
         "Generate or reuse the project's personalized social-graphics style catalog before the user chooses a style. " +
-        "This prepares every social template across OG image, social post, Instagram story, Play Store feature graphic, X banner, and LinkedIn banner in one AI call and returns a catalogKey. " +
+        "This prepares every social template across all supported social, store-listing, and mobile-ad formats in one AI call and returns a catalogKey. " +
         "The personalized gallery opens automatically and creates the chosen variant directly in the graphics editor. " +
+        "After preparation, call render_social_graphics_picker to show the existing dashboard picker inline in Claude, ChatGPT, and other MCP Apps-compatible hosts. " +
         "Repeating the same app context and screenshot paths reuses the cache.",
       inputSchema: {
         generationId: z.string().uuid(),
@@ -122,13 +123,14 @@ export function registerGraphicsTools(
               text: [
                 result.cacheHit
                   ? "Reused the existing personalized social-graphics catalog."
-                  : "Prepared personalized social graphics across all six formats.",
+                  : "Prepared personalized social graphics across all supported formats.",
                 `Catalog key: ${result.catalogKey}`,
                 `Available template ids: ${templateIds.join(", ")}`,
                 opened
                   ? "Opened the personalized social-graphics gallery in the browser."
                   : `Open the personalized social-graphics gallery: ${galleryUrl}`,
-                "Confirming a style creates a new variant containing all six formats and opens it in the graphics editor; no template id needs to be pasted back into chat.",
+                "Confirming a style creates a new variant containing all supported formats and opens it in the graphics editor; no template id needs to be pasted back into chat.",
+                "Next, call render_social_graphics_picker with this generationId, catalogKey, and primaryFormat.",
               ].join("\n"),
             },
             {
@@ -172,7 +174,7 @@ export function registerGraphicsTools(
       title: "Apply Personalized Social Graphics Style",
       description:
         "Create a new social-graphics variant from a previously prepared personalized catalog without another AI generation. " +
-        "Use after prepare_social_graphics_styles and browse_social_templates. The new variant contains all six formats and opens in the graphics editor.",
+        "Use after prepare_social_graphics_styles and browse_social_templates. The new variant contains all supported formats and opens in the graphics editor.",
       inputSchema: {
         generationId: z.string().uuid(),
         catalogKey: z.string().min(1).max(128),
@@ -223,7 +225,7 @@ export function registerGraphicsTools(
             {
               type: "text" as const,
               text: [
-                `Applied social graphics style ${templateId} across all six formats without another AI generation.`,
+                `Applied social graphics style ${templateId} across all supported formats without another AI generation.`,
                 `Editor URL: ${editorUrl}`,
                 "IMPORTANT: Paste this exact editor URL in the reply so the user can open it.",
               ].join("\n"),
@@ -377,7 +379,7 @@ export function registerGraphicsTools(
                   : "The client could not open the browser automatically; paste this exact gallery URL into the user-visible reply.",
                 `Social template gallery URL: ${galleryUrl}`,
                 generationId && catalogKey
-                  ? "The gallery shows the personalized renders. Confirming a style creates the variant across all six formats and opens the graphics editor directly."
+                  ? "The gallery shows the personalized renders. Confirming a style creates the variant across all supported formats and opens the graphics editor directly."
                   : "Static discovery mode copies the chosen template id.",
               ].join("\n"),
             },
@@ -415,7 +417,7 @@ export function registerGraphicsTools(
       title: "Generate Social Graphics",
       description:
         "Legacy direct generation for one chosen template. For the normal style chooser, prefer prepare_social_graphics_styles → browse_social_templates → apply_social_graphics_style so all personalized previews are generated once and the chosen style is applied from cache. " +
-        "Generate AI social graphics for all six formats (OG, X post, Instagram story, Play Store feature, X header, LinkedIn banner) using a chosen social template. Omit variantId to create a fresh variant — never overwrite an existing one. " +
+        "Generate AI social graphics for every supported social, store-listing, and mobile-ad format using a chosen social template. Omit variantId to create a fresh variant — never overwrite an existing one. " +
         "After generation, the graphics editor opens automatically.",
       inputSchema: {
         generationId: z.string().uuid(),
@@ -554,7 +556,11 @@ export function registerGraphicsTools(
         graphicsReadReceipts.add(
           graphicsReceiptKey({ generationId, variantId, format }),
         );
-        const receiptKey = graphicsReceiptKey({ generationId, variantId, format });
+        const receiptKey = graphicsReceiptKey({
+          generationId,
+          variantId,
+          format,
+        });
         const readReceipt = hostedMcpEnabled()
           ? createHostedReadReceipt(receiptKey, client.credentials.token)
           : undefined;
@@ -638,7 +644,7 @@ export function registerGraphicsTools(
           .record(z.any())
           .describe(
             "Complete Layout object for this one format — the SAME shape screenshot layouts use, with exactly one entry in screens[] and canvasWidth/canvasHeight matching the format. " +
-            "Full field reference: read the resource applaunchflow://schema/layout.",
+              "Full field reference: read the resource applaunchflow://schema/layout.",
           ),
         readReceipt: z
           .string()

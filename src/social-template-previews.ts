@@ -2,9 +2,22 @@ export const SOCIAL_FORMATS = [
   "og",
   "x_post",
   "instagram_story",
-  "play_store_feature",
+  "instagram_post",
   "x_header",
   "linkedin_banner",
+  "play_store_feature",
+  "app_store_event_card",
+  "app_store_event_details",
+  "ad_banner",
+  "ad_mobile_banner",
+  "ad_tablet_banner_720",
+  "ad_tablet_banner_728",
+  "ad_mrec",
+  "ad_phone_portrait",
+  "ad_phone_landscape",
+  "ad_fullscreen_landscape",
+  "ad_tablet_portrait",
+  "ad_tablet_landscape",
 ] as const;
 
 export type SocialFormat = (typeof SOCIAL_FORMATS)[number];

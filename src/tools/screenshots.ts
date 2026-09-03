@@ -19,7 +19,8 @@ export function registerScreenshotTools(
         "Generate or reuse the project's personalized screenshot-style catalog before the user chooses a style. " +
         "This prepares every screenshot template for phone, tablet, and desktop in one AI call and returns a catalogKey. " +
         "The personalized gallery opens automatically, shows the real v1/v2 renders, and creates the chosen variant directly in the browser. " +
-        "Repeating this with the same app context and screenshot paths is a cache hit and does not regenerate AI content.",
+        "Repeating this with the same app context and screenshot paths is a cache hit and does not regenerate AI content. " +
+        "After preparation, call render_screenshot_picker with generationId and catalogKey to display interactive V1/V2 previews in MCP Apps-compatible clients.",
       inputSchema: {
         generationId: z.string().uuid().describe("Project/generation UUID."),
         selectedScreenshotPaths: z
@@ -127,6 +128,7 @@ export function registerScreenshotTools(
   server.registerTool(
     "apply_screenshot_style",
     {
+      _meta: { ui: { visibility: ["model", "app"] }, "openai/widgetAccessible": true },
       title: "Apply Personalized Screenshot Style",
       description:
         "Create a new screenshot variant from a previously prepared personalized style catalog without another AI generation. " +

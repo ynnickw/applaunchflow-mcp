@@ -17,7 +17,7 @@ them.
 - **Example use cases:**
   1. Turn uploaded iOS or Android screenshots into a personalized app-store
      screenshot set and choose the visual direction in a browser picker.
-  2. Generate coordinated social graphics for six formats and edit individual
+  2. Generate coordinated social graphics for every supported format and edit individual
      formats conversationally.
   3. Compare three promo-video concepts, select one, and continue editing it in
      the AppLaunchFlow dashboard.

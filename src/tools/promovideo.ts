@@ -34,9 +34,7 @@ export function buildPromoVideoDashboardUrl(
   if (args.replaceVariantId) {
     params.set("replaceVariantId", args.replaceVariantId);
   }
-  const pathname = args.candidateKey
-    ? "/promo-video-picker"
-    : "/promovideo";
+  const pathname = args.candidateKey ? "/promo-video-picker" : "/promovideo";
   return `${client.credentials.baseUrl}${pathname}?${params.toString()}`;
 }
 
@@ -59,6 +57,7 @@ export function registerPromoVideoTools(
       description:
         "Generate or reuse three transient promo-video candidates from the project's screenshots. " +
         "The dashboard picker opens automatically so the user can preview all three; only the chosen candidate becomes a saved variant. " +
+        "After generation, call render_promo_video_picker to show the same three-option picker inline in Claude, ChatGPT, and other MCP Apps-compatible hosts. " +
         "Use replaceVariantId only when the user explicitly chose to replace that existing variant, which also allows a safe swap at the plan limit. " +
         "Use selectedScreenshotPaths to constrain which uploaded screenshots feed the candidates.",
       inputSchema: {
@@ -123,6 +122,7 @@ export function registerPromoVideoTools(
                 "Prepared three personalized promo-video candidates without creating a saved variant yet.",
                 `Candidate picker URL: ${pickerUrl}`,
                 "The dashboard picker previews all three options. Choosing one creates that variant and opens it in the promo-video editor.",
+                "Next, call render_promo_video_picker with this projectId and candidateKey.",
               ].join("\n"),
             },
           ],
@@ -210,11 +210,11 @@ export function registerPromoVideoTools(
           .record(z.any())
           .describe(
             "Full Remotion VideoConfig object — a whole-config replace, not a patch. " +
-            "Required: theme (colors + typography) and scenes (at least one; each scene is a discriminated union on `type`: hook | feature | text-only | closeup | multi-phone | cta, with a matching `content` shape). " +
-            "Optional: version, duration (seconds), audio, phoneId. " +
-            "All coordinates are percentages of the frame (0-100, 50 = centered), never pixels. " +
-            "Always start from the object returned by get_promo_video and mutate it — do not hand-build one. " +
-            "Full field reference including every scene's content fields and valid ranges: read the resource applaunchflow://schema/video-config.",
+              "Required: theme (colors + typography) and scenes (at least one; each scene is a discriminated union on `type`: hook | feature | text-only | closeup | multi-phone | cta, with a matching `content` shape). " +
+              "Optional: version, duration (seconds), audio, phoneId. " +
+              "All coordinates are percentages of the frame (0-100, 50 = centered), never pixels. " +
+              "Always start from the object returned by get_promo_video and mutate it — do not hand-build one. " +
+              "Full field reference including every scene's content fields and valid ranges: read the resource applaunchflow://schema/video-config.",
           ),
         appName: z.string().optional(),
         projectName: z.string().optional(),
@@ -297,10 +297,7 @@ export function registerPromoVideoTools(
     },
     async (args) => {
       try {
-        return ok(
-          await client.clearPromoVideo(args),
-          "Cleared promo video",
-        );
+        return ok(await client.clearPromoVideo(args), "Cleared promo video");
       } catch (error) {
         return fail(error);
       }

@@ -738,7 +738,7 @@ export const WORKFLOW_GUIDE_RESOURCE = {
         "apply_social_graphics_style",
       ],
       notes:
-        "Prepare every social template across all six formats once, let the user choose visually, and apply that cached selection as a new variant.",
+        "Prepare every social template across all supported formats once, let the user choose visually, and apply that cached selection as a new variant.",
     },
     {
       name: "Edit current layout directly",

@@ -3,7 +3,13 @@ import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { openUrl, fail, ok } from "./utils.js";
 
-const contentTypeEnum = z.enum(["screenshots", "socialGraphics", "promoVideo"]);
+const contentTypeEnum = z.enum([
+  "screenshots",
+  "socialGraphics",
+  "promoVideo",
+  "mockups",
+  "website",
+]);
 
 export function registerVariantTools(
   server: McpServer,
@@ -51,12 +57,13 @@ export function registerVariantTools(
         const generationId = args.generationId;
 
         if (variantId && generationId) {
-          const editorPath =
-            args.contentType === "socialGraphics"
-              ? "/graphics"
-              : args.contentType === "promoVideo"
-                ? "/promovideo"
-                : "/editor";
+          const editorPath = {
+            screenshots: "/editor",
+            socialGraphics: "/graphics",
+            promoVideo: "/promovideo",
+            mockups: "/mockups",
+            website: "/website",
+          }[args.contentType];
           const params = new URLSearchParams({
             projectId: generationId,
             variantId,
