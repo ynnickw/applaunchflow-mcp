@@ -85,10 +85,11 @@ the AppLaunchFlow OAuth flow when authentication is required.
 
 ### Inline screenshot picker
 
-MCP Apps-compatible hosts can call `render_screenshot_picker` after
-`prepare_screenshot_styles` to compare personalized V1/V2 previews inline and
-create a variant through the authenticated tool bridge. Other hosts retain the
-full-gallery link. See [local testing and deployment notes](docs/inline-picker.md).
+`prepare_screenshot_styles` returns the personalized V1/V2 picker directly in
+MCP Apps-compatible hosts and creates a variant only after explicit user
+confirmation through the authenticated tool bridge. Other hosts retain the
+full-gallery link. `render_screenshot_picker` can reopen an existing prepared
+catalog. See [local testing and deployment notes](docs/inline-picker.md).
 
 The public Streamable HTTP service uses OAuth 2.1 authorization code flow with
 PKCE through the AppLaunchFlow dashboard.

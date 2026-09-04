@@ -18,6 +18,11 @@ import {
   startProgressHeartbeat,
   verifyHostedReadReceipt,
 } from "./utils.js";
+import {
+  createSocialGraphicsPickerResult,
+  SOCIAL_GRAPHICS_PICKER_URI,
+} from "../ui/social-graphics-picker.js";
+import { pickerToolMeta } from "../ui/picker-resource.js";
 
 type SocialTemplateCatalogPayload = {
   templates: Array<{
@@ -58,8 +63,8 @@ export function registerGraphicsTools(
       description:
         "Generate or reuse the project's personalized social-graphics style catalog before the user chooses a style. " +
         "This prepares every social template across all supported social, store-listing, and mobile-ad formats in one AI call and returns a catalogKey. " +
-        "The personalized gallery opens automatically and creates the chosen variant directly in the graphics editor. " +
-        "After preparation, call render_social_graphics_picker to show the existing dashboard picker inline in Claude, ChatGPT, and other MCP Apps-compatible hosts. " +
+        "This tool itself displays the existing dashboard picker inline in Claude, ChatGPT, and other MCP Apps-compatible hosts; do not call another tool after it. " +
+        "A variant is created only after the user explicitly confirms a style. Clients without UI support receive the exact gallery URL. " +
         "Repeating the same app context and screenshot paths reuses the cache.",
       inputSchema: {
         generationId: z.string().uuid(),
@@ -78,6 +83,7 @@ export function registerGraphicsTools(
           .optional()
           .describe("Format to preview first. Defaults to og."),
       },
+      _meta: pickerToolMeta(SOCIAL_GRAPHICS_PICKER_URI),
     },
     async (
       { generationId, selectedScreenshotPaths, primaryFormat = "og" },
@@ -116,48 +122,26 @@ export function registerGraphicsTools(
           "Choose a personalized social-graphics style, then create the new variant in the editor.",
           { signal: extra.signal },
         );
+        const pickerResult = await createSocialGraphicsPickerResult(client, {
+          generationId,
+          catalogKey: result.catalogKey,
+          primaryFormat,
+        });
         return {
-          content: [
-            {
-              type: "text" as const,
-              text: [
-                result.cacheHit
-                  ? "Reused the existing personalized social-graphics catalog."
-                  : "Prepared personalized social graphics across all supported formats.",
-                `Catalog key: ${result.catalogKey}`,
-                `Available template ids: ${templateIds.join(", ")}`,
-                opened
-                  ? "Opened the personalized social-graphics gallery in the browser."
-                  : `Open the personalized social-graphics gallery: ${galleryUrl}`,
-                "Confirming a style creates a new variant containing all supported formats and opens it in the graphics editor; no template id needs to be pasted back into chat.",
-                "Next, call render_social_graphics_picker with this generationId, catalogKey, and primaryFormat.",
-              ].join("\n"),
-            },
-            {
-              type: "resource_link" as const,
-              uri: galleryUrl,
-              name: "Open Personalized Social Graphics Gallery",
-              mimeType: "text/html",
-              description:
-                "Personalized social-graphics previews with direct variant creation.",
-            },
-          ],
+          ...pickerResult,
+          content: pickerResult.content,
           structuredContent: {
             success: true,
             data: {
-              generationId,
-              catalogKey: result.catalogKey,
+              ...pickerResult.structuredContent.data,
               cacheHit: result.cacheHit === true,
-              templateIds,
               formats: [...SOCIAL_FORMATS],
-              primaryFormat,
               selectedScreenshotPaths,
-              galleryUrl,
               browserOpened: opened,
             },
             message: result.cacheHit
-              ? "Reused personalized social graphics styles"
-              : "Prepared personalized social graphics styles",
+              ? "Reused personalized social graphics styles; picker ready"
+              : "Prepared personalized social graphics styles; picker ready",
           },
         };
       } catch (error) {

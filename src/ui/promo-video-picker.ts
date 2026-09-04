@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
-import { buildPromoVideoDashboardUrl } from "../tools/promovideo.js";
+import { buildPromoVideoDashboardUrl } from "../promo-video-urls.js";
 import { fail } from "../tools/utils.js";
 import { pickerToolMeta, registerPickerResource } from "./picker-resource.js";
 
@@ -38,6 +38,70 @@ function alignScreenshotUrls(
   });
 }
 
+export async function createPromoVideoPickerResult(
+  client: AppLaunchFlowClient,
+  {
+    projectId,
+    candidateKey,
+    replaceVariantId,
+  }: {
+    projectId: string;
+    candidateKey: string;
+    replaceVariantId?: string;
+  },
+) {
+  await client.getProject(projectId);
+  const [batch, screenshots] = await Promise.all([
+    client.requestJson<PromoBatch>("/api/promovideo/candidate-catalog", {
+      query: { generationId: projectId, candidateKey },
+    }),
+    client.listProjectScreenshots(projectId),
+  ]);
+  if (batch.candidates?.length !== 3) {
+    throw new Error(
+      "The promo-video picker did not contain three current candidates.",
+    );
+  }
+  const pickerUrl = buildPromoVideoDashboardUrl(client, {
+    generationId: projectId,
+    candidateKey,
+    replaceVariantId,
+  });
+  const screenshotUrls = alignScreenshotUrls(
+    batch.screenshotPaths,
+    screenshots.paths,
+    screenshots.screenshotUrls,
+  );
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: `Choose a promo-video concept in the inline picker. If it is not displayed, open: ${pickerUrl}`,
+      },
+    ],
+    structuredContent: {
+      success: true,
+      data: {
+        projectId,
+        candidateKey,
+        candidateIds: batch.candidates.map((candidate) => candidate.id),
+        pickerUrl,
+      },
+      message: "Promo video picker ready",
+    },
+    _meta: {
+      promoVideoPicker: {
+        projectId,
+        candidateKey,
+        replaceVariantId,
+        pickerUrl,
+        screenshotUrls,
+        batch,
+      },
+    },
+  };
+}
+
 export function registerPromoVideoPicker(
   server: McpServer,
   client: AppLaunchFlowClient,
@@ -56,7 +120,7 @@ export function registerPromoVideoPicker(
     {
       title: "Show Inline Promo Video Picker",
       description:
-        "Display the three prepared promo-video candidates inside MCP Apps-compatible clients after generate_promo_video. No variant is saved until the user explicitly chooses one. Clients without UI support receive the exact dashboard picker URL.",
+        "Reopen the three-option promo-video picker for already prepared candidates. Normally generate_promo_video displays this picker directly. No variant is saved until the user explicitly chooses one. Clients without UI support receive the exact dashboard picker URL.",
       inputSchema: {
         projectId: z.string().uuid(),
         candidateKey: z.string().regex(/^[a-f0-9]{64}$/i),
@@ -66,56 +130,11 @@ export function registerPromoVideoPicker(
     },
     async ({ projectId, candidateKey, replaceVariantId }) => {
       try {
-        await client.getProject(projectId);
-        const [batch, screenshots] = await Promise.all([
-          client.requestJson<PromoBatch>("/api/promovideo/candidate-catalog", {
-            query: { generationId: projectId, candidateKey },
-          }),
-          client.listProjectScreenshots(projectId),
-        ]);
-        if (batch.candidates?.length !== 3) {
-          throw new Error(
-            "The promo-video picker did not contain three current candidates.",
-          );
-        }
-        const pickerUrl = buildPromoVideoDashboardUrl(client, {
-          generationId: projectId,
+        return await createPromoVideoPickerResult(client, {
+          projectId,
           candidateKey,
           replaceVariantId,
         });
-        const screenshotUrls = alignScreenshotUrls(
-          batch.screenshotPaths,
-          screenshots.paths,
-          screenshots.screenshotUrls,
-        );
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Choose a promo-video concept in the inline picker. If it is not displayed, open: ${pickerUrl}`,
-            },
-          ],
-          structuredContent: {
-            success: true,
-            data: {
-              projectId,
-              candidateKey,
-              candidateIds: batch.candidates.map((candidate) => candidate.id),
-              pickerUrl,
-            },
-            message: "Promo video picker ready",
-          },
-          _meta: {
-            promoVideoPicker: {
-              projectId,
-              candidateKey,
-              replaceVariantId,
-              pickerUrl,
-              screenshotUrls,
-              batch,
-            },
-          },
-        };
       } catch (error) {
         return fail(error);
       }

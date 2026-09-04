@@ -9,6 +9,69 @@ import { pickerToolMeta, registerPickerResource } from "./picker-resource.js";
 export const SCREENSHOT_PICKER_URI =
   "ui://applaunchflow/screenshot-picker-v1.html";
 
+export async function createScreenshotPickerResult(
+  client: AppLaunchFlowClient,
+  {
+    generationId,
+    catalogKey,
+    deviceType,
+  }: {
+    generationId: string;
+    catalogKey: string;
+    deviceType: "phone" | "tablet" | "desktop";
+  },
+) {
+  // The catalog URL is a read capability. Also verify project access using
+  // this connector's OAuth identity before returning its private layouts.
+  await client.getProject(generationId);
+  const catalog = await client.requestJson<{
+    templateIds: string[];
+    paletteOptions?: unknown;
+    templateLayoutsByDevice: Record<string, Record<string, unknown>>;
+  }>("/api/screenshots/template-catalog", {
+    query: { generationId, catalogKey },
+  });
+  const templateIds = listPublicTemplateIds(
+    catalog.templateLayoutsByDevice?.[deviceType] || {},
+  );
+  if (!templateIds.length)
+    throw new Error(
+      "No personalized layouts available. Prepare screenshot styles again.",
+    );
+  const galleryUrl = buildTemplateGalleryUrl(client.credentials.baseUrl, {
+    generationId,
+    catalogKey,
+    deviceType,
+    templateIds,
+    applySelection: true,
+  });
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: `Choose a style in the inline picker. If it is not displayed, open: ${galleryUrl}`,
+      },
+    ],
+    structuredContent: {
+      success: true,
+      data: { generationId, catalogKey, templateIds, galleryUrl },
+      message: "Screenshot picker ready",
+    },
+    // Layouts and signed image URLs go only to the component, not the model.
+    _meta: {
+      picker: {
+        generationId,
+        catalogKey,
+        deviceType,
+        templateIds,
+        galleryUrl,
+        paletteOptions: catalog.paletteOptions,
+        templateLayoutsByDevice: catalog.templateLayoutsByDevice,
+      },
+    },
+  };
+}
+
 export function registerScreenshotPicker(
   server: McpServer,
   client: AppLaunchFlowClient,
@@ -26,7 +89,7 @@ export function registerScreenshotPicker(
     {
       title: "Show Inline Screenshot Picker",
       description:
-        "Display the interactive screenshot picker inside MCP Apps-compatible clients after prepare_screenshot_styles. Reuses the prepared catalog; does not generate or save anything. The user compares real V1/V2 renders and explicitly creates a new variant. Clients without UI support receive the exact full-gallery URL.",
+        "Reopen the interactive screenshot picker for an already prepared catalog. Normally prepare_screenshot_styles displays this picker directly. This tool does not generate or save anything. Clients without UI support receive the exact full-gallery URL.",
       inputSchema: {
         generationId: z.string().uuid(),
         catalogKey: z.string().regex(/^[a-f0-9]{64}$/i),
@@ -36,55 +99,11 @@ export function registerScreenshotPicker(
     },
     async ({ generationId, catalogKey, deviceType }) => {
       try {
-        // The catalog URL is a read capability. Also verify project access using
-        // this connector's OAuth identity before returning its private layouts.
-        await client.getProject(generationId);
-        const catalog = await client.requestJson<{
-          templateIds: string[];
-          paletteOptions?: unknown;
-          templateLayoutsByDevice: Record<string, Record<string, unknown>>;
-        }>("/api/screenshots/template-catalog", {
-          query: { generationId, catalogKey },
-        });
-        const templateIds = listPublicTemplateIds(
-          catalog.templateLayoutsByDevice?.[deviceType] || {},
-        );
-        if (!templateIds.length)
-          throw new Error(
-            "No personalized layouts available. Prepare screenshot styles again.",
-          );
-        const galleryUrl = buildTemplateGalleryUrl(client.credentials.baseUrl, {
+        return await createScreenshotPickerResult(client, {
           generationId,
           catalogKey,
           deviceType,
-          templateIds,
-          applySelection: true,
         });
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Choose a style in the inline picker. If it is not displayed, open: ${galleryUrl}`,
-            },
-          ],
-          structuredContent: {
-            success: true,
-            data: { generationId, catalogKey, templateIds, galleryUrl },
-            message: "Screenshot picker ready",
-          },
-          // Layouts and signed image URLs go only to the component, not the model.
-          _meta: {
-            picker: {
-              generationId,
-              catalogKey,
-              deviceType,
-              templateIds,
-              galleryUrl,
-              paletteOptions: catalog.paletteOptions,
-              templateLayoutsByDevice: catalog.templateLayoutsByDevice,
-            },
-          },
-        };
       } catch (error) {
         return fail(error);
       }

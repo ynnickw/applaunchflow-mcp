@@ -11,32 +11,17 @@ import {
   openUrl,
   verifyHostedReadReceipt,
 } from "./utils.js";
+import {
+  createPromoVideoPickerResult,
+  PROMO_VIDEO_PICKER_URI,
+} from "../ui/promo-video-picker.js";
+import { pickerToolMeta } from "../ui/picker-resource.js";
+import { buildPromoVideoDashboardUrl } from "../promo-video-urls.js";
 
 const promoReceiptKey = (generationId: string, variantId?: string) =>
   ["promo-video", generationId, variantId || "active"].join("::");
 
-export function buildPromoVideoDashboardUrl(
-  client: AppLaunchFlowClient,
-  args: {
-    generationId: string;
-    variantId?: string;
-    candidateKey?: string;
-    replaceVariantId?: string;
-  },
-): string {
-  const params = new URLSearchParams({ projectId: args.generationId });
-  if (args.variantId) {
-    params.set("variantId", args.variantId);
-  }
-  if (args.candidateKey) {
-    params.set("candidateKey", args.candidateKey);
-  }
-  if (args.replaceVariantId) {
-    params.set("replaceVariantId", args.replaceVariantId);
-  }
-  const pathname = args.candidateKey ? "/promo-video-picker" : "/promovideo";
-  return `${client.credentials.baseUrl}${pathname}?${params.toString()}`;
-}
+export { buildPromoVideoDashboardUrl } from "../promo-video-urls.js";
 
 export function buildPromoVideoCandidateRequest<
   TArgs extends Record<string, unknown>,
@@ -56,8 +41,8 @@ export function registerPromoVideoTools(
       title: "Generate Promo Video",
       description:
         "Generate or reuse three transient promo-video candidates from the project's screenshots. " +
-        "The dashboard picker opens automatically so the user can preview all three; only the chosen candidate becomes a saved variant. " +
-        "After generation, call render_promo_video_picker to show the same three-option picker inline in Claude, ChatGPT, and other MCP Apps-compatible hosts. " +
+        "This tool itself displays the same three-option dashboard picker inline in Claude, ChatGPT, and other MCP Apps-compatible hosts; do not call another tool after it. " +
+        "Only the candidate explicitly chosen by the user becomes a saved variant. Clients without UI support receive the exact picker URL. " +
         "Use replaceVariantId only when the user explicitly chose to replace that existing variant, which also allows a safe swap at the plan limit. " +
         "Use selectedScreenshotPaths to constrain which uploaded screenshots feed the candidates.",
       inputSchema: {
@@ -90,6 +75,7 @@ export function registerPromoVideoTools(
             "Legacy screenshot positions. Prefer selectedScreenshotPaths.",
           ),
       },
+      _meta: pickerToolMeta(PROMO_VIDEO_PICKER_URI),
     },
     async (args, extra) => {
       try {
@@ -114,22 +100,22 @@ export function registerPromoVideoTools(
           { signal: extra.signal },
         );
 
+        const pickerResult = await createPromoVideoPickerResult(client, {
+          projectId: args.projectId,
+          candidateKey: result.candidateKey,
+          replaceVariantId: args.replaceVariantId,
+        });
+
         return {
-          content: [
-            {
-              type: "text" as const,
-              text: [
-                "Prepared three personalized promo-video candidates without creating a saved variant yet.",
-                `Candidate picker URL: ${pickerUrl}`,
-                "The dashboard picker previews all three options. Choosing one creates that variant and opens it in the promo-video editor.",
-                "Next, call render_promo_video_picker with this projectId and candidateKey.",
-              ].join("\n"),
-            },
-          ],
+          ...pickerResult,
+          content: pickerResult.content,
           structuredContent: {
             success: true,
-            data: { ...result, editorUrl: pickerUrl },
-            message: "Prepared promo video candidates",
+            data: {
+              ...pickerResult.structuredContent.data,
+              editorUrl: pickerUrl,
+            },
+            message: "Prepared promo video candidates; picker ready",
           },
         };
       } catch (error) {

@@ -28,6 +28,16 @@ test("inline picker resource, private data, authenticated read, validation, and 
     }
     assert.equal(req.headers.authorization, "Bearer test-token");
     res.setHeader("content-type", "application/json");
+    if (req.url === "/api/screenshots/generate") {
+      res.end(
+        JSON.stringify({
+          catalogKey: "a".repeat(64),
+          cacheHit: true,
+          templatePayloads: { default: {} },
+        }),
+      );
+      return;
+    }
     if (req.url === "/api/screenshots/apply-template") {
       assert.equal(req.method, "POST");
       let body = "";
@@ -92,6 +102,17 @@ test("inline picker resource, private data, authenticated read, validation, and 
   const args = { generationId: project, catalogKey: "a".repeat(64) };
   try {
     const { tools } = await client.listTools();
+    const prepareTool = tools.find(
+      (item) => item.name === "prepare_screenshot_styles",
+    )!;
+    assert.equal(
+      (prepareTool._meta?.ui as any).resourceUri,
+      SCREENSHOT_PICKER_URI,
+    );
+    assert.equal(
+      prepareTool._meta?.["openai/outputTemplate"],
+      SCREENSHOT_PICKER_URI,
+    );
     const tool = tools.find((t) => t.name === "render_screenshot_picker")!;
     assert.equal((tool._meta?.ui as any).resourceUri, SCREENSHOT_PICKER_URI);
     assert.equal(tool._meta?.["openai/outputTemplate"], SCREENSHOT_PICKER_URI);
@@ -128,6 +149,20 @@ test("inline picker resource, private data, authenticated read, validation, and 
     assert.ok(requests.at(-2)?.startsWith("/api/app/"));
     assert.ok(
       requests.at(-1)?.startsWith("/api/screenshots/template-catalog?"),
+    );
+    const prepared = await client.callTool({
+      name: prepareTool.name,
+      arguments: {
+        generationId: project,
+        selectedScreenshotPaths: ["one.png", "two.png", "three.png"],
+        deviceType: "phone",
+      },
+    });
+    assert.equal((prepared.structuredContent as any).success, true);
+    assert.ok((prepared._meta?.picker as any).templateLayoutsByDevice);
+    assert.equal(
+      (prepared.structuredContent as any).message,
+      "Reused personalized screenshot styles; picker ready",
     );
     const applied = await client.callTool({
       name: "apply_screenshot_style",

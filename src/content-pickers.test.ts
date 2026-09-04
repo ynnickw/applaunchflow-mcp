@@ -31,6 +31,29 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     }
     assert.equal(request.headers.authorization, "Bearer test-token");
     response.setHeader("content-type", "application/json");
+    if (url === "/api/graphics/generate") {
+      response.end(
+        JSON.stringify({
+          catalogKey,
+          cacheHit: true,
+          templatePayloads: { "social-clean": {} },
+        }),
+      );
+      return;
+    }
+    if (url === "/api/promovideo/generate") {
+      response.end(
+        JSON.stringify({
+          candidateKey,
+          candidates: [1, 2, 3].map((number) => ({
+            id: `candidate-${number}`,
+            title: `Concept ${number}`,
+            config: { marker: `generated-${number}` },
+          })),
+        }),
+      );
+      return;
+    }
     if (url.startsWith("/api/app/")) {
       response.end(JSON.stringify({ id: project }));
       return;
@@ -108,6 +131,8 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
   try {
     const { tools } = await client.listTools();
     for (const [toolName, uri] of [
+      ["prepare_social_graphics_styles", SOCIAL_GRAPHICS_PICKER_URI],
+      ["generate_promo_video", PROMO_VIDEO_PICKER_URI],
       ["render_social_graphics_picker", SOCIAL_GRAPHICS_PICKER_URI],
       ["render_promo_video_picker", PROMO_VIDEO_PICKER_URI],
     ] as const) {
@@ -117,7 +142,10 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
         uri,
       );
       assert.equal(tool._meta?.["openai/outputTemplate"], uri);
-      assert.equal(tool.annotations?.readOnlyHint, true);
+      assert.equal(
+        tool.annotations?.readOnlyHint,
+        toolName.startsWith("render_"),
+      );
       const resource = await client.readResource({ uri });
       assert.equal(resource.contents[0].mimeType, "text/html;profile=mcp-app");
       assert.ok("text" in resource.contents[0]);
@@ -164,6 +192,33 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     assert.deepEqual((promo._meta?.promoVideoPicker as any).screenshotUrls, [
       "https://example.invalid/screenshot-signed",
     ]);
+
+    const preparedSocial = await client.callTool({
+      name: "prepare_social_graphics_styles",
+      arguments: {
+        generationId: project,
+        selectedScreenshotPaths: ["one.png", "two.png", "three.png"],
+        primaryFormat: "instagram_post",
+      },
+    });
+    assert.equal((preparedSocial.structuredContent as any).success, true);
+    assert.ok(
+      (preparedSocial._meta?.socialGraphicsPicker as any)
+        .templateLayoutsByFormat,
+    );
+
+    const preparedPromo = await client.callTool({
+      name: "generate_promo_video",
+      arguments: {
+        projectId: project,
+        selectedScreenshotPaths: ["one.png", "two.png", "three.png"],
+      },
+    });
+    assert.equal((preparedPromo.structuredContent as any).success, true);
+    assert.equal(
+      (preparedPromo._meta?.promoVideoPicker as any).batch.candidates.length,
+      3,
+    );
 
     const applied = await client.callTool({
       name: "apply_promo_video_candidate",
