@@ -121,8 +121,11 @@ export function registerPickerResource(
         "<\\/style",
       );
       const safeScript = script.replace(/<\/script/gi, "<\\/script");
-      const assetOriginScript = `globalThis.__ALF_MCP_ASSET_ORIGIN__=${JSON.stringify(origin).replaceAll("<", "\\u003c")};`;
-      const text = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${escapedOrigin}/">${safeStyle ? `<style>${safeStyle}</style>` : ""}<title>${options.description}</title></head><body><div id="root"></div><script>${assetOriginScript}</script><script type="module">${safeScript}</script></body></html>`;
+      // ChatGPT preserves inert document metadata but strips ordinary inline
+      // scripts before running the app module in its nested sandbox. Mark the
+      // document with a meta tag so the shared renderer can reliably select
+      // its embedded-app queue limits in every MCP Apps host.
+      const text = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${escapedOrigin}/"><meta name="applaunchflow-mcp-asset-origin" content="${escapedOrigin}">${safeStyle ? `<style>${safeStyle}</style>` : ""}<title>${options.description}</title></head><body><div id="root"></div><script type="module">${safeScript}</script></body></html>`;
       return {
         contents: [
           {

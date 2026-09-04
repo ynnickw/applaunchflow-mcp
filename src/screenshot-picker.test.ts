@@ -144,7 +144,7 @@ test("inline picker resource, private data, authenticated read, validation, and 
     assert.match(
       resource.contents[0].text,
       new RegExp(
-        `globalThis\\.__ALF_MCP_ASSET_ORIGIN__=${JSON.stringify(baseUrl)}`,
+        `<meta name="applaunchflow-mcp-asset-origin" content="${baseUrl}">`,
       ),
     );
     assert.match(resource.contents[0].text, /\$& \$` \$'/);
