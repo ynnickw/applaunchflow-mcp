@@ -20,6 +20,13 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     requests.push({ url, method: request.method || "GET" });
     if (url.startsWith("/mcp-assets/")) {
       assert.equal(request.headers.authorization, undefined);
+      if (url.endsWith("-test.js")) {
+        response.writeHead(200, {
+          "content-type": "application/javascript",
+        });
+        response.end('document.getElementById("root").textContent = "picker";');
+        return;
+      }
       const name = url.includes("social")
         ? "social-graphics-picker"
         : "promo-video-picker";
@@ -153,12 +160,8 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
         resource.contents[0].text,
         new RegExp(`<base href="${baseUrl}/">`),
       );
-      assert.match(
-        resource.contents[0].text,
-        new RegExp(
-          `src="${baseUrl}/mcp-assets/${toolName.includes("social") ? "social-graphics-picker" : "promo-video-picker"}-test.js"`,
-        ),
-      );
+      assert.match(resource.contents[0].text, /textContent = "picker"/);
+      assert.doesNotMatch(resource.contents[0].text, /<script[^>]+src=/);
       assert.equal(resource.contents[0]._meta?.["openai/widgetDomain"], undefined);
     }
 

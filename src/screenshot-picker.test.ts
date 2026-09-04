@@ -26,6 +26,12 @@ test("inline picker resource, private data, authenticated read, validation, and 
       );
       return;
     }
+    if (req.url === "/mcp-assets/screenshot-picker-test.js") {
+      assert.equal(req.headers.authorization, undefined);
+      res.writeHead(200, { "content-type": "application/javascript" });
+      res.end('document.getElementById("root").textContent = "picker";');
+      return;
+    }
     assert.equal(req.headers.authorization, "Bearer test-token");
     res.setHeader("content-type", "application/json");
     if (req.url === "/api/screenshots/generate") {
@@ -124,10 +130,8 @@ test("inline picker resource, private data, authenticated read, validation, and 
       resource.contents[0].text,
       new RegExp(`<base href="${baseUrl}/">`),
     );
-    assert.match(
-      resource.contents[0].text,
-      new RegExp(`src="${baseUrl}/mcp-assets/screenshot-picker-test.js"`),
-    );
+    assert.match(resource.contents[0].text, /textContent = "picker"/);
+    assert.doesNotMatch(resource.contents[0].text, /<script[^>]+src=/);
     assert.equal(resource.contents[0]._meta?.["openai/widgetDomain"], undefined);
     assert.equal(
       (resource.contents[0]._meta?.ui as any).csp.frameDomains,
