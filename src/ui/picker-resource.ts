@@ -80,7 +80,6 @@ export function registerPickerResource(
                 },
               },
               "openai/widgetDescription": options.description,
-              "openai/widgetDomain": origin,
               "openai/widgetCSP": {
                 resource_domains: resourceDomains,
                 connect_domains: resourceDomains,
