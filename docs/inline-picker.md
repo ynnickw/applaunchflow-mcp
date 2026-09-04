@@ -3,7 +3,7 @@
 `prepare_screenshot_styles` prepares the catalog and returns the MCP Apps widget
 in the same result. `render_screenshot_picker` reopens an existing prepared
 catalog when needed. The versioned
-`ui://applaunchflow/screenshot-picker-v1.html` resource links a standalone
+`ui://applaunchflow/screenshot-picker-v2.html` resource links a standalone
 dashboard renderer bundle. It does not embed the full dashboard.
 
 The widget receives layouts and signed URLs through result `_meta`, compares V1

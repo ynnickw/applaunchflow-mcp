@@ -7,7 +7,7 @@ import { fail } from "../tools/utils.js";
 import { pickerToolMeta, registerPickerResource } from "./picker-resource.js";
 
 export const SCREENSHOT_PICKER_URI =
-  "ui://applaunchflow/screenshot-picker-v1.html";
+  "ui://applaunchflow/screenshot-picker-v2.html";
 
 export async function createScreenshotPickerResult(
   client: AppLaunchFlowClient,
