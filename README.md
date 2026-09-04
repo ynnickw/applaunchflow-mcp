@@ -148,7 +148,7 @@ For social graphics:
 3. `browse_social_templates` with the returned `templateIds`, `generationId`, and `catalogKey`
 4. `apply_social_graphics_style` with the returned `catalogKey`
 
-The screenshot result includes phone, tablet, and desktop. The social result includes every supported social, store-listing, and mobile-ad format. `generate_layouts` and `generate_graphics` remain available for legacy direct single-template calls.
+The screenshot result includes phone, tablet, and desktop. The social result includes every supported social, store-listing, and mobile-ad format. New screenshot and social-graphics variants always go through their visual pickers so the user explicitly chooses the template and palette.
 
 ## Development
 

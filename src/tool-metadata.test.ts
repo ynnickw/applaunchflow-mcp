@@ -22,7 +22,7 @@ test("all registered tools expose submission safety metadata and output schemas"
   await client.connect(clientTransport);
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 47);
+    assert.equal(tools.length, 45);
     assert.deepEqual(
       tools.map((tool) => tool.name).sort(),
       Object.keys(TOOL_ANNOTATIONS).sort(),

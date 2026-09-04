@@ -53,7 +53,6 @@ Screenshot workflows:
 - Entry point without a known project: ask whether the user wants to create a new app or edit an existing project. If they want existing, list/select projects. If they want new, create the project first.
 - For the normal style-choice flow, call list_source_screenshots, choose 3-7 real screenshots in story order, then call prepare_screenshot_styles. This generates or reuses one personalized catalog containing every template for phone, tablet, and desktop.
 - prepare_screenshot_styles opens the personalized gallery automatically. The user compares the real v1/v2 renders there; confirming a style creates a new variant from cache and opens the editor. Do not ask the user to paste a template id back into chat. Use browse_templates only to reopen the gallery, and apply_screenshot_style only when a template id was supplied directly in chat or by an API client. Never overwrite an existing variant.
-- Use generate_layouts only for an explicitly requested legacy/direct single-template generation. Do not use it for the normal visual style chooser.
 - For small, precise edits to existing known nodes, transform_layout can be used directly.
 - For any composition-sensitive edit, inspect the current layout first with get_layout. This includes adding screens, reusing screenshots, changing screenshot placement, moving text, changing spacing, or anything that should match the existing visual system.
 - Use transform_layout as the primary tool for editing current screens once you have enough layout context.
@@ -71,7 +70,6 @@ Social graphics workflows (mirror the screenshot flow):
 - After prepare_social_graphics_styles, call render_social_graphics_picker with the returned generationId, catalogKey, and primaryFormat to show the existing dashboard social-template studio inline in MCP Apps-compatible hosts. If the host cannot display it, provide the exact returned galleryUrl.
 - Call list_source_screenshots, select 3-7 real screenshots in story order, then call prepare_social_graphics_styles. This generates or reuses every social template across all supported social, store, and ad formats in one catalog.
 - prepare_social_graphics_styles opens the personalized gallery automatically. Confirming a style creates a fresh variant containing all supported formats and opens the graphics editor. Do not ask the user to paste a template id back into chat. Use browse_social_templates only to reopen the gallery, and apply_social_graphics_style only when a template id was supplied directly in chat or by an API client.
-- Use generate_graphics only for an explicitly requested legacy/direct single-template generation. Never overwrite an existing graphics variant.
 - For edits to existing social graphics, ALWAYS call get_graphics_format first, then save_graphics_format. Mutate JSON for exactly one format in memory and save only that one format. The same get-before-edit receipt rule applies as for screenshots.
 - Default to the variant's primary format unless the user explicitly asks to edit another format.
 - Do not edit multiple formats in one pass. The user can sync the design to other formats later in the graphics editor UI.

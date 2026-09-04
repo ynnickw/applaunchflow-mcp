@@ -21,7 +21,7 @@ export function registerLocalizationTools(
         "Translate screenshot layouts into one or more target languages using AI. " +
         "This is the PREFERRED way to localize screenshots — do NOT manually edit text nodes for translation. " +
         "The backend translates all text in the layout while preserving positioning, styling, and screenshots. " +
-        "Requires a source screenshot layout to already exist — created by the personalized gallery, apply_screenshot_style, or generate_layouts. " +
+        "Requires a source screenshot layout to already exist — created by the personalized gallery or apply_screenshot_style. " +
         "Pass the source variantId when available to translate that exact variant; if omitted, the active variant is used.",
       inputSchema: {
         generationId: z.string().uuid().describe("The project/generation UUID."),

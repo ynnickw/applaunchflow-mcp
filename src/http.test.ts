@@ -175,7 +175,7 @@ test("authenticated Streamable HTTP clients can initialize and discover tools", 
       await client.connect(transport);
       try {
         const { tools } = await client.listTools();
-        assert.equal(tools.length, 47);
+        assert.equal(tools.length, 45);
       } finally {
         await client.close();
       }

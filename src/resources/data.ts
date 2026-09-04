@@ -766,7 +766,6 @@ export const WORKFLOW_GUIDE_RESOURCE = {
     "Do not describe templates without showing preview resources when template previews are available.",
     "Do not read template previews one by one when prepare_screenshot_styles or browse_templates can open the full gallery.",
     "Do not begin a screenshot session with template browsing before the user has chosen create new app or edit existing project.",
-    "Do not use legacy generate_layouts or generate_graphics for the normal style chooser. Prepare a personalized catalog and let its gallery apply the selected cached screenshot style.",
     "Do not invent fresh x/y positions, widths, screenshot scale values, or headline styling for new screens when the user wants to preserve the current design language.",
     "Do not report success for new screens or composition edits without checking that the new nodes match the surrounding screens and do not overlap key content.",
   ],
