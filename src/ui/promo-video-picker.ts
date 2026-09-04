@@ -6,7 +6,7 @@ import { fail } from "../tools/utils.js";
 import { pickerToolMeta, registerPickerResource } from "./picker-resource.js";
 
 export const PROMO_VIDEO_PICKER_URI =
-  "ui://applaunchflow/promo-video-picker-v9.html";
+  "ui://applaunchflow/promo-video-picker-v10.html";
 
 type PromoCandidate = {
   id: string;
