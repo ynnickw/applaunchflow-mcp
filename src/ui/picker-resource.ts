@@ -56,7 +56,9 @@ export function registerPickerResource(
   const origin = new URL(client.credentials.baseUrl).origin;
   const resourceDomains = [
     origin,
-    "https://nffjiphaibxwybkybxph.supabase.co",
+    // Production screenshot/icon URLs are signed on this Storage origin.
+    // Keep this exact (no wildcard): both MCP Apps and ChatGPT enforce it.
+    "https://ubvbpgodmmitzutgshzu.supabase.co",
     "https://fonts.googleapis.com",
     "https://fonts.gstatic.com",
   ];
