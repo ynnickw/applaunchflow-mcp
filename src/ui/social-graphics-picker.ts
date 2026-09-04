@@ -10,7 +10,11 @@ import { fail } from "../tools/utils.js";
 import { pickerToolMeta, registerPickerResource } from "./picker-resource.js";
 
 export const SOCIAL_GRAPHICS_PICKER_URI =
-  "ui://applaunchflow/social-graphics-picker-v10.html";
+  "ui://applaunchflow/social-graphics-picker-v11.html";
+const LEGACY_SOCIAL_GRAPHICS_PICKER_URIS = Array.from(
+  { length: 10 },
+  (_, index) => `ui://applaunchflow/social-graphics-picker-v${index + 1}.html`,
+);
 
 export async function createSocialGraphicsPickerResult(
   client: AppLaunchFlowClient,
@@ -43,16 +47,13 @@ export async function createSocialGraphicsPickerResult(
       "No personalized layouts are available. Prepare social graphics styles again.",
     );
   }
-  const galleryUrl = buildSocialTemplateGalleryUrl(
-    client.credentials.baseUrl,
-    {
-      format: primaryFormat,
-      templateIds,
-      generationId,
-      catalogKey,
-      applySelection: true,
-    },
-  );
+  const galleryUrl = buildSocialTemplateGalleryUrl(client.credentials.baseUrl, {
+    format: primaryFormat,
+    templateIds,
+    generationId,
+    catalogKey,
+    applySelection: true,
+  });
   return {
     content: [
       {
@@ -92,6 +93,7 @@ export function registerSocialGraphicsPicker(
   registerPickerResource(server, client, {
     name: "social-graphics-picker",
     uri: SOCIAL_GRAPHICS_PICKER_URI,
+    legacyUris: LEGACY_SOCIAL_GRAPHICS_PICKER_URIS,
     assetFilename: "social-graphics-picker.html",
     assetPrefix: "social-graphics-picker",
     description:

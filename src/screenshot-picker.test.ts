@@ -150,13 +150,30 @@ test("inline picker resource, private data, authenticated read, validation, and 
       resource.contents[0].text,
       new RegExp(`${baseUrl}/mcp-assets/asset-icon\\.png`),
     );
-    assert.match(resource.contents[0].text, /url\(data:image\/png;base64,AA==\)/);
+    assert.match(
+      resource.contents[0].text,
+      /url\(data:image\/png;base64,AA==\)/,
+    );
     assert.doesNotMatch(resource.contents[0].text, /url\(["']?\.\.?\//);
     assert.doesNotMatch(resource.contents[0].text, /<script[^>]+src=/);
-    assert.equal(resource.contents[0]._meta?.["openai/widgetDomain"], undefined);
+    assert.equal(
+      resource.contents[0]._meta?.["openai/widgetDomain"],
+      undefined,
+    );
     assert.equal(
       (resource.contents[0]._meta?.ui as any).csp.frameDomains,
       undefined,
+    );
+    const legacyResource = await client.readResource({
+      uri: "ui://applaunchflow/screenshot-picker-v9.html",
+    });
+    assert.equal(
+      legacyResource.contents[0].uri,
+      "ui://applaunchflow/screenshot-picker-v9.html",
+    );
+    assert.equal(
+      legacyResource.contents[0].mimeType,
+      "text/html;profile=mcp-app",
     );
     const result = await client.callTool({ name: tool.name, arguments: args });
     assert.equal(result.isError, undefined);
