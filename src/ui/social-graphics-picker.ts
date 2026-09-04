@@ -10,7 +10,7 @@ import { fail } from "../tools/utils.js";
 import { pickerToolMeta, registerPickerResource } from "./picker-resource.js";
 
 export const SOCIAL_GRAPHICS_PICKER_URI =
-  "ui://applaunchflow/social-graphics-picker-v6.html";
+  "ui://applaunchflow/social-graphics-picker-v7.html";
 
 export async function createSocialGraphicsPickerResult(
   client: AppLaunchFlowClient,
