@@ -6,6 +6,7 @@ import {
   type ServerResponse,
 } from "node:http";
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
@@ -16,6 +17,9 @@ import { errorCategory, protocolErrorCategory, safeRpcMethod } from "./telemetry
 const DEFAULT_PORT = 8787;
 const INTROSPECTION_TIMEOUT_MS = 10_000;
 const DEFAULT_DASHBOARD_URL = "https://dashboard.applaunchflow.com";
+const SERVICE_VERSION = (
+  createRequire(import.meta.url)("../package.json") as { version: string }
+).version;
 const REQUIRED_SCOPES = [
   "projects:read",
   "projects:write",
@@ -317,7 +321,11 @@ export function createHttpServer() {
     const url = new URL(request.url || "/", publicBaseUrl(request));
 
     if (request.method === "GET" && url.pathname === "/healthz") {
-      json(response, 200, { ok: true, service: "applaunchflow-mcp" });
+      json(response, 200, {
+        ok: true,
+        service: "applaunchflow-mcp",
+        version: SERVICE_VERSION,
+      });
       return;
     }
 
