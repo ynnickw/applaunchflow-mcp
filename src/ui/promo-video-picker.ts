@@ -6,11 +6,7 @@ import { fail } from "../tools/utils.js";
 import { pickerToolMeta, registerPickerResource } from "./picker-resource.js";
 
 export const PROMO_VIDEO_PICKER_URI =
-  "ui://applaunchflow/promo-video-picker-v11.html";
-const LEGACY_PROMO_VIDEO_PICKER_URIS = Array.from(
-  { length: 10 },
-  (_, index) => `ui://applaunchflow/promo-video-picker-v${index + 1}.html`,
-);
+  "ui://applaunchflow/promo-video-picker-v12.html";
 
 type PromoCandidate = {
   id: string;
@@ -113,7 +109,6 @@ export function registerPromoVideoPicker(
   registerPickerResource(server, client, {
     name: "promo-video-picker",
     uri: PROMO_VIDEO_PICKER_URI,
-    legacyUris: LEGACY_PROMO_VIDEO_PICKER_URIS,
     assetFilename: "promo-video-picker.html",
     assetPrefix: "promo-video-picker",
     description:

@@ -141,6 +141,12 @@ test("inline picker resource, private data, authenticated read, validation, and 
       new RegExp(`<base href="${baseUrl}/">`),
     );
     assert.match(resource.contents[0].text, /textContent = "picker"/);
+    assert.match(
+      resource.contents[0].text,
+      new RegExp(
+        `globalThis\\.__ALF_MCP_ASSET_ORIGIN__=${JSON.stringify(baseUrl)}`,
+      ),
+    );
     assert.match(resource.contents[0].text, /\$& \$` \$'/);
     assert.match(
       resource.contents[0].text,
@@ -163,17 +169,6 @@ test("inline picker resource, private data, authenticated read, validation, and 
     assert.equal(
       (resource.contents[0]._meta?.ui as any).csp.frameDomains,
       undefined,
-    );
-    const legacyResource = await client.readResource({
-      uri: "ui://applaunchflow/screenshot-picker-v9.html",
-    });
-    assert.equal(
-      legacyResource.contents[0].uri,
-      "ui://applaunchflow/screenshot-picker-v9.html",
-    );
-    assert.equal(
-      legacyResource.contents[0].mimeType,
-      "text/html;profile=mcp-app",
     );
     const result = await client.callTool({ name: tool.name, arguments: args });
     assert.equal(result.isError, undefined);
