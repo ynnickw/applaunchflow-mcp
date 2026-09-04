@@ -22,7 +22,15 @@ test("inline picker resource, private data, authenticated read, validation, and 
       );
       res.writeHead(assetMissing ? 404 : 200, { "content-type": "text/html" });
       res.end(
-        '<!doctype html><html><head></head><body><script src="/mcp-assets/screenshot-picker-test.js"></script></body></html>',
+        '<!doctype html><html><head><link rel="stylesheet" href="/mcp-assets/picker-style-test.css"></head><body><script src="/mcp-assets/screenshot-picker-test.js"></script></body></html>',
+      );
+      return;
+    }
+    if (req.url === "/mcp-assets/picker-style-test.css") {
+      assert.equal(req.headers.authorization, undefined);
+      res.writeHead(200, { "content-type": "text/css" });
+      res.end(
+        '@font-face{font-family:Picker;src:url(./asset-font.woff2)} .icon{background:url("../mcp-assets/asset-icon.png")} .inline{background:url(data:image/png;base64,AA==)}',
       );
       return;
     }
@@ -134,6 +142,16 @@ test("inline picker resource, private data, authenticated read, validation, and 
     );
     assert.match(resource.contents[0].text, /textContent = "picker"/);
     assert.match(resource.contents[0].text, /\$& \$` \$'/);
+    assert.match(
+      resource.contents[0].text,
+      new RegExp(`${baseUrl}/mcp-assets/asset-font\\.woff2`),
+    );
+    assert.match(
+      resource.contents[0].text,
+      new RegExp(`${baseUrl}/mcp-assets/asset-icon\\.png`),
+    );
+    assert.match(resource.contents[0].text, /url\(data:image\/png;base64,AA==\)/);
+    assert.doesNotMatch(resource.contents[0].text, /url\(["']?\.\.?\//);
     assert.doesNotMatch(resource.contents[0].text, /<script[^>]+src=/);
     assert.equal(resource.contents[0]._meta?.["openai/widgetDomain"], undefined);
     assert.equal(

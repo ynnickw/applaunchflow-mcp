@@ -3,6 +3,19 @@ import type { AppLaunchFlowClient } from "../client/api.js";
 
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
 
+function rebaseInlineCssAssetUrls(css: string, origin: string): string {
+  return css.replace(
+    /url\(\s*(["']?)(\.\.?\/[^"'()]+)\1\s*\)/g,
+    (_match, quote: string, relativePath: string) => {
+      const absoluteUrl = new URL(
+        relativePath,
+        `${origin}/mcp-assets/`,
+      ).href;
+      return `url(${quote}${absoluteUrl}${quote})`;
+    },
+  );
+}
+
 async function fetchPublicAsset(
   origin: string,
   path: string,
@@ -100,7 +113,15 @@ export function registerPickerResource(
       // a String.replace replacement value. Minified JavaScript commonly
       // contains `$&`, `$\`` and `$'`; String.replace expands those sequences
       // and silently corrupts the module before it reaches the MCP sandbox.
-      const safeStyle = style.replace(/<\/style/gi, "<\\/style");
+      // The stylesheet is moved out of /mcp-assets and inlined into a document
+      // hosted on the MCP client's sandbox origin. Keep emitted font/image
+      // files anchored to the dashboard; otherwise `url(./asset-*.woff2)` is
+      // resolved against oaiusercontent.com and FontFaceSet.load rejects before
+      // the picker can render its first preview.
+      const safeStyle = rebaseInlineCssAssetUrls(style, origin).replace(
+        /<\/style/gi,
+        "<\\/style",
+      );
       const safeScript = script.replace(/<\/script/gi, "<\\/script");
       const text = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${escapedOrigin}/">${safeStyle ? `<style>${safeStyle}</style>` : ""}<title>${options.description}</title></head><body><div id="root"></div><script type="module">${safeScript}</script></body></html>`;
       return {
