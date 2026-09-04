@@ -124,6 +124,11 @@ test("inline picker resource, private data, authenticated read, validation, and 
       resource.contents[0].text,
       new RegExp(`<base href="${baseUrl}/">`),
     );
+    assert.match(
+      resource.contents[0].text,
+      new RegExp(`src="${baseUrl}/mcp-assets/screenshot-picker-test.js"`),
+    );
+    assert.equal(resource.contents[0]._meta?.["openai/widgetDomain"], baseUrl);
     assert.equal(
       (resource.contents[0]._meta?.ui as any).csp.frameDomains,
       undefined,

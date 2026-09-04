@@ -153,6 +153,13 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
         resource.contents[0].text,
         new RegExp(`<base href="${baseUrl}/">`),
       );
+      assert.match(
+        resource.contents[0].text,
+        new RegExp(
+          `src="${baseUrl}/mcp-assets/${toolName.includes("social") ? "social-graphics-picker" : "promo-video-picker"}-test.js"`,
+        ),
+      );
+      assert.equal(resource.contents[0]._meta?.["openai/widgetDomain"], baseUrl);
     }
 
     const social = await client.callTool({

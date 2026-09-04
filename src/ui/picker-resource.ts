@@ -59,10 +59,12 @@ export function registerPickerResource(
       const escapedOrigin = origin
         .replaceAll("&", "&amp;")
         .replaceAll('"', "&quot;");
-      const text = html.replace(
-        "<head>",
-        `<head><base href="${escapedOrigin}/">`,
-      );
+      const text = html
+        .replace("<head>", `<head><base href="${escapedOrigin}/">`)
+        // ChatGPT packages the HTML into a nested sandbox before parsing it.
+        // Root-relative URLs are otherwise captured by the sandbox origin even
+        // when a base element is present, so make every dashboard asset explicit.
+        .replaceAll('="/mcp-assets/', `="${escapedOrigin}/mcp-assets/`);
       return {
         contents: [
           {
@@ -78,6 +80,7 @@ export function registerPickerResource(
                 },
               },
               "openai/widgetDescription": options.description,
+              "openai/widgetDomain": origin,
               "openai/widgetCSP": {
                 resource_domains: resourceDomains,
                 connect_domains: resourceDomains,
