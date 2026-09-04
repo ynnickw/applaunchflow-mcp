@@ -96,22 +96,13 @@ export function registerPickerResource(
       const escapedOrigin = origin
         .replaceAll("&", "&amp;")
         .replaceAll('"', "&quot;");
-      let text = html;
-      if (styleTag) {
-        text = text.replace(
-          styleTag[0],
-          `<style>${style.replaceAll("</style", "<\\/style")}</style>`,
-        );
-      }
-      // ChatGPT's MCP Apps runtime expects the compiled module in the resource
-      // HTML. Loading it as a remote module can fail before the iframe starts.
-      text = text.replace(
-        scriptTag[0],
-        `<script type="module">${script.replaceAll("</script", "<\\/script")}</script>`,
-      );
-      text = text
-        .replace("<head>", `<head><base href="${escapedOrigin}/">`)
-        .replaceAll('="/mcp-assets/', `="${escapedOrigin}/mcp-assets/`);
+      // Build a fresh resource document instead of interpolating the bundle as
+      // a String.replace replacement value. Minified JavaScript commonly
+      // contains `$&`, `$\`` and `$'`; String.replace expands those sequences
+      // and silently corrupts the module before it reaches the MCP sandbox.
+      const safeStyle = style.replace(/<\/style/gi, "<\\/style");
+      const safeScript = script.replace(/<\/script/gi, "<\\/script");
+      const text = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${escapedOrigin}/">${safeStyle ? `<style>${safeStyle}</style>` : ""}<title>${options.description}</title></head><body><div id="root"></div><script type="module">${safeScript}</script></body></html>`;
       return {
         contents: [
           {
