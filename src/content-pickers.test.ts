@@ -93,7 +93,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
             title: `Concept ${number}`,
             explanation: `Option ${number}`,
             durationInFrames: 450,
-            config: { marker: `server-config-${number}` },
+            config: { marker: `server-config-${number}`, logoUrl: "https://example.invalid/logo?token=test", tagline: null },
           })),
         }),
       );
@@ -211,6 +211,11 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     assert.deepEqual((promo._meta?.promoVideoPicker as any).screenshotUrls, [
       "https://example.invalid/screenshot-signed",
     ]);
+    const privateBatch = JSON.parse((promo._meta?.promoVideoPicker as any).batchJson);
+    assert.deepEqual(privateBatch.candidates[0].config, {
+      marker: "server-config-1", logoUrl: "https://example.invalid/logo?token=test", tagline: null,
+    });
+    assert.equal("batch" in (promo._meta?.promoVideoPicker as any), false);
 
     const preparedSocial = await client.callTool({
       name: "prepare_social_graphics_styles",
@@ -235,7 +240,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     });
     assert.equal((preparedPromo.structuredContent as any).success, true);
     assert.equal(
-      (preparedPromo._meta?.promoVideoPicker as any).batch.candidates.length,
+      JSON.parse((preparedPromo._meta?.promoVideoPicker as any).batchJson).candidates.length,
       3,
     );
 

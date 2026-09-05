@@ -6,7 +6,7 @@ import { fail } from "../tools/utils.js";
 import { pickerToolMeta, registerPickerResource } from "./picker-resource.js";
 
 export const PROMO_VIDEO_PICKER_URI =
-  "ui://applaunchflow/promo-video-picker-v16.html";
+  "ui://applaunchflow/promo-video-picker-v17.html";
 
 type PromoCandidate = {
   id: string;
@@ -96,7 +96,10 @@ export async function createPromoVideoPickerResult(
         replaceVariantId,
         pickerUrl,
         screenshotUrls,
-        batch,
+        // Keep nested config fields opaque to host object/URL transformations.
+        // The widget validates and parses this JSON before rendering. This is
+        // private widget metadata, not model-visible generated content.
+        batchJson: JSON.stringify(batch),
       },
     },
   };
