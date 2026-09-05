@@ -262,7 +262,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     )!;
     assert.deepEqual(applyRequest.body, {
       projectId: project,
-      config: { marker: "server-config-2" },
+      config: { marker: "server-config-2", logoUrl: "https://example.invalid/logo?token=test", tagline: null },
       label: "Concept 2",
     });
 

@@ -28,7 +28,7 @@ test("HTTP server exposes health and protected-resource metadata", async () => {
     assert.deepEqual(await health.json(), {
       ok: true,
       service: "applaunchflow-mcp",
-      version: "0.3.31",
+      version: "0.3.32",
     });
 
     const metadata = await fetch(
