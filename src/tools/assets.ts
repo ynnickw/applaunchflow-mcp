@@ -9,6 +9,15 @@ import { upstreamSignal } from "../request-context.js";
 import { ToolInputError } from "../telemetry.js";
 import { fail, ok } from "./utils.js";
 
+import { assetListSchema } from "../contracts/index.js";
+import { pickerUri } from "../ui/picker-bundle.js";
+import {
+  pickerToolMeta,
+  registerPickerResource,
+} from "../ui/picker-resource.js";
+
+export const ASSET_LIST_URI = pickerUri("asset-list");
+
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_REMOTE_REDIRECTS = 3;
 
@@ -60,7 +69,10 @@ async function assertSafeRemoteUrl(value: string): Promise<URL> {
     throw new Error("Asset URLs must not contain embedded credentials");
   }
 
-  const addresses = await dns.lookup(url.hostname, { all: true, verbatim: true });
+  const addresses = await dns.lookup(url.hostname, {
+    all: true,
+    verbatim: true,
+  });
   if (
     addresses.length === 0 ||
     addresses.some(({ address }) => isPrivateOrReservedIp(address))
@@ -98,7 +110,11 @@ async function fetchRemoteAsset(value: string): Promise<{
   finalUrl: URL;
 }> {
   let current = await assertSafeRemoteUrl(value);
-  for (let redirectCount = 0; redirectCount <= MAX_REMOTE_REDIRECTS; redirectCount += 1) {
+  for (
+    let redirectCount = 0;
+    redirectCount <= MAX_REMOTE_REDIRECTS;
+    redirectCount += 1
+  ) {
     const response = await fetch(current, {
       redirect: "manual",
       signal: upstreamSignal(20_000),
@@ -142,6 +158,30 @@ function inferMimeType(filename: string): string {
       return "image/gif";
     case ".svg":
       return "image/svg+xml";
+    case ".avif":
+      return "image/avif";
+    case ".heic":
+      return "image/heic";
+    case ".heif":
+      return "image/heif";
+    case ".mp4":
+      return "video/mp4";
+    case ".m4v":
+      return "video/x-m4v";
+    case ".mov":
+      return "video/quicktime";
+    case ".webm":
+      return "video/webm";
+    case ".mp3":
+      return "audio/mpeg";
+    case ".m4a":
+      return "audio/mp4";
+    case ".wav":
+      return "audio/wav";
+    case ".aac":
+      return "audio/aac";
+    case ".ogg":
+      return "audio/ogg";
     case ".ttf":
       return "font/ttf";
     case ".otf":
@@ -172,7 +212,9 @@ async function expandPathSource(sourcePath: string) {
     .sort();
 }
 
-async function resolveUploadPayload(source: z.infer<typeof uploadSourceSchema>) {
+async function resolveUploadPayload(
+  source: z.infer<typeof uploadSourceSchema>,
+) {
   if (source.path) {
     if (process.env.APPLAUNCHFLOW_MCP_REMOTE === "1") {
       throw new ToolInputError(
@@ -199,8 +241,14 @@ async function resolveUploadPayload(source: z.infer<typeof uploadSourceSchema>) 
       throw new Error(`Failed to fetch ${source.url}: ${response.status}`);
     }
     const contentType = response.headers.get("content-type") || "";
-    if (!/^(image|font)\//i.test(contentType)) {
-      throw new Error(`Asset URL returned unsupported content type: ${contentType || "unknown"}`);
+    if (
+      !/^(image\/|video\/|audio\/|font\/|application\/(x-font-|font-))/i.test(
+        contentType,
+      )
+    ) {
+      throw new Error(
+        `Asset URL returned unsupported content type: ${contentType || "unknown"}`,
+      );
     }
     const buffer = await readResponseWithLimit(response);
     const filename =
@@ -209,8 +257,7 @@ async function resolveUploadPayload(source: z.infer<typeof uploadSourceSchema>) 
       {
         buffer,
         filename,
-        contentType:
-          contentType || inferMimeType(filename),
+        contentType: contentType || inferMimeType(filename),
       },
     ];
   }
@@ -234,6 +281,44 @@ export function registerAssetTools(
   server: McpServer,
   client: AppLaunchFlowClient,
 ): void {
+  registerPickerResource(server, client, {
+    name: "asset-list",
+    bundle: "asset-list",
+    uri: ASSET_LIST_URI,
+    description: "AppLaunchFlow project assets",
+  });
+  server.registerTool(
+    "list_assets",
+    {
+      title: "List Assets",
+      description:
+        "Browse an existing project's uploaded screenshots (all devices/platforms), illustrations, app icons, backgrounds, panoramas, recordings, music and clips (audio/video/images), and font files in an embedded asset list. Read-only: does not upload, select or apply anything. Inspect existing assets before asking the user to upload again. Signed preview links are private widget data; use returned relative paths in editing tools. At most 100 newest files per folder; truncated indicates more exist.",
+      inputSchema: { projectId: z.string().uuid() },
+      _meta: pickerToolMeta(ASSET_LIST_URI),
+    },
+    async ({ projectId }) => {
+      try {
+        const data = assetListSchema.parse(await client.listAssets(projectId));
+        if (data.projectId !== projectId)
+          throw new Error("Asset project mismatch");
+        return {
+          ...ok(
+            {
+              projectId,
+              truncated: data.truncated,
+              assets: data.assets.map(
+                ({ previewUrl: _previewUrl, ...summary }) => summary,
+              ),
+            },
+            "Fetched project assets",
+          ),
+          _meta: { assetList: data },
+        };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
   server.registerTool(
     "upload_screenshots",
     {
@@ -291,7 +376,9 @@ export function registerAssetTools(
       inputSchema: {
         source: z
           .enum(["shared", "project"])
-          .describe("'shared' for the shared library, 'project' for project-uploaded illustrations."),
+          .describe(
+            "'shared' for the shared library, 'project' for project-uploaded illustrations.",
+          ),
         projectId: z
           .string()
           .uuid()
@@ -300,7 +387,9 @@ export function registerAssetTools(
         category: z
           .string()
           .optional()
-          .describe("Filter shared library by category (e.g. 'Icons', 'Sticker', 'Illustrations')."),
+          .describe(
+            "Filter shared library by category (e.g. 'Icons', 'Sticker', 'Illustrations').",
+          ),
         search: z
           .string()
           .optional()
@@ -333,20 +422,28 @@ export function registerAssetTools(
     {
       title: "Upload Asset",
       description:
-        "Upload an image asset (panorama background, illustration, logo, or background image). Hosted connectors must use an HTTPS URL or base64 data; local paths are available only to the npm/stdio connector. " +
+        "Upload a project asset: illustration, logo, panorama, background, font file, mockup media (image/video), or promo media (image/video/audio). Maximum 25 MB per file. Use an HTTPS URL or base64 data with a filename including its extension; local paths are also available to the npm/stdio connector. Upload stores a file only: it does not replace the project's app icon, apply a design, or register a font family in the editor. " +
         "Returns the stored path which can then be used in transform_layout operations " +
         "(e.g. set panoramaBackground.imageUrl or illustration imageUrl to the returned path). " +
         "For illustrations: list_illustrations first to show existing options, then upload only if the user wants a custom image. " +
-        "For panoramas: ask the user to provide a local image path to upload.",
+        "For panoramas: use an HTTPS URL or base64-encoded image.",
       inputSchema: {
         projectId: z.string().uuid(),
         fileType: z
-          .enum(["illustration", "logo", "panorama", "background"])
+          .enum([
+            "illustration",
+            "logo",
+            "panorama",
+            "background",
+            "font",
+            "mockup-media",
+            "promo-media",
+          ])
           .describe(
-            "Type of asset: 'panorama' for panorama backgrounds, 'illustration' for decorative images/stickers, 'logo' for app logo, 'background' for per-screen background images.",
+            "Use mockup-media for screen recordings, promo-media for video/audio footage, font for TTF/OTF/WOFF/WOFF2, or an image category.",
           ),
         source: uploadSourceSchema.describe(
-          "The image source — provide a local file path, a URL, or base64 data.",
+          "The file source — provide an HTTPS URL or base64 data, or a local file path for npm/stdio, with an appropriate filename.",
         ),
       },
     },
@@ -354,6 +451,18 @@ export function registerAssetTools(
       try {
         const payloads = await resolveUploadPayload(source);
         const payload = payloads[0];
+        if (payload.buffer.byteLength > MAX_UPLOAD_BYTES)
+          throw new Error("Asset exceeds the 25 MB upload limit");
+        const mime = payload.contentType;
+        const allowed =
+          fileType === "font"
+            ? /^(font\/|application\/(x-font-|font-))/.test(mime)
+            : mime.startsWith("image/") ||
+              ((fileType === "mockup-media" || fileType === "promo-media") &&
+                mime.startsWith("video/")) ||
+              (fileType === "promo-media" && mime.startsWith("audio/"));
+        if (!allowed)
+          throw new Error(`Unsupported content type for ${fileType}: ${mime}`);
         const signed = await client.createSignedUpload({
           projectId,
           filename: payload.filename,

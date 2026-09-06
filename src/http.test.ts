@@ -28,7 +28,7 @@ test("HTTP server exposes health and protected-resource metadata", async () => {
     assert.deepEqual(await health.json(), {
       ok: true,
       service: "applaunchflow-mcp",
-      version: "0.3.34",
+      version: "0.3.35",
     });
 
     const metadata = await fetch(
@@ -176,15 +176,17 @@ test("authenticated Streamable HTTP clients can initialize and discover tools", 
       await client.connect(transport);
       try {
         const { tools } = await client.listTools();
-        assert.equal(tools.length, 45);
+        assert.equal(tools.length, 46);
       } finally {
         await client.close();
       }
     });
   } finally {
-    if (previousDashboard === undefined) delete process.env.APPLAUNCHFLOW_BASE_URL;
+    if (previousDashboard === undefined)
+      delete process.env.APPLAUNCHFLOW_BASE_URL;
     else process.env.APPLAUNCHFLOW_BASE_URL = previousDashboard;
-    if (previousPublicUrl === undefined) delete process.env.APPLAUNCHFLOW_MCP_PUBLIC_URL;
+    if (previousPublicUrl === undefined)
+      delete process.env.APPLAUNCHFLOW_MCP_PUBLIC_URL;
     else process.env.APPLAUNCHFLOW_MCP_PUBLIC_URL = previousPublicUrl;
     await new Promise<void>((resolve, reject) =>
       introspectionServer.close((error) => (error ? reject(error) : resolve())),

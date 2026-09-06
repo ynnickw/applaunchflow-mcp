@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "contractsSha256": "fbe84acd99b5d7d8f169ce0ba77d584b2a24d331ad43c72c926ab31752b31ac3",
+  "pickers": {
+    "asset-list": {
+      "digest": "d71ffbbd3c193d63eff7708da89a2cdca5a4374167a04ab746727a960efd8e30",
+      "filename": "picker-release-d71ffbbd3c193d63eff7708da89a2cdca5a4374167a04ab746727a960efd8e30.json.gz",
+      "bytes": 926921,
+      "compressedBytes": 189231
+    },
+    "project-list": {
+      "digest": "94c64acbf292f6e5dcc16327ba086ab99084cec6d61b1bb5caac79a5f99abcd6",
+      "filename": "picker-release-94c64acbf292f6e5dcc16327ba086ab99084cec6d61b1bb5caac79a5f99abcd6.json.gz",
+      "bytes": 671589,
+      "compressedBytes": 157202
+    }
+  }
+}

@@ -6,6 +6,7 @@ import { isVersionIncrease } from "./release-version.mjs";
 const DEPLOYABLE_PATHS = [
   /^\.claude-plugin\/plugin\.json$/,
   /^src\//,
+  /^picker-release\//,
   /^Dockerfile$/,
   /^package(?:-lock)?\.json$/,
   /^railway\.json$/,

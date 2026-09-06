@@ -2,6 +2,54 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { fail, ok } from "./utils.js";
+import { pickerUri } from "../ui/picker-bundle.js";
+import {
+  pickerToolMeta,
+  registerPickerResource,
+} from "../ui/picker-resource.js";
+import { projectListItemSchema } from "../contracts/index.js";
+
+export const PROJECT_LIST_URI = pickerUri("project-list");
+
+function toProjectListItem(value: unknown, baseUrl: string) {
+  const summary = toProjectSummary(value);
+  if (typeof summary.id !== "string") return [];
+  const project = isRecord(value) ? value : {};
+  const parsed = projectListItemSchema.safeParse({
+    ...summary,
+    name: summary.name || "Untitled project",
+    // Icons are fresh display URLs supplied by the owned-project API. Never
+    // fall back to persisted metadata URLs, which may be expired signatures.
+    iconUrl: safeDisplayUrl(project.iconUrl, baseUrl),
+    projectUrl: new URL(`/app/${encodeURIComponent(summary.id)}`, baseUrl).href,
+  });
+  return parsed.success ? [parsed.data] : [];
+}
+
+function safeDisplayUrl(value: unknown, baseUrl: string): string | undefined {
+  if (typeof value !== "string") return undefined;
+  try {
+    const url = new URL(value);
+    if (url.username || url.password) return undefined;
+    if (
+      url.protocol === "https:" ||
+      (url.protocol === "http:" &&
+        url.origin === new URL(baseUrl).origin &&
+        ["localhost", "127.0.0.1"].includes(url.hostname))
+    )
+      return url.href;
+    // Locally signed Supabase URLs use a separate loopback port.
+    if (
+      new URL(baseUrl).hostname === "127.0.0.1" ||
+      new URL(baseUrl).hostname === "localhost"
+    ) {
+      if (url.origin === "http://127.0.0.1:54321") return url.href;
+    }
+  } catch {
+    /* Invalid artwork falls back to the standard app icon. */
+  }
+  return undefined;
+}
 
 function stripUndefined<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(
@@ -88,7 +136,9 @@ function toVariantSummary(value: unknown): Record<string, unknown> {
           ? variant.updatedAt
           : undefined,
     languages: Array.isArray(variant.languages)
-      ? variant.languages.filter((entry): entry is string => typeof entry === "string")
+      ? variant.languages.filter(
+          (entry): entry is string => typeof entry === "string",
+        )
       : undefined,
     ready: typeof variant.ready === "boolean" ? variant.ready : undefined,
   });
@@ -152,13 +202,17 @@ export function toSafeProjectState(value: unknown): Record<string, unknown> {
     content: safeContent,
     progress: stripUndefined({
       totalItems:
-        typeof progress.totalItems === "number" ? progress.totalItems : undefined,
+        typeof progress.totalItems === "number"
+          ? progress.totalItems
+          : undefined,
       completedItems:
         typeof progress.completedItems === "number"
           ? progress.completedItems
           : undefined,
       percentage:
-        typeof progress.percentage === "number" ? progress.percentage : undefined,
+        typeof progress.percentage === "number"
+          ? progress.percentage
+          : undefined,
       missingItems: Array.isArray(progress.missingItems)
         ? progress.missingItems.filter(
             (entry): entry is string => typeof entry === "string",
@@ -172,19 +226,40 @@ export function registerProjectTools(
   server: McpServer,
   client: AppLaunchFlowClient,
 ): void {
+  registerPickerResource(server, client, {
+    name: "project-list",
+    bundle: "project-list",
+    uri: PROJECT_LIST_URI,
+    description:
+      "AppLaunchFlow project list with app icons and explicit project selection. Selection continues the chat; it does not create a design.",
+  });
   server.registerTool(
     "list_projects",
     {
       title: "List Projects",
-      description: "List AppLaunchFlow projects for the authenticated user",
+      description:
+        "List existing AppLaunchFlow projects for the authenticated user and show a simple project list with icons. Use this before asking for screenshots or a new upload. When the user has named a project, continue with that matching project; only ask them to select if the choice is ambiguous. Clicking Use project sends the chosen project ID to the chat, without creating a variant.",
+      _meta: {
+        ...pickerToolMeta(PROJECT_LIST_URI),
+        "openai/widgetAccessible": true,
+      },
     },
     async () => {
       try {
         const result = await client.listProjects();
-        return ok(
-          { projects: asArray(result.projects).map(toProjectSummary) },
-          "Fetched projects",
-        );
+        return {
+          ...ok(
+            { projects: asArray(result.projects).map(toProjectSummary) },
+            "Fetched projects",
+          ),
+          _meta: {
+            projectList: {
+              projects: asArray(result.projects).flatMap((project) =>
+                toProjectListItem(project, client.credentials.baseUrl),
+              ),
+            },
+          },
+        };
       } catch (error) {
         return fail(error);
       }
@@ -220,12 +295,7 @@ export function registerProjectTools(
         "Create a new AppLaunchFlow project. Only app name and platform are required. " +
         "Autofill category and description from context when possible — do not ask the user for these unless genuinely ambiguous.",
       inputSchema: {
-        appName: z
-          .string()
-          .trim()
-          .min(1)
-          .max(120)
-          .describe("The app name."),
+        appName: z.string().trim().min(1).max(120).describe("The app name."),
         platform: z
           .enum(["ios", "android", "both"])
           .optional()
@@ -243,9 +313,7 @@ export function registerProjectTools(
           .trim()
           .max(4000)
           .optional()
-          .describe(
-            "Brief app description. Infer from context when possible.",
-          ),
+          .describe("Brief app description. Infer from context when possible."),
         defaultDeviceType: z
           .enum(["phone", "tablet", "desktop", "watch"])
           .optional()

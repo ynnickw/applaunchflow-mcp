@@ -9,20 +9,19 @@ import { createAppLaunchFlowServer } from "./index.js";
 import { TOOL_ANNOTATIONS } from "./tool-metadata.js";
 
 test("all registered tools expose submission safety metadata and output schemas", async () => {
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  const server = createAppLaunchFlowServer(
-    {
-      baseUrl: "https://dashboard.applaunchflow.com",
-      token: "test-token",
-    },
-  );
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  const server = createAppLaunchFlowServer({
+    baseUrl: "https://dashboard.applaunchflow.com",
+    token: "test-token",
+  });
   const client = new Client({ name: "metadata-test", version: "1.0.0" });
 
   await server.connect(serverTransport);
   await client.connect(clientTransport);
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 45);
+    assert.equal(tools.length, 46);
     assert.deepEqual(
       tools.map((tool) => tool.name).sort(),
       Object.keys(TOOL_ANNOTATIONS).sort(),
@@ -34,9 +33,9 @@ test("all registered tools expose submission safety metadata and output schemas"
       assert.ok(tool.title, `${tool.name} must have a title`);
       assert.ok(tool.description, `${tool.name} must have a description`);
       assert.deepEqual(
-        (tool._meta?.securitySchemes as Array<{ type: string }> | undefined)?.map(
-          (scheme) => scheme.type,
-        ),
+        (
+          tool._meta?.securitySchemes as Array<{ type: string }> | undefined
+        )?.map((scheme) => scheme.type),
         ["oauth2"],
       );
     }
@@ -67,7 +66,8 @@ test("hosted tools emit privacy-safe structured outcome logs", async () => {
   });
   await new Promise<void>((resolve) => api.listen(0, "127.0.0.1", resolve));
   const address = api.address() as AddressInfo;
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
   const server = createAppLaunchFlowServer({
     baseUrl: `http://127.0.0.1:${address.port}`,
     token: "secret-test-token",
@@ -82,7 +82,10 @@ test("hosted tools emit privacy-safe structured outcome logs", async () => {
   try {
     await server.connect(serverTransport);
     await client.connect(clientTransport);
-    const result = await client.callTool({ name: "list_projects", arguments: {} });
+    const result = await client.callTool({
+      name: "list_projects",
+      arguments: {},
+    });
     assert.equal(result.isError, undefined);
     const failed = await client.callTool({
       name: "get_project",
@@ -101,9 +104,18 @@ test("hosted tools emit privacy-safe structured outcome logs", async () => {
         { event: "mcp_tool", tool: "get_project", outcome: "error" },
       ],
     );
-    assert.equal(entries.every((entry) => typeof entry.durationMs === "number"), true);
-    assert.equal(logs.some((line) => line.includes("secret-test-token")), false);
-    assert.equal(logs.some((line) => line.includes("synthetic backend failure")), false);
+    assert.equal(
+      entries.every((entry) => typeof entry.durationMs === "number"),
+      true,
+    );
+    assert.equal(
+      logs.some((line) => line.includes("secret-test-token")),
+      false,
+    );
+    assert.equal(
+      logs.some((line) => line.includes("synthetic backend failure")),
+      false,
+    );
   } finally {
     console.log = originalLog;
     console.warn = originalWarn;

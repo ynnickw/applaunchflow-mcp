@@ -16,6 +16,10 @@ const alignedRelease = {
 
 test("classifies production inputs separately from workflow and documentation files", () => {
   assert.equal(isDeployablePath("src/http.ts"), true);
+  assert.equal(
+    isDeployablePath("picker-release/picker-release-test.json.gz"),
+    true,
+  );
   assert.equal(isDeployablePath("Dockerfile"), true);
   assert.equal(isDeployablePath("server.json"), true);
   assert.equal(isDeployablePath(".claude-plugin/plugin.json"), true);

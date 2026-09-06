@@ -161,3 +161,16 @@ npm run dev
 Run `npm test` before publishing or deploying. See
 [`docs/openai-submission.md`](docs/openai-submission.md) for the final OpenAI
 submission checklist and manual test cases.
+# Embedded project and asset lists
+
+`list_projects` shows a compact list with app icons, explicit project selection,
+and dashboard links. `list_assets` shows uploaded screenshots, illustrations,
+icons, recordings, backgrounds, fonts, and music/clips using the same browser
+component as the dashboard Hub. The embedded asset list is read-only; asset
+deletion remains an explicitly confirmed action in the Hub.
+
+For maintainers, regenerate the packaged list views and shared contracts with
+`npm run sync:dashboard -- /absolute/path/to/dashboard`. Add `--check` to verify
+they match without updating the connector artifacts. `npm test` checks artifact
+integrity and contract hashes without requiring another checkout or network.
+Existing screenshot, social and promo picker behavior is unchanged.

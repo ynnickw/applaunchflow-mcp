@@ -1,6 +1,6 @@
 {
   "name": "applaunchflow",
-  "version": "0.3.34",
+  "version": "0.3.35",
   "description": "Hosted OAuth MCP connector for AppLaunchFlow.",
   "license": "MIT",
   "repository": {
@@ -12,14 +12,18 @@
     "applaunchflow": "build/cli.js"
   },
   "files": [
-    "build"
+    "build",
+    "picker-release"
   ],
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\"",
-    "build": "npm run clean && tsc -p tsconfig.json && chmod 755 build/cli.js",
+    "build": "npm run clean && npm run check:pickers && tsc -p tsconfig.json && chmod 755 build/cli.js",
     "dev:http": "tsx src/http.ts",
     "start:http": "node build/http.js",
-    "test": "npm run build && node --test build/*.test.js scripts/*.test.mjs"
+    "test": "npm run build && node --test build/*.test.js scripts/*.test.mjs",
+    "sync:dashboard": "node scripts/sync-dashboard.mjs",
+    "sync:pickers": "node scripts/picker-release.mjs",
+    "check:pickers": "node scripts/picker-release.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

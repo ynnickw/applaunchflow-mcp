@@ -37,6 +37,7 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   delete_project: overwriteOrDelete,
   upload_screenshots: openWorldCreate,
   list_illustrations: readOnly,
+  list_assets: readOnly,
   upload_asset: openWorldCreate,
   prepare_screenshot_styles: createOrAppend,
   render_screenshot_picker: readOnly,

@@ -1,6 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AppLaunchFlowClient } from "../client/api.js";
 
+import { loadPickerBundle, type PickerName } from "./picker-bundle.js";
+
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
 
 function rebaseInlineCssAssetUrls(css: string, origin: string): string {
@@ -35,6 +37,37 @@ async function fetchPublicAsset(
   return response.text();
 }
 
+export function composePickerHtml(
+  origin: string,
+  description: string,
+  script: string,
+  style: string,
+): string {
+  const escapedOrigin = origin
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;");
+  // Build a fresh resource document instead of interpolating the bundle as
+  // a String.replace replacement value. Minified JavaScript commonly
+  // contains `$&`, `$\`` and `$'`; String.replace expands those sequences
+  // and silently corrupts the module before it reaches the MCP sandbox.
+  // The stylesheet is moved out of /mcp-assets and inlined into a document
+  // hosted on the MCP client's sandbox origin. Keep emitted font/image
+  // files anchored to the dashboard; otherwise `url(./asset-*.woff2)` is
+  // resolved against oaiusercontent.com and FontFaceSet.load rejects before
+  // the picker can render its first preview.
+  const safeStyle = rebaseInlineCssAssetUrls(style, origin).replace(
+    /<\/style/gi,
+    "<\\/style",
+  );
+  const safeScript = script.replace(/<\/script/gi, "<\\/script");
+  // ChatGPT preserves inert document metadata but strips ordinary inline
+  // scripts before running the app module in its nested sandbox. Mark the
+  // document with a meta tag so the shared renderer can reliably select
+  // its embedded-app queue limits in every MCP Apps host.
+  const text = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${escapedOrigin}/"><meta name="applaunchflow-mcp-asset-origin" content="${escapedOrigin}">${safeStyle ? `<style>${safeStyle}</style>` : ""}<title>${description}</title></head><body><div id="root"></div><script type="module">${safeScript}</script></body></html>`;
+  return text;
+}
+
 export function pickerToolMeta(resourceUri: string) {
   return {
     ui: { resourceUri },
@@ -48,8 +81,9 @@ export function registerPickerResource(
   options: {
     name: string;
     uri: string;
-    assetFilename: string;
-    assetPrefix: string;
+    assetFilename?: string;
+    assetPrefix?: string;
+    bundle?: PickerName;
     description: string;
   },
 ) {
@@ -72,62 +106,53 @@ export function registerPickerResource(
     options.uri,
     { mimeType: MCP_APP_MIME_TYPE },
     async () => {
-      const response = await fetch(
-        `${origin}/mcp-assets/${options.assetFilename}`,
-        {
-          signal: AbortSignal.timeout(30_000),
-          redirect: "error",
-        },
-      );
-      if (
-        !response.ok ||
-        !(response.headers.get("content-type") || "").includes("text/html")
-      ) {
-        throw new Error(
-          `${options.name} assets are unavailable. Build and deploy the dashboard MCP UI assets first.`,
+      const getBundle = async () => {
+        if (options.bundle) return loadPickerBundle(options.bundle);
+        if (!options.assetFilename || !options.assetPrefix)
+          throw new Error("Missing picker asset descriptor");
+        const response = await fetch(
+          `${origin}/mcp-assets/${options.assetFilename}`,
+          {
+            signal: AbortSignal.timeout(30_000),
+            redirect: "error",
+          },
         );
-      }
-      const html = await response.text();
-      if (!html.includes(`/mcp-assets/${options.assetPrefix}-`)) {
-        throw new Error(`Invalid ${options.name} asset response`);
-      }
-      const scriptTag = html.match(
-        /<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/i,
+        if (
+          !response.ok ||
+          !(response.headers.get("content-type") || "").includes("text/html")
+        ) {
+          throw new Error(
+            `${options.name} assets are unavailable. Build and deploy the dashboard MCP UI assets first.`,
+          );
+        }
+        const html = await response.text();
+        if (!html.includes(`/mcp-assets/${options.assetPrefix}-`)) {
+          throw new Error(`Invalid ${options.name} asset response`);
+        }
+        const scriptTag = html.match(
+          /<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/i,
+        );
+        if (!scriptTag) {
+          throw new Error(`Invalid ${options.name} script asset`);
+        }
+        const styleTag = html.match(
+          /<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["']([^"']+)["'][^>]*>/i,
+        );
+        const [script, style] = await Promise.all([
+          fetchPublicAsset(origin, scriptTag[1], "javascript"),
+          styleTag
+            ? fetchPublicAsset(origin, styleTag[1], "css")
+            : Promise.resolve(""),
+        ]);
+        return { script, style };
+      };
+      const { script, style } = await getBundle();
+      const text = composePickerHtml(
+        origin,
+        options.description,
+        script,
+        style,
       );
-      if (!scriptTag) {
-        throw new Error(`Invalid ${options.name} script asset`);
-      }
-      const styleTag = html.match(
-        /<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["']([^"']+)["'][^>]*>/i,
-      );
-      const [script, style] = await Promise.all([
-        fetchPublicAsset(origin, scriptTag[1], "javascript"),
-        styleTag
-          ? fetchPublicAsset(origin, styleTag[1], "css")
-          : Promise.resolve(""),
-      ]);
-      const escapedOrigin = origin
-        .replaceAll("&", "&amp;")
-        .replaceAll('"', "&quot;");
-      // Build a fresh resource document instead of interpolating the bundle as
-      // a String.replace replacement value. Minified JavaScript commonly
-      // contains `$&`, `$\`` and `$'`; String.replace expands those sequences
-      // and silently corrupts the module before it reaches the MCP sandbox.
-      // The stylesheet is moved out of /mcp-assets and inlined into a document
-      // hosted on the MCP client's sandbox origin. Keep emitted font/image
-      // files anchored to the dashboard; otherwise `url(./asset-*.woff2)` is
-      // resolved against oaiusercontent.com and FontFaceSet.load rejects before
-      // the picker can render its first preview.
-      const safeStyle = rebaseInlineCssAssetUrls(style, origin).replace(
-        /<\/style/gi,
-        "<\\/style",
-      );
-      const safeScript = script.replace(/<\/script/gi, "<\\/script");
-      // ChatGPT preserves inert document metadata but strips ordinary inline
-      // scripts before running the app module in its nested sandbox. Mark the
-      // document with a meta tag so the shared renderer can reliably select
-      // its embedded-app queue limits in every MCP Apps host.
-      const text = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${escapedOrigin}/"><meta name="applaunchflow-mcp-asset-origin" content="${escapedOrigin}">${safeStyle ? `<style>${safeStyle}</style>` : ""}<title>${options.description}</title></head><body><div id="root"></div><script type="module">${safeScript}</script></body></html>`;
       return {
         contents: [
           {

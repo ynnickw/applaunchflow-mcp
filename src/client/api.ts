@@ -71,10 +71,7 @@ export class AppLaunchFlowClient {
     return headers;
   }
 
-  async requestJson<T>(
-    path: string,
-    options: RequestOptions = {},
-  ): Promise<T> {
+  async requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const url = `${this.credentials.baseUrl}${path}${buildSearchParams(options.query)}`;
     const headers = this.buildHeaders(options.headers);
 
@@ -122,6 +119,8 @@ export class AppLaunchFlowClient {
       | "logo"
       | "panorama"
       | "background"
+      | "mockup-media"
+      | "promo-media"
       | "font";
   }) {
     return this.requestJson<{
@@ -153,6 +152,12 @@ export class AppLaunchFlowClient {
     if (!response.ok) {
       throw new Error(`Upload failed with status ${response.status}`);
     }
+  }
+
+  listAssets(projectId: string) {
+    return this.requestJson<unknown>(
+      `/api/assets/list?projectId=${encodeURIComponent(projectId)}`,
+    );
   }
 
   listProjects() {
@@ -259,7 +264,9 @@ export class AppLaunchFlowClient {
   }
 
   getTemplate(templateId: string) {
-    return this.requestJson<{ template: any }>(`/api/mcp/templates/${templateId}`);
+    return this.requestJson<{ template: any }>(
+      `/api/mcp/templates/${templateId}`,
+    );
   }
 
   listSocialTemplates() {
@@ -385,11 +392,7 @@ export class AppLaunchFlowClient {
     });
   }
 
-  getGraphicsFormat(
-    projectId: string,
-    format: string,
-    variantId?: string,
-  ) {
+  getGraphicsFormat(projectId: string, format: string, variantId?: string) {
     return this.requestJson<any>("/api/graphics", {
       query: { projectId, variantId, format },
     });
