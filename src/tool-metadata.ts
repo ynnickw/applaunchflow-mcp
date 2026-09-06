@@ -39,6 +39,7 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   list_illustrations: readOnly,
   list_assets: readOnly,
   upload_asset: openWorldCreate,
+  prepare_asset_upload: createOrAppend,
   prepare_screenshot_styles: createOrAppend,
   render_screenshot_picker: readOnly,
   apply_screenshot_style: createOrAppend,

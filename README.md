@@ -166,8 +166,23 @@ submission checklist and manual test cases.
 `list_projects` shows a compact list with app icons, explicit project selection,
 and dashboard links. `list_assets` shows uploaded screenshots, illustrations,
 icons, recordings, backgrounds, fonts, and music/clips using the same browser
-component as the dashboard Hub. The embedded asset list is read-only; asset
-deletion remains an explicitly confirmed action in the Hub.
+component as the dashboard Hub. The Upload button accepts up to 10 files per
+batch (25 MB per file), with progress and a refreshed list after completion.
+Screenshots use the selected device/platform folder; other uploads use the
+selected asset tab. Uploading stores files only: it does not replace the app
+icon, apply a design, register a font family, or overwrite existing assets.
+Asset deletion remains an explicitly confirmed action in the Hub.
+
+The app-only `prepare_asset_upload` tool uses the connected account to authorize
+one uniquely named storage object. Its signed URL is returned only in widget
+metadata. The browser sends the file bytes directly to storage; neither file
+contents nor account credentials pass through the model. Refreshing calls the
+read-only `list_assets` tool. No upload is triggered by merely opening the list.
+
+Project selection uses standard MCP Apps messaging, or ChatGPT's native
+`sendFollowUpMessage` bridge when the host does not advertise text messaging.
+Hosts with neither retain the exact copy/paste fallback. A failed/ambiguous send
+is never automatically retried through another bridge.
 
 For maintainers, regenerate the packaged list views and shared contracts with
 `npm run sync:dashboard -- /absolute/path/to/dashboard`. Add `--check` to verify

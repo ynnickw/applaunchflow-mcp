@@ -183,3 +183,115 @@ test("list_assets does not display forbidden or wrong-project results", async (t
     await close();
   }
 });
+
+test("iframe upload grants are app-only, account-authenticated and private; uploads only create unique objects", async (t) => {
+  const bodies: Record<string, string>[] = [];
+  const tokens: string[] = [];
+  let reject = false;
+  let wrongProject = false;
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (input: string | URL | Request, init?: RequestInit) => {
+      assert.equal(String(input), `${origin}/api/assets/upload/signed-url`);
+      assert.equal(init?.method, "POST");
+      tokens.push(new Headers(init?.headers).get("authorization")!);
+      const body = JSON.parse(String(init?.body));
+      bodies.push(body);
+      if (reject) return Response.json({ error: "Forbidden" }, { status: 403 });
+      const folders: Record<string, string> = {
+        illustration: "illustrations",
+        logo: "logo",
+        background: "backgrounds",
+        font: "fonts",
+        "mockup-media": "mockups",
+        "promo-media": "promo-media",
+      };
+      const path = `${body.fileType ? folders[body.fileType] : `${body.deviceType}/${body.platform}`}/${body.filename}`;
+      return Response.json({
+        path,
+        filename: body.filename,
+        fullPath: `${projectId}/${path}`,
+        subfolder: path.split("/")[0],
+        uploadUrl: `https://ubvbpgodmmitzutgshzu.supabase.co/storage/v1/object/upload/sign/screenshots/${wrongProject ? "00000000-0000-4000-8000-000000000002" : projectId}/${path}?token=private-upload-token`,
+      });
+    },
+  );
+  const request = {
+    projectId,
+    kind: "illustrations",
+    filename: "test.png",
+    contentType: "image/png",
+    sizeBytes: 100,
+  };
+  for (const token of ["user-a", "user-b"]) {
+    const { client, close } = await connect(token);
+    try {
+      const tools = (await client.listTools()).tools;
+      const tool = tools.find((tool) => tool.name === "prepare_asset_upload")!;
+      assert.deepEqual(
+        (tool._meta?.ui as { visibility: string[] }).visibility,
+        ["app"],
+      );
+      assert.equal(tool._meta?.["openai/visibility"], "private");
+      assert.equal(tool._meta?.["openai/widgetAccessible"], true);
+      assert.equal(tool.annotations?.destructiveHint, false);
+      assert.equal(
+        tools.find((tool) => tool.name === "list_assets")?._meta?.[
+          "openai/widgetAccessible"
+        ],
+        true,
+      );
+      const result = await client.callTool({
+        name: "prepare_asset_upload",
+        arguments: request,
+      });
+      assert.notEqual(result.isError, true);
+      assert.doesNotMatch(
+        JSON.stringify({
+          content: result.content,
+          structuredContent: result.structuredContent,
+        }),
+        /uploadUrl|private-upload-token|Bearer/,
+      );
+      assert.match(JSON.stringify(result._meta), /private-upload-token/);
+      assert.equal(tokens.at(-1), `Bearer ${token}`);
+      assert.equal(bodies.at(-1)?.fileType, "illustration");
+      assert.equal(bodies.at(-1)?.upsert, undefined);
+      assert.notEqual(bodies.at(-1)?.filename, request.filename);
+      const before = bodies.length;
+      for (const invalid of [
+        { sizeBytes: 0 },
+        { sizeBytes: 25 * 1024 * 1024 + 1 },
+        { contentType: "text/html" },
+        { filename: "../test.png" },
+      ]) {
+        const result = await client.callTool({
+          name: "prepare_asset_upload",
+          arguments: { ...request, ...invalid },
+        });
+        assert.equal(result.isError, true);
+      }
+      assert.equal(bodies.length, before);
+      reject = true;
+      const denied = await client.callTool({
+        name: "prepare_asset_upload",
+        arguments: request,
+      });
+      assert.equal(denied.isError, true);
+      assert.equal(denied._meta, undefined);
+      reject = false;
+      wrongProject = true;
+      const mismatch = await client.callTool({
+        name: "prepare_asset_upload",
+        arguments: request,
+      });
+      assert.equal(mismatch.isError, true);
+      assert.doesNotMatch(JSON.stringify(mismatch), /private-upload-token/);
+      wrongProject = false;
+    } finally {
+      await close();
+    }
+  }
+  assert.notEqual(bodies[0].filename, bodies[1].filename);
+});

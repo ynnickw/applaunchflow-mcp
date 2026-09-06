@@ -2,6 +2,7 @@ import { promises as fs } from "fs";
 import { promises as dns } from "node:dns";
 import { BlockList, isIP } from "node:net";
 import path from "path";
+import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
@@ -9,7 +10,12 @@ import { upstreamSignal } from "../request-context.js";
 import { ToolInputError } from "../telemetry.js";
 import { fail, ok } from "./utils.js";
 
-import { assetListSchema } from "../contracts/index.js";
+import {
+  assetListSchema,
+  assetUploadRequestSchema,
+  assetUploadMetadata,
+  validateAssetUploadGrant,
+} from "../contracts/index.js";
 import { pickerUri } from "../ui/picker-bundle.js";
 import {
   pickerToolMeta,
@@ -292,9 +298,12 @@ export function registerAssetTools(
     {
       title: "List Assets",
       description:
-        "Browse an existing project's uploaded screenshots (all devices/platforms), illustrations, app icons, backgrounds, panoramas, recordings, music and clips (audio/video/images), and font files in an embedded asset list. Read-only: does not upload, select or apply anything. Inspect existing assets before asking the user to upload again. Signed preview links are private widget data; use returned relative paths in editing tools. At most 100 newest files per folder; truncated indicates more exist.",
+        "Browse an existing project's uploaded screenshots (all devices/platforms), illustrations, app icons, backgrounds, panoramas, recordings, music and clips (audio/video/images), and font files in an embedded asset list. Listing is read-only. The user can explicitly upload files using the widget's Upload button; opening the list does not upload, select or apply anything. Inspect existing assets before asking the user to upload again. Signed preview links are private widget data; use returned relative paths in editing tools. At most 100 newest files per folder; truncated indicates more exist.",
       inputSchema: { projectId: z.string().uuid() },
-      _meta: pickerToolMeta(ASSET_LIST_URI),
+      _meta: {
+        ...pickerToolMeta(ASSET_LIST_URI),
+        "openai/widgetAccessible": true,
+      },
     },
     async ({ projectId }) => {
       try {
@@ -316,6 +325,50 @@ export function registerAssetTools(
         };
       } catch (error) {
         return fail(error);
+      }
+    },
+  );
+  server.registerTool(
+    "prepare_asset_upload",
+    {
+      title: "Prepare Asset Upload",
+      description:
+        "App-only: authorize one explicitly selected file upload to the user's project. Does not upload bytes, replace existing files, apply designs or change the project icon. The upload permission is private widget metadata; never include it in a chat message.",
+      inputSchema: assetUploadRequestSchema.shape,
+      _meta: {
+        ui: { visibility: ["app"] },
+        "openai/widgetAccessible": true,
+        "openai/visibility": "private",
+      },
+    },
+    async (request) => {
+      try {
+        const metadata = assetUploadMetadata(request);
+        // Unique names avoid accidental overwrites, even for parallel identical filenames.
+        const signed = await client.createSignedUpload({
+          ...metadata,
+          filename: `${randomUUID()}-${metadata.filename}`,
+        });
+        const grant = validateAssetUploadGrant(
+          {
+            projectId: request.projectId,
+            path: signed.path,
+            uploadUrl: signed.uploadUrl,
+          },
+          request,
+          client.credentials.baseUrl,
+        );
+        return {
+          ...ok({ projectId: request.projectId }, "Upload permission prepared"),
+          _meta: { assetUpload: grant },
+        };
+      } catch {
+        // Validation errors can contain the signed URL. Never echo upload secrets to the model.
+        return fail(
+          new Error(
+            "Could not authorize this upload. Check the file type, size, connection and project access.",
+          ),
+        );
       }
     },
   );

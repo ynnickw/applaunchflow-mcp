@@ -28,7 +28,7 @@ test("HTTP server exposes health and protected-resource metadata", async () => {
     assert.deepEqual(await health.json(), {
       ok: true,
       service: "applaunchflow-mcp",
-      version: "0.3.36",
+      version: "0.3.37",
     });
 
     const metadata = await fetch(
@@ -176,7 +176,7 @@ test("authenticated Streamable HTTP clients can initialize and discover tools", 
       await client.connect(transport);
       try {
         const { tools } = await client.listTools();
-        assert.equal(tools.length, 46);
+        assert.equal(tools.length, 47);
       } finally {
         await client.close();
       }
