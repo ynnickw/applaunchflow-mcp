@@ -57,7 +57,8 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   save_graphics: overwriteOrDelete,
   save_graphics_format: overwriteOrDelete,
   generate_promo_video: createOrAppend,
-  apply_promo_video_candidate: createOrAppend,
+  // Optional replacement retires the previous variant after saving the new one.
+  apply_promo_video_candidate: overwriteOrDelete,
   get_promo_video: readOnly,
   update_promo_video: overwriteOrDelete,
   clear_promo_video: overwriteOrDelete,

@@ -123,12 +123,14 @@ export function registerPromoVideoPicker(
     {
       title: "Apply Promo Video Candidate",
       description:
-        "Create a promo-video variant from one of the three server-stored candidates. This is called by the inline picker after explicit user selection; arbitrary video config input is not accepted.",
+        "Create a promo-video variant from one of the three server-stored candidates. This is called by the inline picker after explicit user selection; arbitrary video config input is not accepted. If replaceVariantId is supplied, the previous variant is deleted after the new variant is saved; replacement requires explicit user approval.",
       inputSchema: {
         projectId: z.string().uuid(),
         candidateKey: z.string().regex(/^[a-f0-9]{64}$/i),
         candidateId: z.string().min(1).max(120),
-        replaceVariantId: z.string().uuid().optional(),
+        replaceVariantId: z.string().uuid().optional().describe(
+          "Existing promo-video variant to delete after saving the selected candidate. Only pass when the user explicitly approved replacing that variant.",
+        ),
       },
     },
     async ({ projectId, candidateKey, candidateId, replaceVariantId }) => {

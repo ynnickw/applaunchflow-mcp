@@ -22,6 +22,14 @@ test("all registered tools expose submission safety metadata and output schemas"
   try {
     const { tools } = await client.listTools();
     assert.equal(tools.length, 44);
+    // Assert behavior independently of the central annotation map: replacing a
+    // promo candidate retires the old variant, even though creation is the default.
+    const applyPromo = tools.find((tool) => tool.name === "apply_promo_video_candidate");
+    assert.equal(applyPromo?.annotations?.destructiveHint, true);
+    assert.equal(applyPromo?.annotations?.readOnlyHint, false);
+    // Preparation only stores candidates; it must not be classified as deletion.
+    const preparePromo = tools.find((tool) => tool.name === "generate_promo_video");
+    assert.equal(preparePromo?.annotations?.destructiveHint, false);
     assert.deepEqual(
       tools.map((tool) => tool.name).sort(),
       Object.keys(TOOL_ANNOTATIONS).sort(),
