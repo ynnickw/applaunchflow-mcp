@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { buildPromoVideoDashboardUrl } from "../promo-video-urls.js";
 import { fail } from "../tools/utils.js";
-import { pickerToolMeta, registerPickerResource } from "./picker-resource.js";
+import { registerPickerResource } from "./picker-resource.js";
 
 export const PROMO_VIDEO_PICKER_URI =
   "ui://applaunchflow/promo-video-picker-v19.html";
@@ -117,32 +117,6 @@ export function registerPromoVideoPicker(
     description:
       "Preview three personalized promo-video concepts and create only the one the user selects.",
   });
-
-  server.registerTool(
-    "render_promo_video_picker",
-    {
-      title: "Show Inline Promo Video Picker",
-      description:
-        "Reopen the three-option promo-video picker for already prepared candidates. Normally generate_promo_video displays this picker directly. No variant is saved until the user explicitly chooses one. Clients without UI support receive the exact dashboard picker URL.",
-      inputSchema: {
-        projectId: z.string().uuid(),
-        candidateKey: z.string().regex(/^[a-f0-9]{64}$/i),
-        replaceVariantId: z.string().uuid().optional(),
-      },
-      _meta: pickerToolMeta(PROMO_VIDEO_PICKER_URI),
-    },
-    async ({ projectId, candidateKey, replaceVariantId }) => {
-      try {
-        return await createPromoVideoPickerResult(client, {
-          projectId,
-          candidateKey,
-          replaceVariantId,
-        });
-      } catch (error) {
-        return fail(error);
-      }
-    },
-  );
 
   server.registerTool(
     "apply_promo_video_candidate",

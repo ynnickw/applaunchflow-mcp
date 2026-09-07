@@ -1,10 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { listPublicTemplateIds } from "../catalog.js";
 import { buildTemplateGalleryUrl } from "../template-previews.js";
-import { fail } from "../tools/utils.js";
-import { pickerToolMeta, registerPickerResource } from "./picker-resource.js";
+import { registerPickerResource } from "./picker-resource.js";
 
 export const SCREENSHOT_PICKER_URI =
   "ui://applaunchflow/screenshot-picker-v16.html";
@@ -84,29 +82,4 @@ export function registerScreenshotPicker(
     description:
       "Choose a personalized screenshot template and V1/V2 palette, then create a new variant.",
   });
-  server.registerTool(
-    "render_screenshot_picker",
-    {
-      title: "Show Inline Screenshot Picker",
-      description:
-        "Reopen the interactive screenshot picker for an already prepared catalog. Normally prepare_screenshot_styles displays this picker directly. This tool does not generate or save anything. Clients without UI support receive the exact full-gallery URL.",
-      inputSchema: {
-        generationId: z.string().uuid(),
-        catalogKey: z.string().regex(/^[a-f0-9]{64}$/i),
-        deviceType: z.enum(["phone", "tablet", "desktop"]).default("phone"),
-      },
-      _meta: pickerToolMeta(SCREENSHOT_PICKER_URI),
-    },
-    async ({ generationId, catalogKey, deviceType }) => {
-      try {
-        return await createScreenshotPickerResult(client, {
-          generationId,
-          catalogKey,
-          deviceType,
-        });
-      } catch (error) {
-        return fail(error);
-      }
-    },
-  );
 }

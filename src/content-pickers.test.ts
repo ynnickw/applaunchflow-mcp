@@ -111,7 +111,10 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       );
       return;
     }
-    if (url === "/api/promovideo/apply-candidate") {
+    if (
+      url === "/api/promovideo/apply-candidate" ||
+      url === "/api/graphics/apply-template"
+    ) {
       let raw = "";
       request.on("data", (chunk) => {
         raw += chunk;
@@ -140,8 +143,6 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     for (const [toolName, uri] of [
       ["prepare_social_graphics_styles", SOCIAL_GRAPHICS_PICKER_URI],
       ["generate_promo_video", PROMO_VIDEO_PICKER_URI],
-      ["render_social_graphics_picker", SOCIAL_GRAPHICS_PICKER_URI],
-      ["render_promo_video_picker", PROMO_VIDEO_PICKER_URI],
     ] as const) {
       const tool = tools.find((item) => item.name === toolName)!;
       assert.equal(
@@ -149,10 +150,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
         uri,
       );
       assert.equal(tool._meta?.["openai/outputTemplate"], uri);
-      assert.equal(
-        tool.annotations?.readOnlyHint,
-        toolName.startsWith("render_"),
-      );
+      assert.equal(tool.annotations?.readOnlyHint, false);
       const resource = await client.readResource({ uri });
       assert.equal(resource.contents[0].mimeType, "text/html;profile=mcp-app");
       assert.ok("text" in resource.contents[0]);
@@ -175,10 +173,10 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     }
 
     const social = await client.callTool({
-      name: "render_social_graphics_picker",
+      name: "prepare_social_graphics_styles",
       arguments: {
         generationId: project,
-        catalogKey,
+        selectedScreenshotPaths: ["one.png", "two.png", "three.png"],
         primaryFormat: "instagram_post",
       },
     });
@@ -200,8 +198,11 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     );
 
     const promo = await client.callTool({
-      name: "render_promo_video_picker",
-      arguments: { projectId: project, candidateKey },
+      name: "generate_promo_video",
+      arguments: {
+        projectId: project,
+        selectedScreenshotPaths: ["one.png", "two.png", "three.png"],
+      },
     });
     assert.equal((promo.structuredContent as any).success, true);
     assert.equal(
@@ -217,31 +218,52 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     });
     assert.equal("batch" in (promo._meta?.promoVideoPicker as any), false);
 
-    const preparedSocial = await client.callTool({
-      name: "prepare_social_graphics_styles",
-      arguments: {
-        generationId: project,
-        selectedScreenshotPaths: ["one.png", "two.png", "three.png"],
-        primaryFormat: "instagram_post",
-      },
-    });
-    assert.equal((preparedSocial.structuredContent as any).success, true);
+    assert.equal(privateBatch.candidates.length, 3);
+    assert.equal(
+      requests.filter((item) => item.url.endsWith("/generate")).length,
+      2,
+      "one preparation call per picker is sufficient",
+    );
+    assert.equal(
+      requests.some((item) => item.url.includes("/apply-")),
+      false,
+      "preparing pickers must not apply a selection",
+    );
     assert.ok(
-      (preparedSocial._meta?.socialGraphicsPicker as any)
-        .templateLayoutsByFormat,
+      JSON.stringify(social.content).includes(
+        (social.structuredContent as any).data.galleryUrl,
+      ),
+    );
+    assert.ok(
+      JSON.stringify(promo.content).includes(
+        (promo.structuredContent as any).data.pickerUrl,
+      ),
     );
 
-    const preparedPromo = await client.callTool({
-      name: "generate_promo_video",
+    const appliedSocial = await client.callTool({
+      name: "apply_social_graphics_style",
       arguments: {
-        projectId: project,
-        selectedScreenshotPaths: ["one.png", "two.png", "three.png"],
+        generationId: project,
+        catalogKey,
+        templateId: "social-clean",
+        primaryFormat: "instagram_post",
+        paletteMode: "v2",
       },
     });
-    assert.equal((preparedPromo.structuredContent as any).success, true);
-    assert.equal(
-      JSON.parse((preparedPromo._meta?.promoVideoPicker as any).batchJson).candidates.length,
-      3,
+    assert.equal((appliedSocial.structuredContent as any).success, true);
+    assert.match(
+      (appliedSocial.structuredContent as any).data.editorUrl,
+      new RegExp(variant),
+    );
+    assert.deepEqual(
+      requests.find((item) => item.url === "/api/graphics/apply-template")?.body,
+      {
+        generationId: project,
+        catalogKey,
+        templateId: "social-clean",
+        primaryFormat: "instagram_post",
+        paletteMode: "v2",
+      },
     );
 
     const applied = await client.callTool({

@@ -5,7 +5,11 @@ import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createAppLaunchFlowServer } from "./index.js";
-import { SCREENSHOT_PICKER_URI } from "./ui/screenshot-picker.js";
+import { AppLaunchFlowClient } from "./client/api.js";
+import {
+  createScreenshotPickerResult,
+  SCREENSHOT_PICKER_URI,
+} from "./ui/screenshot-picker.js";
 
 test("inline picker resource, private data, authenticated read, validation, and failures", async () => {
   const requests: string[] = [];
@@ -116,6 +120,12 @@ test("inline picker resource, private data, authenticated read, validation, and 
   await server.connect(st);
   await client.connect(ct);
   const args = { generationId: project, catalogKey: "a".repeat(64) };
+  const prepareArgs = {
+    generationId: project,
+    selectedScreenshotPaths: ["one.png", "two.png", "three.png"],
+    deviceType: "phone",
+  };
+  const apiClient = new AppLaunchFlowClient({ baseUrl, token: "test-token" });
   try {
     const { tools } = await client.listTools();
     const prepareTool = tools.find(
@@ -129,10 +139,7 @@ test("inline picker resource, private data, authenticated read, validation, and 
       prepareTool._meta?.["openai/outputTemplate"],
       SCREENSHOT_PICKER_URI,
     );
-    const tool = tools.find((t) => t.name === "render_screenshot_picker")!;
-    assert.equal((tool._meta?.ui as any).resourceUri, SCREENSHOT_PICKER_URI);
-    assert.equal(tool._meta?.["openai/outputTemplate"], SCREENSHOT_PICKER_URI);
-    assert.equal(tool.annotations?.readOnlyHint, true);
+    assert.equal(prepareTool.annotations?.readOnlyHint, false);
     const resource = await client.readResource({ uri: SCREENSHOT_PICKER_URI });
     assert.equal(resource.contents[0].mimeType, "text/html;profile=mcp-app");
     assert.ok("text" in resource.contents[0]);
@@ -170,7 +177,10 @@ test("inline picker resource, private data, authenticated read, validation, and 
       (resource.contents[0]._meta?.ui as any).csp.frameDomains,
       undefined,
     );
-    const result = await client.callTool({ name: tool.name, arguments: args });
+    const result = await client.callTool({
+      name: prepareTool.name,
+      arguments: prepareArgs,
+    });
     assert.equal(result.isError, undefined);
     assert.equal((result.structuredContent as any).success, true);
     assert.deepEqual((result.structuredContent as any).data.templateIds, [
@@ -192,19 +202,24 @@ test("inline picker resource, private data, authenticated read, validation, and 
     assert.ok(
       requests.at(-1)?.startsWith("/api/screenshots/template-catalog?"),
     );
-    const prepared = await client.callTool({
-      name: prepareTool.name,
-      arguments: {
-        generationId: project,
-        selectedScreenshotPaths: ["one.png", "two.png", "three.png"],
-        deviceType: "phone",
-      },
-    });
-    assert.equal((prepared.structuredContent as any).success, true);
-    assert.ok((prepared._meta?.picker as any).templateLayoutsByDevice);
     assert.equal(
-      (prepared.structuredContent as any).message,
+      (result.structuredContent as any).message,
       "Reused personalized screenshot styles; picker ready",
+    );
+    assert.equal(
+      requests.filter((path) => path === "/api/screenshots/generate").length,
+      1,
+    );
+    assert.equal(
+      requests.includes("/api/screenshots/apply-template"),
+      false,
+      "preparing the inline picker must not apply a selection",
+    );
+    assert.ok(
+      JSON.stringify(result.content).includes(
+        (result.structuredContent as any).data.galleryUrl,
+      ),
+      "the exact browser URL remains available without another tool call",
     );
     const applied = await client.callTool({
       name: "apply_screenshot_style",
@@ -222,9 +237,9 @@ test("inline picker resource, private data, authenticated read, validation, and 
     );
     denied = true;
     const before = requests.length;
-    assert.equal(
-      (await client.callTool({ name: tool.name, arguments: args })).isError,
-      true,
+    await assert.rejects(
+      createScreenshotPickerResult(apiClient, { ...args, deviceType: "phone" }),
+      /Forbidden/,
     );
     assert.equal(
       requests.length,
@@ -233,16 +248,16 @@ test("inline picker resource, private data, authenticated read, validation, and 
     );
     denied = false;
     stale = true;
-    assert.equal(
-      (await client.callTool({ name: tool.name, arguments: args })).isError,
-      true,
+    await assert.rejects(
+      createScreenshotPickerResult(apiClient, { ...args, deviceType: "phone" }),
+      /Catalog expired/,
     );
     const invalidBefore = requests.length;
     assert.equal(
       (
         await client.callTool({
-          name: tool.name,
-          arguments: { ...args, catalogKey: "bad" },
+          name: prepareTool.name,
+          arguments: { ...prepareArgs, selectedScreenshotPaths: ["only-one.png"] },
         })
       ).isError,
       true,

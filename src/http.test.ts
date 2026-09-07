@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AddressInfo } from "node:net";
+import { createRequire } from "node:module";
 import { createServer as createNodeServer } from "node:http";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -28,7 +29,7 @@ test("HTTP server exposes health and protected-resource metadata", async () => {
     assert.deepEqual(await health.json(), {
       ok: true,
       service: "applaunchflow-mcp",
-      version: "0.3.38",
+      version: (createRequire(import.meta.url)("../package.json") as { version: string }).version,
     });
 
     const metadata = await fetch(
@@ -176,7 +177,7 @@ test("authenticated Streamable HTTP clients can initialize and discover tools", 
       await client.connect(transport);
       try {
         const { tools } = await client.listTools();
-        assert.equal(tools.length, 47);
+        assert.equal(tools.length, 44);
       } finally {
         await client.close();
       }
