@@ -5,7 +5,7 @@ import { buildTemplateGalleryUrl } from "../template-previews.js";
 import { registerPickerResource } from "./picker-resource.js";
 
 export const SCREENSHOT_PICKER_URI =
-  "ui://applaunchflow/screenshot-picker-v16.html";
+  "ui://applaunchflow/screenshot-picker-v17.html";
 
 export async function createScreenshotPickerResult(
   client: AppLaunchFlowClient,
