@@ -1,7 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { requestTelemetry, runWithRequestSignal } from "./request-context.js";
+import { requestTelemetry, runWithRequestSignal, needsWidgetFallback } from "./request-context.js";
+import { cursorWidgetResult } from "./widget-result.js";
 import { errorCategory, toolErrorCategory } from "./telemetry.js";
 
 const readOnly: ToolAnnotations = {
@@ -152,7 +153,7 @@ export function installToolMetadataPolicy(
             ...(isError ? { errorCategory: toolErrorCategory(result) } : {}),
           }),
         );
-        return result;
+        return needsWidgetFallback() ? cursorWidgetResult(result) : result;
       } catch (error) {
         console.error(
           JSON.stringify({

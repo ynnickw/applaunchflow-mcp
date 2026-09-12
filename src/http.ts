@@ -11,7 +11,7 @@ import { pathToFileURL } from "node:url";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { createAppLaunchFlowServer } from "./index.js";
-import { runWithRequestTelemetry, upstreamSignal } from "./request-context.js";
+import { runWithRequestTelemetry, upstreamSignal, withWidgetFallback } from "./request-context.js";
 import { errorCategory, protocolErrorCategory, safeRpcMethod } from "./telemetry.js";
 
 const DEFAULT_PORT = 8787;
@@ -293,7 +293,10 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
       server.server.onerror = (error) => {
         diagnostics.errorCategory = protocolErrorCategory(error);
       };
-      await transport.handleRequest(request, response);
+      await withWidgetFallback(
+        /^Cursor\//i.test(request.headers["user-agent"] || ""),
+        () => transport.handleRequest(request, response),
+      );
     } catch (error) {
       diagnostics.errorCategory = protocolErrorCategory(error);
       console.error(JSON.stringify({

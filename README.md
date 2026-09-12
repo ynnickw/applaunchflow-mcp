@@ -176,8 +176,8 @@ icon, apply a design, register a font family, or overwrite existing assets.
 Asset deletion remains an explicitly confirmed action in the Hub.
 
 The app-only `prepare_asset_upload` tool uses the connected account to authorize
-one uniquely named storage object. Its signed URL is returned only in widget
-metadata. The browser sends the file bytes directly to storage; neither file
+one uniquely named storage object. Its signed URL is returned in widget
+metadata (with the Cursor compatibility fallback described below). The browser sends the file bytes directly to storage; neither file
 contents nor account credentials pass through the model. Refreshing calls the
 read-only `list_assets` tool. No upload is triggered by merely opening the list.
 
@@ -185,6 +185,16 @@ Project selection uses standard MCP Apps messaging, or ChatGPT's native
 `sendFollowUpMessage` bridge when the host does not advertise text messaging.
 Hosts with neither retain the exact copy/paste fallback. A failed/ambiguous send
 is never automatically retried through another bridge.
+
+Cursor currently drops tool-result `_meta` before delivering results to embedded
+apps. For HTTP requests with a `Cursor/` user agent, the connector mirrors only
+the seven known widget payloads into `structuredContent.widgetDataJson`.
+All five widgets prefer `_meta` and accept this structured fallback, including
+asset-folder and upload responses. Structured content can be model-visible;
+never add arbitrary metadata or account credentials to this allowlist. ChatGPT
+and Claude keep their original metadata-only delivery. Test the stripped-metadata
+path with the dashboard harness `?picker=projects&scenario=cursor` (also supports
+`assets`, `screenshots`, `social`, and `promo`).
 
 For maintainers, regenerate the packaged list views and shared contracts with
 `npm run sync:dashboard -- /absolute/path/to/dashboard`. Add `--check` to verify

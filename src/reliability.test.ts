@@ -239,6 +239,21 @@ test("hosted reliability regressions over real HTTP", async (t) => {
       assert.equal(rawLogs.some((line) => line.includes(data.readReceipt)), false);
     });
 
+    await t.test("only Cursor HTTP responses mirror widget metadata", async () => {
+      for (const userAgent of ["Cursor/3.19.13", "Claude", "ChatGPT"]) {
+        const response = await post({
+          jsonrpc: "2.0", id: 1, method: "tools/call",
+          params: { name: "list_projects", arguments: {} },
+        }, "widget-fallback", { "user-agent": userAgent });
+        const text = await response.text();
+        const result = JSON.parse(text.split("\n").find(line => line.startsWith("data: "))!.slice(6)).result;
+        assert.equal(result.isError, undefined);
+        if (userAgent.startsWith("Cursor/")) {
+          assert.deepEqual(JSON.parse(result.structuredContent.widgetDataJson).projectList, result._meta.projectList);
+        } else assert.equal(result.structuredContent.widgetDataJson, undefined);
+      }
+    });
+
     await t.test("concurrent tool logs retain their own HTTP request IDs", async () => {
       const responses = await Promise.all([
         call("list_projects", "correlation-success"),

@@ -1,6 +1,15 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 const requestSignalStorage = new AsyncLocalStorage<AbortSignal>();
+const widgetFallbackStorage = new AsyncLocalStorage<boolean>();
+
+export function withWidgetFallback<T>(enabled: boolean, run: () => T): T {
+  return widgetFallbackStorage.run(enabled, run);
+}
+
+export function needsWidgetFallback(): boolean {
+  return widgetFallbackStorage.getStore() === true;
+}
 const requestTelemetryStorage = new AsyncLocalStorage<{ requestId: string }>();
 
 export function runWithRequestTelemetry<T>(requestId: string, callback: () => T): T {
