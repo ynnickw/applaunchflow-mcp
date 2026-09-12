@@ -195,6 +195,13 @@ export function registerLayoutTools(
 
         const editorUrl = buildEditorUrl({ generationId, language, variantId });
         const previewUrl = buildVariantPreviewUrl({ language, variantId });
+        const data = {
+          layout,
+          editorUrl,
+          previewUrl,
+          readBeforeEditSatisfied: hasEditReceipt,
+          readReceipt,
+        };
 
         return {
           content: [
@@ -207,6 +214,9 @@ export function registerLayoutTools(
                 hasEditReceipt
                   ? "A fresh get_layout read is now recorded for this generation/language/variant and can be used for one transform_layout call."
                   : "No edit receipt was recorded because language was omitted. Provide language when reading a layout you intend to transform.",
+                // Some hosts expose only content to the model. Include the same
+                // data here so they can inspect the layout and pass its receipt.
+                JSON.stringify(data, null, 2),
               ]
                 .filter(Boolean)
                 .join("\n"),
@@ -214,13 +224,7 @@ export function registerLayoutTools(
           ],
           structuredContent: {
             success: true,
-            data: {
-              layout,
-              editorUrl,
-              previewUrl,
-              readBeforeEditSatisfied: hasEditReceipt,
-              readReceipt,
-            },
+            data,
             message: "Fetched layout data",
           },
         };
