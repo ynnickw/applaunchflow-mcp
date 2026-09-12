@@ -239,6 +239,26 @@ test("hosted reliability regressions over real HTTP", async (t) => {
       assert.equal(rawLogs.some((line) => line.includes(data.readReceipt)), false);
     });
 
+    await t.test("Cursor SDK validates widget responses against advertised output schemas", async () => {
+      const client = new Client({ name: "Cursor", version: "3.19.13" });
+      const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
+        requestInit: { headers: { ...headers, "user-agent": "Cursor/3.19.13" } },
+      });
+      try {
+        await client.connect(transport);
+        const { tools } = await client.listTools();
+        const result = await client.callTool({ name: "list_projects", arguments: {} });
+        assert.notEqual(result.isError, true);
+        assert.equal(typeof (result.structuredContent as Record<string, unknown>)?.widgetDataJson, "string");
+        for (const tool of tools) {
+          assert.deepEqual(tool.outputSchema?.properties?.widgetDataJson, { type: "string" }, tool.name);
+          assert.equal(tool.outputSchema?.required?.includes("widgetDataJson"), false, tool.name);
+        }
+      } finally {
+        await client.close();
+      }
+    });
+
     await t.test("only Cursor HTTP responses mirror widget metadata", async () => {
       for (const userAgent of ["Cursor/3.19.13", "Claude", "ChatGPT"]) {
         const response = await post({

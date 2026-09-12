@@ -100,6 +100,9 @@ const OAUTH_SECURITY_SCHEME = {
 
 const GENERIC_OUTPUT_SCHEMA = {
   success: z.boolean(),
+  // Cursor validates structuredContent before forwarding it to embedded apps.
+  // The optional compatibility payload must be part of the advertised schema.
+  widgetDataJson: z.string().optional(),
   data: z.unknown().optional(),
   message: z.string().optional(),
   error: z.unknown().optional(),
