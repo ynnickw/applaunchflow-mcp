@@ -78,6 +78,7 @@ test("hosted reliability regressions over real HTTP", async (t) => {
     });
   }
   let authStatus = 200;
+  const layoutWrites: unknown[] = [];
   let authPayload: unknown = {
     active: true, userId: "test-user",
     scopes: ["projects:read", "projects:write", "assets:write", "generations:write"],
@@ -86,6 +87,18 @@ test("hosted reliability regressions over real HTTP", async (t) => {
     response.setHeader("content-type", "application/json");
     if (request.url === "/api/auth/mcp/introspect") {
       response.writeHead(authStatus).end(JSON.stringify(authPayload));
+    } else if (request.url?.startsWith("/api/translations")) {
+      const language = new URL(request.url, "http://localhost").searchParams.get("language");
+      response.end(JSON.stringify(language
+        ? { language, mobileLayout: { screens: [{ id: "screen-one", children: [] }] } }
+        : { translations: [{ language: "en" }] }));
+    } else if (request.url === "/api/mcp/transform") {
+      let body = "";
+      request.on("data", (chunk) => { body += chunk; });
+      request.on("end", () => {
+        layoutWrites.push(JSON.parse(body));
+        response.end(JSON.stringify({ success: true }));
+      });
     } else if (request.url === "/api/screenshots/apply-template") {
       response.end(JSON.stringify({ variantId: "test-variant", detectedLanguage: "en" }));
     } else if (request.url === "/api/projects") {
@@ -186,6 +199,44 @@ test("hosted reliability regressions over real HTTP", async (t) => {
         assert.match(await response.text(), /"isError":true/);
         assert.equal(entries.find((entry) => entry.event === "mcp_tool" && entry.requestId === `guard-${name}`)?.errorCategory, category);
       }
+    });
+
+    await t.test("stateless HTTP text-only reads authorize only matching layout edits", async () => {
+      const decode = async (response: Response) => {
+        const body = await response.text();
+        return JSON.parse(body.split("\n").find((line) => line.startsWith("data: "))!.slice(6)).result;
+      };
+      const target = { generationId: "00000000-0000-4000-8000-000000000001", language: "en" };
+      const listing = await decode(await call("get_layout", "receipt-list", { generationId: target.generationId }));
+      assert.equal(listing.structuredContent.data.readBeforeEditSatisfied, false);
+      const read = await decode(await call("get_layout", "receipt-read", target));
+      // Discard structuredContent as a text-only host would.
+      const text = read.content.map((c: { text: string }) => c.text).join("\n");
+      const data = JSON.parse(text.slice(text.indexOf("{\n")));
+      assert.equal(data.layout.language, "en");
+      assert.ok(data.readReceipt);
+      assert.equal(text.includes("secret-access-token"), false);
+      const edit = {
+        ...target,
+        operations: [{ type: "update_node", target: { nodeType: "screenshot", screens: [0] },
+          changes: { path: "library/test.png" } }],
+        readReceipt: data.readReceipt,
+      };
+      for (const invalid of [
+        { ...edit, readReceipt: undefined },
+        { ...edit, language: "de" },
+        { ...edit, variantId: "00000000-0000-4000-8000-000000000002" },
+        { ...edit, readReceipt: data.readReceipt + "tampered" },
+      ]) {
+        const result = await decode(await call("transform_layout", "receipt-rejected", invalid));
+        assert.equal(result.isError, true);
+      }
+      assert.equal(layoutWrites.length, 0);
+      const saved = await decode(await call("transform_layout", "receipt-accepted", edit));
+      assert.notEqual(saved.isError, true);
+      assert.equal(layoutWrites.length, 1);
+      assert.equal(JSON.stringify(layoutWrites).includes(data.readReceipt), false);
+      assert.equal(rawLogs.some((line) => line.includes(data.readReceipt)), false);
     });
 
     await t.test("concurrent tool logs retain their own HTTP request IDs", async () => {

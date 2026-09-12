@@ -150,28 +150,13 @@ export function registerPromoVideoTools(
               client.credentials.token,
             )
           : undefined;
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: [
-                "Fetched promo video.",
-                `Editor URL: ${editorUrl}`,
-                "A fresh read receipt was recorded and can be used for one update_promo_video call.",
-              ].join("\n"),
-            },
-          ],
-          structuredContent: {
-            success: true,
-            data: {
-              ...result,
-              editorUrl,
-              readBeforeEditSatisfied: true,
-              readReceipt,
-            },
-            message: "Fetched promo video",
-          },
-        };
+        // Mirror edit state and receipt in text for hosts that omit structuredContent.
+        return ok({
+          ...result,
+          editorUrl,
+          readBeforeEditSatisfied: true,
+          readReceipt,
+        }, "Fetched promo video. Pass readReceipt to the matching edit tool; do not display it to the user.");
       } catch (error) {
         return fail(error);
       }

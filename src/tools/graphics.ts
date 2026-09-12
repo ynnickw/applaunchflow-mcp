@@ -483,28 +483,13 @@ export function registerGraphicsTools(
           ? createHostedReadReceipt(receiptKey, client.credentials.token)
           : undefined;
 
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: [
-                `Fetched social graphics format ${format}.`,
-                `Editor URL: ${editorUrl}`,
-                "A fresh same-format read receipt was recorded and can be used for one save_graphics_format call.",
-              ].join("\n"),
-            },
-          ],
-          structuredContent: {
-            success: true,
-            data: {
-              ...result,
-              editorUrl,
-              readBeforeEditSatisfied: true,
-              readReceipt,
-            },
-            message: "Fetched one social graphics format",
-          },
-        };
+        // Mirror edit state and receipt in text for hosts that omit structuredContent.
+        return ok({
+          ...result,
+          editorUrl,
+          readBeforeEditSatisfied: true,
+          readReceipt,
+        }, "Fetched one social graphics format. Pass readReceipt to the matching edit tool; do not display it to the user.");
       } catch (error) {
         return fail(error);
       }

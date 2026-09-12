@@ -163,7 +163,9 @@ export function registerLayoutTools(
         "The returned JSON follows the layout schema documented in the resource applaunchflow://schema/layout — read it to learn which fields exist and their valid ranges, not just which ones happen to be set here.",
       inputSchema: {
         generationId: z.string().uuid(),
-        language: z.string().optional(),
+        language: z.string().trim().min(1).optional().describe(
+          "Required for editing: use the exact language from the project's translations. If omitted, this only lists translations; call get_layout again with a returned language before transform_layout.",
+        ),
         variantId: z.string().uuid().optional(),
         sign: z.boolean().optional(),
       },
@@ -176,9 +178,9 @@ export function registerLayoutTools(
           variantId,
           sign,
         });
-        const hasEditReceipt = Boolean(language);
+        const hasEditReceipt = Boolean(language && layout);
         let readReceipt: string | undefined;
-        if (language) {
+        if (language && layout) {
           const receiptKey = buildReadReceiptKey({
             generationId,
             language,
@@ -201,6 +203,12 @@ export function registerLayoutTools(
           previewUrl,
           readBeforeEditSatisfied: hasEditReceipt,
           readReceipt,
+          editTarget: hasEditReceipt ? { generationId, language, variantId } : undefined,
+          nextStep: !language
+            ? "This is a translation list, not an editable layout. Choose a language from these translations and call get_layout again with that language and the same variantId. Then pass its readReceipt to transform_layout."
+            : !layout
+              ? "No layout exists for this language and variant. Read an existing translation before editing."
+              : "Pass readReceipt and editTarget unchanged to transform_layout. Do not show the receipt to the user.",
         };
 
         return {
@@ -213,7 +221,7 @@ export function registerLayoutTools(
                 previewUrl ? `Preview URL: ${previewUrl}` : null,
                 hasEditReceipt
                   ? "A fresh get_layout read is now recorded for this generation/language/variant and can be used for one transform_layout call."
-                  : "No edit receipt was recorded because language was omitted. Provide language when reading a layout you intend to transform.",
+                  : data.nextStep,
                 // Some hosts expose only content to the model. Include the same
                 // data here so they can inspect the layout and pass its receipt.
                 JSON.stringify(data, null, 2),
