@@ -1,5 +1,29 @@
-/** Shared project and asset list contracts. */
+/** Canonical wire contracts. Synced into the separately released MCP package. */
 import { z } from "zod";
+
+export const SOCIAL_FORMATS = [
+  "og",
+  "x_post",
+  "instagram_story",
+  "instagram_post",
+  "x_header",
+  "linkedin_banner",
+  "play_store_feature",
+  "app_store_event_card",
+  "app_store_event_details",
+  "ad_banner",
+  "ad_mobile_banner",
+  "ad_tablet_banner_720",
+  "ad_tablet_banner_728",
+  "ad_mrec",
+  "ad_phone_portrait",
+  "ad_phone_landscape",
+  "ad_fullscreen_landscape",
+  "ad_tablet_portrait",
+  "ad_tablet_landscape",
+] as const;
+export type SocialFormat = (typeof SOCIAL_FORMATS)[number];
+export type JsonObject = Record<string, unknown>;
 
 // Presentation-only data travels in tool _meta, never in the model summary.
 const displayUrl = z
@@ -61,6 +85,138 @@ export const assetListSchema = z.object({
 export type AssetListItem = z.infer<typeof assetListItemSchema>;
 export type AssetList = z.infer<typeof assetListSchema>;
 export type AssetKind = z.infer<typeof assetKindSchema>;
+
+export const projectIdField = z
+  .string()
+  .uuid()
+  .describe("AppLaunchFlow project UUID.");
+export const operationIdField = z
+  .string()
+  .uuid()
+  .describe(
+    "Use the operationId returned by the picker. Retry the exact same ID and selection after an uncertain response; only an independent new user action gets a new ID.",
+  );
+export const editTargetFields = {
+  variantId: z
+    .string()
+    .uuid()
+    .describe(
+      "Concrete variant returned by the preceding read, never an active/default alias.",
+    ),
+  expectedRevision: z
+    .string()
+    .uuid()
+    .describe(
+      "Revision of this exact target from the preceding read. Stale/replayed writes fail with EDIT_CONFLICT; re-read instead of retrying.",
+    ),
+};
+export const editLanguageField = z
+  .string()
+  .trim()
+  .min(1)
+  .max(32)
+  .describe("Exact language returned by the preceding read.");
+export const selectionFields = {
+  operationId: operationIdField,
+  catalogKey: z.string().min(1).max(128),
+  templateId: z.string().min(1),
+  paletteMode: z.enum(["v1", "v2"]).default("v1"),
+};
+export const screenshotSelectionApiSchema = z
+  .object({
+    ...selectionFields,
+    generationId: projectIdField,
+    replaceVariantId: z.string().uuid().optional(),
+  })
+  .strict();
+export const socialSelectionApiSchema = screenshotSelectionApiSchema.extend({
+  primaryFormat: z.enum(SOCIAL_FORMATS),
+});
+// Tool-facing names are consistent; existing dashboard routes keep their wire
+// names behind the client adapter, without alias ambiguity in model schemas.
+export const screenshotSelectionSchema = screenshotSelectionApiSchema
+  .omit({ generationId: true, replaceVariantId: true })
+  .extend({ projectId: projectIdField });
+export const socialSelectionSchema = socialSelectionApiSchema
+  .omit({ generationId: true, replaceVariantId: true })
+  .extend({
+    projectId: projectIdField,
+    primaryFormat: z.enum(SOCIAL_FORMATS).default("og"),
+  });
+export const promoCandidateSelectionSchema = z
+  .object({
+    projectId: projectIdField,
+    operationId: operationIdField,
+    candidateKey: z.string().regex(/^[a-f0-9]{64}$/i),
+    candidateId: z.string().min(1).max(120),
+    replaceVariantId: z.string().uuid().optional(),
+  })
+  .strict();
+export const promoSelectionApiSchema = promoCandidateSelectionSchema
+  .extend({
+    candidateKey: promoCandidateSelectionSchema.shape.candidateKey.optional(),
+    candidateId: promoCandidateSelectionSchema.shape.candidateId.optional(),
+    config: z.record(z.string(), z.unknown()).optional(),
+    label: z.string().trim().min(1).max(120).optional(),
+  })
+  .refine(
+    (input) =>
+      input.config
+        ? !input.candidateKey && !input.candidateId
+        : !!input.candidateKey && !!input.candidateId,
+    "Provide either a stored candidate key/id or a config, not both",
+  );
+
+export type ScreenshotSelectionRequest = z.input<
+  typeof screenshotSelectionApiSchema
+>;
+export type SocialSelectionRequest = z.input<typeof socialSelectionApiSchema>;
+export type ScreenshotToolSelectionRequest = z.input<
+  typeof screenshotSelectionSchema
+>;
+export type SocialToolSelectionRequest = z.input<typeof socialSelectionSchema>;
+export type PromoCandidateSelectionRequest = z.input<
+  typeof promoCandidateSelectionSchema
+>;
+export interface SelectionResponse {
+  variantId: string;
+}
+export interface ScreenshotSelectionResponse extends SelectionResponse {
+  detectedLanguage: string;
+  mobileLayout: unknown;
+  tabletLayout: unknown;
+  desktopLayout: unknown;
+}
+export interface SocialSelectionResponse extends SelectionResponse {
+  sourceLanguage: string;
+  language: string;
+  availableLanguages: string[];
+  socialTemplateId: string;
+  socialPrimaryFormat: SocialFormat;
+  graphics: Array<{ format: SocialFormat; layout: unknown }>;
+}
+export interface PreparedCatalog {
+  catalogKey: string;
+  cacheHit?: boolean;
+  templatePayloads: Record<string, unknown>;
+}
+export interface PreparedPromoCandidates {
+  candidateKey: string;
+  candidates: Array<{
+    id: string;
+    title: string;
+    explanation: string;
+    durationInFrames: number;
+    config: JsonObject;
+  }>;
+}
+export interface TemplateSummary {
+  id: string;
+  name: string;
+  description?: string;
+  categories?: string[];
+  screenCount?: number;
+}
 
 export const MAX_ASSET_UPLOAD_BYTES = 25 * 1024 * 1024;
 const imageTypes = {

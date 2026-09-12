@@ -4,6 +4,7 @@ import { AppLaunchFlowClient, type McpCredentials } from "./client/api.js";
 import { registerPrompts } from "./prompts/register.js";
 import { registerResources } from "./resources/register.js";
 import { registerAssetTools } from "./tools/assets.js";
+import { registerAssetManagementTools } from "./tools/asset-management.js";
 import { registerLayoutTools } from "./tools/layouts.js";
 import { registerProjectTools } from "./tools/projects.js";
 import { registerScreenshotTools } from "./tools/screenshots.js";
@@ -135,6 +136,7 @@ export function createAppLaunchFlowServer(
   registerResources(server, client);
   registerProjectTools(server, client);
   registerAssetTools(server, client);
+  registerAssetManagementTools(server, client);
   registerScreenshotTools(server, client);
   registerLayoutTools(server, client);
   registerTemplateTools(server, client);
