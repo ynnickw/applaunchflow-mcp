@@ -1,0 +1,15 @@
+{
+  "name": "applaunchflow",
+  "version": "0.3.45",
+  "description": "Create and edit app-store screenshots, social graphics, promo videos, and animated device mockups. Browse projects and manage assets with interactive widgets.",
+  "author": {
+    "name": "Yannick Westermann Labs",
+    "email": "support@applaunchflow.com"
+  },
+  "homepage": "https://dashboard.applaunchflow.com/docs/mcp",
+  "repository": "https://github.com/ynnickw/applaunchflow-mcp",
+  "license": "MIT",
+  "logo": "assets/logo.svg",
+  "keywords": ["mcp", "app-store", "screenshots", "social-graphics", "promo-video", "device-mockups"],
+  "mcpServers": "mcp.json"
+}

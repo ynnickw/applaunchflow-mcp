@@ -4,6 +4,27 @@ MCP server for AppLaunchFlow — create App Store & Google Play screenshots with
 
 ## Connect
 
+### Cursor marketplace plugin
+
+This public repository includes a Cursor plugin manifest in `.cursor-plugin/plugin.json`
+and a root `mcp.json` targeting the hosted service. No API keys or local server are required.
+After installing, authorize AppLaunchFlow through Cursor's MCP settings using your
+AppLaunchFlow account. Existing plan limits apply; installing the plugin does not
+grant a paid AppLaunchFlow subscription.
+
+Try "List my AppLaunchFlow projects", then "Show the screenshot styles for this
+project using its existing screenshots". Choose the style in the interactive picker;
+preparing previews does not select a design for you. The same flow supports social
+graphics and promo videos. Asset uploads and management are available from the asset browser.
+
+If you already configured AppLaunchFlow manually, disable the duplicate MCP entry
+when installing the plugin. Support: support@applaunchflow.com.
+
+Maintainers: validate with `npm test`, then submit the public repository at
+https://cursor.com/marketplace/publish. Cursor reviews marketplace listings separately
+from npm and the MCP Registry. The Cursor plugin version tracks its packaging release;
+the remotely hosted server can receive independent updates.
+
 AppLaunchFlow is a hosted MCP connector with OAuth 2.1 and PKCE. No API key,
 local token, or scoped npm package name is required.
 
