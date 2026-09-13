@@ -21,7 +21,10 @@ test("all registered tools expose submission safety metadata and output schemas"
   await client.connect(clientTransport);
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 53);
+    assert.equal(tools.length, 52);
+    assert.equal(tools.find(tool => tool.name === "replace_asset")?.annotations?.destructiveHint, true);
+    assert.equal(tools.find(tool => tool.name === "delete_assets")?.annotations?.destructiveHint, true);
+    for (const removed of ["restore_assets", "manage_asset_library"]) assert.equal(tools.some(tool => tool.name === removed), false);
     // Assert behavior independently of the central annotation map: replacing a
     // promo candidate retires the old variant, even though creation is the default.
     const applyPromo = tools.find((tool) => tool.name === "apply_promo_video_candidate");

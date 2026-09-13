@@ -3,10 +3,10 @@
   "contractsSha256": "079a34caf89502598bfb93cc27caadfba5ef211350386dd3acfe19094ff225bb",
   "pickers": {
     "asset-list": {
-      "digest": "bfb780763516db733c88649ed9ca89b46c4569f22e64bf70a355bc3e9a3fce2c",
-      "filename": "picker-release-bfb780763516db733c88649ed9ca89b46c4569f22e64bf70a355bc3e9a3fce2c.json.gz",
-      "bytes": 891328,
-      "compressedBytes": 196272
+      "digest": "bd4772506b49c2e0ae2b989b20b4096a3bfab64fdc03550acb3c28908662ee5a",
+      "filename": "picker-release-bd4772506b49c2e0ae2b989b20b4096a3bfab64fdc03550acb3c28908662ee5a.json.gz",
+      "bytes": 884929,
+      "compressedBytes": 194306
     },
     "project-list": {
       "digest": "ec74102df0b6b38483e708caaa576001e58d07a65c0c394647f22498f3dcdfd6",

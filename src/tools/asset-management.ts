@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { fail, ok } from "./utils.js";
+import { assetSummary } from "./asset-summary.js";
 
 const projectId = z.string().uuid();
 const paths = z.array(z.string().min(1).max(1024)).min(1).max(50);
@@ -16,7 +17,7 @@ export function registerAssetManagementTools(
     {
       title: "List Asset Folders",
       description:
-        "List logical asset folders, membership and recoverable removed files. Shared by the dashboard and MCP. Does not modify anything.",
+        "List device/platform-scoped screenshot folders, their explicit locales and memberships. Shared by the dashboard and MCP. Does not modify anything.",
       inputSchema: {
         projectId,
         offset: z.number().int().min(0).max(100000).optional(),
@@ -30,14 +31,14 @@ export function registerAssetManagementTools(
           assets: Array<Record<string, unknown>>;
           organization: unknown;
           nextOffset: number | null;
-        }>("/api/assets/manage", { query: { projectId, offset } });
+        }>("/api/assets/folders", { query: { projectId, offset } });
         return {
           ...ok(
             {
               projectId,
-              organization: data.organization,
+              organization: assetSummary(data.organization),
               nextOffset: data.nextOffset,
-              assets: data.assets.map(({ previewUrl, ...asset }) => asset),
+              assets: assetSummary(data.assets),
             },
             "Fetched asset folders",
           ),
@@ -55,32 +56,30 @@ export function registerAssetManagementTools(
     schema: z.ZodRawShape;
   }> = [
     {
+      tool: "replace_asset",
+      action: "replace",
+      description: "Replace an asset with an already uploaded file in the same category/device/platform. Explicitly updates all saved-design references and preserves folder membership, then permanently deletes the old file from storage. No restore. Upload the new file first. On partial failure both files are retained until cleanup succeeds; inspect the result and retry the same paths.",
+      schema: { projectId, path: z.string().min(1).max(1024), replacementPath: z.string().min(1).max(1024) },
+    },
+    {
       tool: "delete_assets",
       action: "delete",
       description:
-        "Remove explicitly selected unused assets from the library. In-use files are blocked. Recoverable: bytes remain in storage; this does not reclaim storage space.",
+        "Permanently delete explicitly selected unused assets from storage. Files referenced by any saved design are blocked. There is no restore.",
       schema: { projectId, paths },
-    },
-    {
-      tool: "restore_assets",
-      action: "restore",
-      description:
-        "Restore files previously removed from the asset library. Does not change any saved design.",
-      schema: { projectId, paths },
-    },
-    {
-      tool: "replace_asset",
-      action: "replace",
-      description:
-        "Replace one library asset with an already uploaded file in the same category. Upload the new file first and use its returned path. Keeps folder membership and preserves the original in existing designs. This does NOT overwrite bytes or update existing designs. Retry using the same paths after an uncertain response.",
-      schema: { projectId, path: z.string(), replacementPath: z.string() },
     },
     {
       tool: "create_asset_folder",
       action: "create_folder",
       description:
-        "Create a logical folder across asset types. Supply a new UUID folderId and reuse it for retries. Storage paths do not change.",
-      schema: { projectId, folderId, name },
+        "Create a screenshot folder within the specified device and platform. Optionally bind it to an explicit locale. Supply a new UUID folderId and reuse it for retries. Storage paths do not change.",
+      schema: { projectId, folderId, name, deviceType: z.enum(["mobile", "tablet", "desktop", "watch"]), platform: z.enum(["ios", "android"]), locale: z.string().regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/).nullable().optional() },
+    },
+    {
+      tool: "set_asset_folder_locale",
+      action: "set_locale",
+      description: "Bind a screenshot folder to an explicit language code, or pass null to clear the binding. Folder names do not determine language.",
+      schema: { projectId, folderId, locale: z.string().regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/).nullable() },
     },
     {
       tool: "rename_asset_folder",
@@ -100,7 +99,7 @@ export function registerAssetManagementTools(
       tool: "move_assets",
       action: "move",
       description:
-        "Move assets into a logical folder, or pass null to ungroup them. Never changes storage paths or saved designs.",
+        "Move screenshot assets into a folder with the same device and platform, or pass null to ungroup them. Never changes storage paths or saved designs.",
       schema: { projectId, paths, folderId: folderId.nullable() },
     },
   ];
@@ -117,10 +116,9 @@ export function registerAssetManagementTools(
           const body = {
             ...args,
             action: operation.action,
-            ...(operation.action === "replace" ? { paths: [args.path] } : {}),
           };
           return ok(
-            await client.requestJson("/api/assets/manage", {
+            await client.requestJson("/api/assets/folders", {
               method: "POST",
               body,
             }),
@@ -132,46 +130,4 @@ export function registerAssetManagementTools(
       },
     );
   }
-  server.registerTool(
-    "manage_asset_library",
-    {
-      title: "Manage Asset Library",
-      description:
-        "App-only asset library actions after an explicit user interaction. Never updates existing designs or destroys stored bytes.",
-      inputSchema: {
-        projectId,
-        action: z.enum([
-          "create_folder",
-          "rename_folder",
-          "delete_folder",
-          "move",
-          "delete",
-          "restore",
-          "replace",
-        ]),
-        paths: paths.optional(),
-        folderId: folderId.nullable().optional(),
-        name: name.optional(),
-        replacementPath: z.string().optional(),
-      },
-      _meta: {
-        ui: { visibility: ["app"] },
-        "openai/widgetAccessible": true,
-        "openai/visibility": "private",
-      },
-    },
-    async (body) => {
-      try {
-        return ok(
-          await client.requestJson("/api/assets/manage", {
-            method: "POST",
-            body,
-          }),
-          "Asset library updated",
-        );
-      } catch (error) {
-        return fail(error);
-      }
-    },
-  );
 }

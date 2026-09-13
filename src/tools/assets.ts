@@ -9,6 +9,7 @@ import type { AppLaunchFlowClient } from "../client/api.js";
 import { upstreamSignal } from "../request-context.js";
 import { ToolInputError } from "../telemetry.js";
 import { fail, ok } from "./utils.js";
+import { assetSummary } from "./asset-summary.js";
 
 import {
   assetListSchema,
@@ -315,9 +316,7 @@ export function registerAssetTools(
             {
               projectId,
               truncated: data.truncated,
-              assets: data.assets.map(
-                ({ previewUrl: _previewUrl, ...summary }) => summary,
-              ),
+              assets: assetSummary(data.assets),
             },
             "Fetched project assets",
           ),
@@ -383,17 +382,23 @@ export function registerAssetTools(
         deviceType: z.enum(["mobile", "tablet", "desktop", "watch"]),
         platform: z.enum(["ios", "android"]),
         sources: z.array(uploadSourceSchema).min(1),
+        folderId: z.string().uuid().optional().describe("Existing screenshot folder in this device/platform scope. Assign each uploaded file to it; never changes saved designs."),
       },
     },
-    async ({ projectId, deviceType, platform, sources }) => {
+    async ({ projectId, deviceType, platform, sources, folderId }) => {
+      const uploads: Array<{ filename: string; path: string; subfolder: string; folderAssigned: boolean }> = [];
       try {
-        const uploads = [];
+        if (folderId) {
+          const library = await client.requestJson<{ organization: { folders: Array<{ id: string; device_type: string; platform: string }> } }>("/api/assets/folders", { query: { projectId } });
+          if (!library.organization.folders.some(folder => folder.id === folderId && folder.device_type === deviceType && folder.platform === platform))
+            throw new Error("Folder does not match upload scope");
+        }
         for (const source of sources) {
           const payloads = await resolveUploadPayload(source);
           for (const payload of payloads) {
             const signed = await client.createSignedUpload({
               projectId,
-              filename: payload.filename,
+              filename: `${randomUUID()}-${payload.filename}`,
               contentType: payload.contentType,
               deviceType,
               platform,
@@ -406,14 +411,19 @@ export function registerAssetTools(
             uploads.push({
               filename: signed.filename,
               path: signed.path,
-              fullPath: signed.fullPath,
               subfolder: signed.subfolder,
+              folderAssigned: false,
             });
+            if (folderId) {
+              await client.requestJson("/api/assets/folders", { method: "POST", body: { projectId, action: "move", folderId, paths: [signed.path] } });
+              uploads[uploads.length - 1].folderAssigned = true;
+            }
           }
         }
         return ok({ uploads }, "Uploaded assets");
       } catch (error) {
-        return fail(error);
+        if (error instanceof ToolInputError && !uploads.length) return fail(error);
+        return { ...ok({ uploads, folderId, complete: false }, "Upload incomplete. Successfully uploaded files are listed; unassigned files can be moved with move_assets. No saved designs were changed."), isError: true };
       }
     },
   );
@@ -455,10 +465,8 @@ export function registerAssetTools(
           if (!projectId) {
             throw new Error("projectId is required when source is 'project'");
           }
-          return ok(
-            await client.listProjectIllustrations(projectId),
-            "Fetched project illustrations",
-          );
+          const data = await client.listProjectIllustrations(projectId);
+          return { ...ok(assetSummary(data), "Fetched project illustrations"), _meta: { illustrationPreviews: data } };
         }
         return ok(
           await client.listSharedIllustrations({ category, search, limit: 50 }),
@@ -518,7 +526,7 @@ export function registerAssetTools(
           throw new Error(`Unsupported content type for ${fileType}: ${mime}`);
         const signed = await client.createSignedUpload({
           projectId,
-          filename: payload.filename,
+          filename: `${randomUUID()}-${payload.filename}`,
           contentType: payload.contentType,
           fileType,
         });
@@ -531,13 +539,12 @@ export function registerAssetTools(
           {
             filename: signed.filename,
             path: signed.path,
-            fullPath: signed.fullPath,
             subfolder: signed.subfolder,
           },
           `Uploaded ${fileType} asset`,
         );
-      } catch (error) {
-        return fail(error);
+      } catch {
+        return fail(new Error("Asset upload failed. Check file type, size and project access; list assets before retrying an uncertain upload."));
       }
     },
   );
