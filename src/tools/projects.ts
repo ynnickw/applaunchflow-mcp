@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { fail, ok } from "./utils.js";
@@ -271,9 +271,9 @@ export function registerProjectTools(
     {
       title: "Get Project",
       description: "Get the full hub state for a project",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid(),
-      },
+      }),
     },
     async ({ projectId }) => {
       try {
@@ -294,7 +294,7 @@ export function registerProjectTools(
       description:
         "Create a new AppLaunchFlow project. Only app name and platform are required. " +
         "Autofill category and description from context when possible — do not ask the user for these unless genuinely ambiguous.",
-      inputSchema: {
+      inputSchema: z.object({
         appName: z.string().trim().min(1).max(120).describe("The app name."),
         platform: z
           .enum(["ios", "android", "both"])
@@ -325,10 +325,10 @@ export function registerProjectTools(
             "Optional stored logo path from upload_screenshots when fileType=logo.",
           ),
         metadata: z
-          .record(z.any())
+          .record(z.string(), z.any())
           .optional()
           .describe("Advanced escape hatch for extra metadata fields."),
-      },
+      }),
     },
     async (args) => {
       try {
@@ -370,9 +370,9 @@ export function registerProjectTools(
     {
       title: "Delete Project",
       description: "Delete a project",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid(),
-      },
+      }),
     },
     async ({ projectId }) => {
       try {

@@ -1,7 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { ElicitResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import type { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import type {
+  RequestOptions,
+  ServerContext,
+} from "@modelcontextprotocol/server";
 import { AppLaunchFlowApiError } from "../client/api.js";
 import { ToolInputError } from "../telemetry.js";
 
@@ -27,7 +29,6 @@ export async function elicitUrl(
   const proto = server.server as any;
   return proto.request(
     { method: "elicitation/create", params },
-    ElicitResultSchema,
     options,
   ) as ReturnType<typeof server.server.elicitInput>;
 }
@@ -75,11 +76,6 @@ type ProgressNotification = {
   };
 };
 
-interface ProgressCapableExtra {
-  _meta?: { progressToken?: string | number };
-  sendNotification?: (notification: ProgressNotification) => Promise<void>;
-}
-
 /**
  * Emit periodic progress notifications while a long-running operation (e.g. the
  * one-shot AI catalog generation behind prepare_*) is awaited. Clients that
@@ -87,20 +83,20 @@ interface ProgressCapableExtra {
  * during the dead air. Returns a stop function to call in a `finally`.
  */
 export function startProgressHeartbeat(
-  extra: ProgressCapableExtra | undefined,
+  context: ServerContext | undefined,
   message: string,
   intervalMs = 8000,
 ): () => void {
-  const progressToken = extra?._meta?.progressToken;
-  const sendNotification = extra?.sendNotification;
-  if (progressToken === undefined || typeof sendNotification !== "function") {
+  const progressToken = context?.mcpReq._meta?.progressToken;
+  const notify = context?.mcpReq.notify;
+  if (progressToken === undefined || typeof notify !== "function") {
     return () => {};
   }
 
   let progress = 0;
   const send = () => {
     progress += 1;
-    void sendNotification({
+    void notify({
       method: "notifications/progress",
       params: { progressToken, progress, message },
     }).catch(() => {
@@ -157,9 +153,9 @@ export function createHostedReadReceipt(
   bearerToken: string,
   now = Date.now(),
 ): string {
-  const payload = Buffer.from(JSON.stringify({ target, issuedAt: now })).toString(
-    "base64url",
-  );
+  const payload = Buffer.from(
+    JSON.stringify({ target, issuedAt: now }),
+  ).toString("base64url");
   const signature = createHmac("sha256", bearerToken)
     .update(payload)
     .digest("base64url");
@@ -189,7 +185,9 @@ export function verifyHostedReadReceipt(
   }
 
   try {
-    const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
+    const decoded = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8"),
+    ) as {
       target?: unknown;
       issuedAt?: unknown;
     };
@@ -262,8 +260,12 @@ function formatValidationIssue(issue: ValidationIssue): string {
     : (issue.path ?? "");
   const where = path ? `\`${path}\`` : "(root)";
   const bounds = [
-    issue.expected !== undefined ? `expected ${JSON.stringify(issue.expected)}` : null,
-    issue.received !== undefined ? `received ${JSON.stringify(issue.received)}` : null,
+    issue.expected !== undefined
+      ? `expected ${JSON.stringify(issue.expected)}`
+      : null,
+    issue.received !== undefined
+      ? `received ${JSON.stringify(issue.received)}`
+      : null,
     issue.maximum !== undefined ? `max ${JSON.stringify(issue.maximum)}` : null,
     issue.minimum !== undefined ? `min ${JSON.stringify(issue.minimum)}` : null,
   ]
@@ -291,10 +293,14 @@ export function fail(error: unknown) {
           ...(issues ? { issues } : {}),
         }
       : {
-          code: error instanceof ToolInputError ? error.code
-            : error instanceof Error && error.name === "AbortError" ? "REQUEST_CANCELLED"
-            : error instanceof Error && error.name === "TimeoutError" ? "UPSTREAM_TIMEOUT"
-            : "UNKNOWN",
+          code:
+            error instanceof ToolInputError
+              ? error.code
+              : error instanceof Error && error.name === "AbortError"
+                ? "REQUEST_CANCELLED"
+                : error instanceof Error && error.name === "TimeoutError"
+                  ? "UPSTREAM_TIMEOUT"
+                  : "UNKNOWN",
           type: error instanceof ToolInputError ? "validation" : "server",
           message: error instanceof Error ? error.message : String(error),
         };
@@ -303,9 +309,11 @@ export function fail(error: unknown) {
   // text so the calling LLM can see exactly which field tripped Zod and
   // self-correct on the next call instead of guessing.
   const text = issues?.length
-    ? [normalized.message, "Issues:", ...issues.map(formatValidationIssue)].join(
-        "\n",
-      )
+    ? [
+        normalized.message,
+        "Issues:",
+        ...issues.map(formatValidationIssue),
+      ].join("\n")
     : normalized.message;
 
   return {

@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { fail, ok } from "./utils.js";
@@ -18,10 +18,10 @@ export function registerAssetManagementTools(
       title: "List Asset Folders",
       description:
         "List device/platform-scoped screenshot folders, their explicit locales and memberships. Shared by the dashboard and MCP. Does not modify anything.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId,
         offset: z.number().int().min(0).max(100000).optional(),
-      },
+      }),
       _meta: { "openai/widgetAccessible": true },
     },
     async ({ projectId, offset }) => {
@@ -58,8 +58,13 @@ export function registerAssetManagementTools(
     {
       tool: "replace_asset",
       action: "replace",
-      description: "Replace an asset with an already uploaded file in the same category/device/platform. Explicitly updates all saved-design references and preserves folder membership, then permanently deletes the old file from storage. No restore. Upload the new file first. On partial failure both files are retained until cleanup succeeds; inspect the result and retry the same paths.",
-      schema: { projectId, path: z.string().min(1).max(1024), replacementPath: z.string().min(1).max(1024) },
+      description:
+        "Replace an asset with an already uploaded file in the same category/device/platform. Explicitly updates all saved-design references and preserves folder membership, then permanently deletes the old file from storage. No restore. Upload the new file first. On partial failure both files are retained until cleanup succeeds; inspect the result and retry the same paths.",
+      schema: {
+        projectId,
+        path: z.string().min(1).max(1024),
+        replacementPath: z.string().min(1).max(1024),
+      },
     },
     {
       tool: "delete_assets",
@@ -73,13 +78,32 @@ export function registerAssetManagementTools(
       action: "create_folder",
       description:
         "Create a screenshot folder within the specified device and platform. Optionally bind it to an explicit locale. Supply a new UUID folderId and reuse it for retries. Storage paths do not change.",
-      schema: { projectId, folderId, name, deviceType: z.enum(["mobile", "tablet", "desktop", "watch"]), platform: z.enum(["ios", "android"]), locale: z.string().regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/).nullable().optional() },
+      schema: {
+        projectId,
+        folderId,
+        name,
+        deviceType: z.enum(["mobile", "tablet", "desktop", "watch"]),
+        platform: z.enum(["ios", "android"]),
+        locale: z
+          .string()
+          .regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/)
+          .nullable()
+          .optional(),
+      },
     },
     {
       tool: "set_asset_folder_locale",
       action: "set_locale",
-      description: "Bind a screenshot folder to an explicit language code, or pass null to clear the binding. Folder names do not determine language.",
-      schema: { projectId, folderId, locale: z.string().regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/).nullable() },
+      description:
+        "Bind a screenshot folder to an explicit language code, or pass null to clear the binding. Folder names do not determine language.",
+      schema: {
+        projectId,
+        folderId,
+        locale: z
+          .string()
+          .regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/)
+          .nullable(),
+      },
     },
     {
       tool: "rename_asset_folder",
@@ -109,7 +133,7 @@ export function registerAssetManagementTools(
       {
         title: operation.tool.replaceAll("_", " "),
         description: operation.description,
-        inputSchema: operation.schema,
+        inputSchema: z.object(operation.schema),
       },
       async (args) => {
         try {

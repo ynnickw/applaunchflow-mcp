@@ -8,11 +8,24 @@ import {
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import {
+  createMcpHandler,
+  parseJSONRPCMessage,
+  SUPPORTED_PROTOCOL_VERSIONS,
+  type AuthInfo,
+} from "@modelcontextprotocol/server";
+import { toNodeHandler, toWebRequest } from "@modelcontextprotocol/node";
 import { createAppLaunchFlowServer } from "./index.js";
-import { runWithRequestTelemetry, upstreamSignal, withWidgetFallback } from "./request-context.js";
-import { errorCategory, protocolErrorCategory, safeRpcMethod } from "./telemetry.js";
+import {
+  runWithRequestTelemetry,
+  upstreamSignal,
+  withWidgetFallback,
+} from "./request-context.js";
+import {
+  errorCategory,
+  protocolErrorCategory,
+  safeRpcMethod,
+} from "./telemetry.js";
 
 const DEFAULT_PORT = 8787;
 const INTROSPECTION_TIMEOUT_MS = 10_000;
@@ -26,6 +39,10 @@ const REQUIRED_SCOPES = [
   "assets:write",
   "generations:write",
 ] as const;
+const SUPPORTED_HTTP_PROTOCOL_VERSIONS = new Set([
+  ...SUPPORTED_PROTOCOL_VERSIONS,
+  "2026-07-28",
+]);
 
 type IntrospectionPayload = {
   active: boolean;
@@ -200,8 +217,17 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
   } = {};
   const protocolVersion = request.headers["mcp-protocol-version"];
   if (protocolVersion !== undefined) {
-    diagnostics.protocolVersion = typeof protocolVersion === "string" &&
-      /^\d{4}-\d{2}-\d{2}$/.test(protocolVersion) ? protocolVersion : "invalid";
+    diagnostics.protocolVersion =
+      typeof protocolVersion === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(protocolVersion)
+        ? protocolVersion
+        : "invalid";
+    if (
+      diagnostics.protocolVersion !== "invalid" &&
+      !SUPPORTED_HTTP_PROTOCOL_VERSIONS.has(diagnostics.protocolVersion)
+    ) {
+      diagnostics.errorCategory = "unsupported_protocol_version";
+    }
   }
   response.setHeader("x-request-id", requestId);
   let logged = false;
@@ -242,17 +268,26 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
   } catch (error) {
     authStatus = "unavailable";
     diagnostics.errorCategory = "authorization_service_unavailable";
-    console.error(JSON.stringify({
-      event: "mcp_auth_error", requestId,
-      errorCategory: errorCategory(error),
-      ...(diagnostics.authUpstreamStatus !== undefined
-        ? { upstreamStatus: diagnostics.authUpstreamStatus } : {}),
-    }));
-    json(response, 503, {
-      jsonrpc: "2.0",
-      error: { code: -32002, message: "Authorization service unavailable" },
-      id: null,
-    }, { "retry-after": "5" });
+    console.error(
+      JSON.stringify({
+        event: "mcp_auth_error",
+        requestId,
+        errorCategory: errorCategory(error),
+        ...(diagnostics.authUpstreamStatus !== undefined
+          ? { upstreamStatus: diagnostics.authUpstreamStatus }
+          : {}),
+      }),
+    );
+    json(
+      response,
+      503,
+      {
+        jsonrpc: "2.0",
+        error: { code: -32002, message: "Authorization service unavailable" },
+        id: null,
+      },
+      { "retry-after": "5" },
+    );
     return;
   } finally {
     diagnostics.authDurationMs = Date.now() - authStartedAt;
@@ -270,39 +305,74 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
     return;
   }
 
-  const server = createAppLaunchFlowServer({
-    baseUrl: dashboardBaseUrl(),
-    token,
-  });
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-  });
-
   (request as IncomingMessage & { auth?: AuthInfo }).auth = auth;
+
+  const handler = createMcpHandler(
+    () =>
+      createAppLaunchFlowServer(
+        { baseUrl: dashboardBaseUrl(), token },
+        { hosted: true },
+      ),
+    {
+      legacy: "stateless",
+      onerror: (error) => {
+        const category = protocolErrorCategory(error);
+        if (!diagnostics.errorCategory || category !== "transport_error") {
+          diagnostics.errorCategory = category;
+        }
+      },
+    },
+  );
+  const nodeHandler = toNodeHandler(handler, {
+    onerror: (error) => {
+      const category = protocolErrorCategory(error);
+      if (!diagnostics.errorCategory || category !== "transport_error") {
+        diagnostics.errorCategory = category;
+      }
+    },
+  });
 
   await runWithRequestTelemetry(requestId, async () => {
     try {
-      await server.connect(transport);
-      // Observe only fixed protocol metadata, never request params or error text.
-      const onmessage = transport.onmessage;
-      transport.onmessage = (message, extra) => {
-        const method = safeRpcMethod("method" in message ? message.method : undefined);
+      const webRequest = await toWebRequest(request);
+      let parsedBody: unknown;
+      try {
+        parsedBody = await webRequest.json();
+      } catch {
+        diagnostics.errorCategory = "invalid_json";
+        json(response, 400, {
+          jsonrpc: "2.0",
+          error: { code: -32700, message: "Parse error: Invalid JSON" },
+          id: null,
+        });
+        return;
+      }
+      try {
+        parseJSONRPCMessage(parsedBody);
+      } catch {
+        diagnostics.errorCategory = "invalid_jsonrpc";
+      }
+      if (parsedBody && typeof parsedBody === "object") {
+        const method = safeRpcMethod(
+          "method" in parsedBody
+            ? (parsedBody as { method?: unknown }).method
+            : undefined,
+        );
         if (method) diagnostics.rpcMethod = method;
-        onmessage?.(message, extra);
-      };
-      server.server.onerror = (error) => {
-        diagnostics.errorCategory = protocolErrorCategory(error);
-      };
+      }
       await withWidgetFallback(
         /^Cursor\//i.test(request.headers["user-agent"] || ""),
-        () => transport.handleRequest(request, response),
+        () => nodeHandler(request, response, parsedBody),
       );
     } catch (error) {
       diagnostics.errorCategory = protocolErrorCategory(error);
-      console.error(JSON.stringify({
-        event: "mcp_transport_error", requestId,
-        errorCategory: diagnostics.errorCategory,
-      }));
+      console.error(
+        JSON.stringify({
+          event: "mcp_transport_error",
+          requestId,
+          errorCategory: diagnostics.errorCategory,
+        }),
+      );
       if (!response.headersSent) {
         json(response, 500, {
           jsonrpc: "2.0",
@@ -311,8 +381,7 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
         });
       }
     } finally {
-      await transport.close().catch(() => undefined);
-      await server.close().catch(() => undefined);
+      await handler.close().catch(() => undefined);
     }
   });
 }

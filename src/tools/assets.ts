@@ -3,7 +3,7 @@ import { promises as dns } from "node:dns";
 import { BlockList, isIP } from "node:net";
 import path from "path";
 import { randomUUID } from "node:crypto";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { upstreamSignal } from "../request-context.js";
@@ -151,6 +151,16 @@ const uploadSourceSchema = z
     message: "Provide path, url, or base64",
   });
 
+const hostedUploadSourceSchema = z
+  .object({
+    url: z.string().url().optional(),
+    base64: z.string().optional(),
+    filename: z.string().optional(),
+  })
+  .refine((value) => !!value.url || !!value.base64, {
+    message: "Provide url or base64",
+  });
+
 function inferMimeType(filename: string): string {
   const extension = path.extname(filename).toLowerCase();
   switch (extension) {
@@ -287,7 +297,11 @@ async function resolveUploadPayload(
 export function registerAssetTools(
   server: McpServer,
   client: AppLaunchFlowClient,
+  options: { hosted?: boolean } = {},
 ): void {
+  const exposedUploadSourceSchema = options.hosted
+    ? hostedUploadSourceSchema
+    : uploadSourceSchema;
   registerPickerResource(server, client, {
     name: "asset-list",
     bundle: "asset-list",
@@ -300,7 +314,7 @@ export function registerAssetTools(
       title: "List Assets",
       description:
         "Browse an existing project's uploaded screenshots (all devices/platforms), illustrations, app icons, backgrounds, panoramas, recordings, music and clips (audio/video/images), and font files in an embedded asset list. Listing is read-only. The user can explicitly upload files using the widget's Upload button; opening the list does not upload, select or apply anything. Inspect existing assets before asking the user to upload again. Signed preview links are private widget data; use returned relative paths in editing tools. At most 100 newest files per folder; truncated indicates more exist.",
-      inputSchema: { projectId: z.string().uuid() },
+      inputSchema: z.object({ projectId: z.string().uuid() }),
       _meta: {
         ...pickerToolMeta(ASSET_LIST_URI),
         "openai/widgetAccessible": true,
@@ -333,7 +347,7 @@ export function registerAssetTools(
       title: "Prepare Asset Upload",
       description:
         "App-only: authorize one explicitly selected file upload to the user's project. Does not upload bytes, replace existing files, apply designs or change the project icon. The upload permission is private widget metadata; never include it in a chat message.",
-      inputSchema: assetUploadRequestSchema.shape,
+      inputSchema: assetUploadRequestSchema,
       _meta: {
         ui: { visibility: ["app"] },
         "openai/widgetAccessible": true,
@@ -377,20 +391,46 @@ export function registerAssetTools(
       title: "Upload Screenshots",
       description:
         "Upload screenshot images for screenshot generation workflows. Hosted connectors must use HTTPS URLs or base64 data; local file paths are available only to the npm/stdio connector.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid(),
         deviceType: z.enum(["mobile", "tablet", "desktop", "watch"]),
         platform: z.enum(["ios", "android"]),
-        sources: z.array(uploadSourceSchema).min(1),
-        folderId: z.string().uuid().optional().describe("Existing screenshot folder in this device/platform scope. Assign each uploaded file to it; never changes saved designs."),
-      },
+        sources: z.array(exposedUploadSourceSchema).min(1),
+        folderId: z
+          .string()
+          .uuid()
+          .optional()
+          .describe(
+            "Existing screenshot folder in this device/platform scope. Assign each uploaded file to it; never changes saved designs.",
+          ),
+      }),
     },
     async ({ projectId, deviceType, platform, sources, folderId }) => {
-      const uploads: Array<{ filename: string; path: string; subfolder: string; folderAssigned: boolean }> = [];
+      const uploads: Array<{
+        filename: string;
+        path: string;
+        subfolder: string;
+        folderAssigned: boolean;
+      }> = [];
       try {
         if (folderId) {
-          const library = await client.requestJson<{ organization: { folders: Array<{ id: string; device_type: string; platform: string }> } }>("/api/assets/folders", { query: { projectId } });
-          if (!library.organization.folders.some(folder => folder.id === folderId && folder.device_type === deviceType && folder.platform === platform))
+          const library = await client.requestJson<{
+            organization: {
+              folders: Array<{
+                id: string;
+                device_type: string;
+                platform: string;
+              }>;
+            };
+          }>("/api/assets/folders", { query: { projectId } });
+          if (
+            !library.organization.folders.some(
+              (folder) =>
+                folder.id === folderId &&
+                folder.device_type === deviceType &&
+                folder.platform === platform,
+            )
+          )
             throw new Error("Folder does not match upload scope");
         }
         for (const source of sources) {
@@ -415,15 +455,30 @@ export function registerAssetTools(
               folderAssigned: false,
             });
             if (folderId) {
-              await client.requestJson("/api/assets/folders", { method: "POST", body: { projectId, action: "move", folderId, paths: [signed.path] } });
+              await client.requestJson("/api/assets/folders", {
+                method: "POST",
+                body: {
+                  projectId,
+                  action: "move",
+                  folderId,
+                  paths: [signed.path],
+                },
+              });
               uploads[uploads.length - 1].folderAssigned = true;
             }
           }
         }
         return ok({ uploads }, "Uploaded assets");
       } catch (error) {
-        if (error instanceof ToolInputError && !uploads.length) return fail(error);
-        return { ...ok({ uploads, folderId, complete: false }, "Upload incomplete. Successfully uploaded files are listed; unassigned files can be moved with move_assets. No saved designs were changed."), isError: true };
+        if (error instanceof ToolInputError && !uploads.length)
+          return fail(error);
+        return {
+          ...ok(
+            { uploads, folderId, complete: false },
+            "Upload incomplete. Successfully uploaded files are listed; unassigned files can be moved with move_assets. No saved designs were changed.",
+          ),
+          isError: true,
+        };
       }
     },
   );
@@ -436,7 +491,7 @@ export function registerAssetTools(
         "List available illustrations. Use 'shared' source to browse the shared library (icons, stickers, etc.). " +
         "Use 'project' source to list illustrations uploaded to a specific project. " +
         "When the user wants to add an illustration, list available options FIRST so they can pick one or choose to upload.",
-      inputSchema: {
+      inputSchema: z.object({
         source: z
           .enum(["shared", "project"])
           .describe(
@@ -457,7 +512,7 @@ export function registerAssetTools(
           .string()
           .optional()
           .describe("Search term to filter by name."),
-      },
+      }),
     },
     async ({ source, projectId, category, search }) => {
       try {
@@ -466,7 +521,10 @@ export function registerAssetTools(
             throw new Error("projectId is required when source is 'project'");
           }
           const data = await client.listProjectIllustrations(projectId);
-          return { ...ok(assetSummary(data), "Fetched project illustrations"), _meta: { illustrationPreviews: data } };
+          return {
+            ...ok(assetSummary(data), "Fetched project illustrations"),
+            _meta: { illustrationPreviews: data },
+          };
         }
         return ok(
           await client.listSharedIllustrations({ category, search, limit: 50 }),
@@ -488,7 +546,7 @@ export function registerAssetTools(
         "(e.g. set panoramaBackground.imageUrl or illustration imageUrl to the returned path). " +
         "For illustrations: list_illustrations first to show existing options, then upload only if the user wants a custom image. " +
         "For panoramas: use an HTTPS URL or base64-encoded image.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid(),
         fileType: z
           .enum([
@@ -503,10 +561,10 @@ export function registerAssetTools(
           .describe(
             "Use mockup-media for screen recordings, promo-media for video/audio footage, font for TTF/OTF/WOFF/WOFF2, or an image category.",
           ),
-        source: uploadSourceSchema.describe(
+        source: exposedUploadSourceSchema.describe(
           "The file source — provide an HTTPS URL or base64 data, or a local file path for npm/stdio, with an appropriate filename.",
         ),
-      },
+      }),
     },
     async ({ projectId, fileType, source }) => {
       try {
@@ -544,7 +602,11 @@ export function registerAssetTools(
           `Uploaded ${fileType} asset`,
         );
       } catch {
-        return fail(new Error("Asset upload failed. Check file type, size and project access; list assets before retrying an uncertain upload."));
+        return fail(
+          new Error(
+            "Asset upload failed. Check file type, size and project access; list assets before retrying an uncertain upload.",
+          ),
+        );
       }
     },
   );

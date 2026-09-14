@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createAppLaunchFlowServer } from "./index.js";
 import { AppLaunchFlowClient } from "./client/api.js";
 import {
@@ -257,7 +256,10 @@ test("inline picker resource, private data, authenticated read, validation, and 
       (
         await client.callTool({
           name: prepareTool.name,
-          arguments: { ...prepareArgs, selectedScreenshotPaths: ["only-one.png"] },
+          arguments: {
+            ...prepareArgs,
+            selectedScreenshotPaths: ["only-one.png"],
+          },
         })
       ).isError,
       true,

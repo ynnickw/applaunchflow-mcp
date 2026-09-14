@@ -1,7 +1,10 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
+import type { McpServer, ToolAnnotations } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { requestTelemetry, runWithRequestSignal, needsWidgetFallback } from "./request-context.js";
+import {
+  requestTelemetry,
+  runWithRequestSignal,
+  needsWidgetFallback,
+} from "./request-context.js";
 import { cursorWidgetResult } from "./widget-result.js";
 import { errorCategory, toolErrorCategory } from "./telemetry.js";
 
@@ -134,10 +137,12 @@ export function installToolMetadataPolicy(
     ) => unknown | Promise<unknown>;
     const instrumentedCallback = async (...args: unknown[]) => {
       const startedAt = performance.now();
-      const extra = args[1] as { signal?: AbortSignal } | undefined;
+      const context = args[1] as
+        | { mcpReq?: { signal?: AbortSignal } }
+        | undefined;
 
       try {
-        const result = await runWithRequestSignal(extra?.signal, () =>
+        const result = await runWithRequestSignal(context?.mcpReq?.signal, () =>
           toolCallback(...args),
         );
         const isError =

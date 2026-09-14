@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { listPublicTemplateIds } from "../catalog.js";
 import { buildTemplateGalleryUrl } from "../template-previews.js";

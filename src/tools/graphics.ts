@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { ToolInputError } from "../telemetry.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
@@ -66,7 +66,7 @@ export function registerGraphicsTools(
         "This tool itself displays the existing dashboard picker inline in Claude, ChatGPT, and other MCP Apps-compatible hosts; do not call another tool after it. " +
         "A variant is created only after the user explicitly confirms a style. Clients without UI support receive the exact gallery URL. " +
         "Repeating the same app context and screenshot paths reuses the cache.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
         selectedScreenshotPaths: z
           .array(z.string().min(1))
@@ -82,15 +82,15 @@ export function registerGraphicsTools(
           .enum(SOCIAL_FORMATS)
           .optional()
           .describe("Format to preview first. Defaults to og."),
-      },
+      }),
       _meta: pickerToolMeta(SOCIAL_GRAPHICS_PICKER_URI),
     },
     async (
       { generationId, selectedScreenshotPaths, primaryFormat = "og" },
-      extra,
+      ctx,
     ) => {
       const stopHeartbeat = startProgressHeartbeat(
-        extra,
+        ctx,
         "Preparing personalized social graphics across every format…",
       );
       try {
@@ -120,7 +120,7 @@ export function registerGraphicsTools(
           server,
           galleryUrl,
           "Choose a personalized social-graphics style, then create the new variant in the editor.",
-          { signal: extra.signal },
+          { signal: ctx.mcpReq.signal },
         );
         const pickerResult = await createSocialGraphicsPickerResult(client, {
           generationId,
@@ -159,7 +159,7 @@ export function registerGraphicsTools(
       description:
         "Create a new social-graphics variant from a previously prepared personalized catalog without another AI generation. " +
         "Use after prepare_social_graphics_styles and browse_social_templates. The new variant contains all supported formats and opens in the graphics editor.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
         catalogKey: z.string().min(1).max(128),
         templateId: z.string().min(1),
@@ -173,7 +173,7 @@ export function registerGraphicsTools(
           .describe(
             "Color palette variant. v1 is the original palette; v2 uses stronger color separation. Defaults to v1.",
           ),
-      },
+      }),
     },
     async (
       {
@@ -183,7 +183,7 @@ export function registerGraphicsTools(
         primaryFormat = "og",
         paletteMode = "v1",
       },
-      extra,
+      ctx,
     ) => {
       try {
         const result = await client.applyGraphicsTemplate({
@@ -202,7 +202,7 @@ export function registerGraphicsTools(
           server,
           editorUrl,
           "Opening the selected personalized social graphics style in the editor.",
-          { signal: extra.signal },
+          { signal: ctx.mcpReq.signal },
         );
         return {
           content: [
@@ -240,7 +240,7 @@ export function registerGraphicsTools(
       title: "Browse & Select Social Template",
       description:
         "Open the visual social style gallery. With generationId and catalogKey from prepare_social_graphics_styles it renders personalized previews and creates the selected variant directly; without them it provides static style discovery. Never offer social templates via text or AskUserQuestion.",
-      inputSchema: {
+      inputSchema: z.object({
         format: z
           .enum(SOCIAL_FORMATS)
           .optional()
@@ -274,7 +274,7 @@ export function registerGraphicsTools(
           .describe(
             "Catalog key from prepare_social_graphics_styles. Pass together with generationId.",
           ),
-      },
+      }),
     },
     async (
       {
@@ -285,7 +285,7 @@ export function registerGraphicsTools(
         generationId,
         catalogKey,
       },
-      extra,
+      ctx,
     ) => {
       try {
         if (Boolean(generationId) !== Boolean(catalogKey)) {
@@ -350,7 +350,7 @@ export function registerGraphicsTools(
           generationId && catalogKey
             ? "Choose a personalized social-graphics style, then create the new variant in the editor."
             : "Browse social-graphics styles in AppLaunchFlow.",
-          { signal: extra.signal },
+          { signal: ctx.mcpReq.signal },
         );
 
         return {
@@ -409,10 +409,10 @@ export function registerGraphicsTools(
       description:
         "Fetch the current social graphics layouts (one per format) for overview or metadata inspection. " +
         "For direct edits, use get_graphics_format instead.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
-      },
+      }),
     },
     async ({ generationId, variantId }) => {
       try {
@@ -453,11 +453,11 @@ export function registerGraphicsTools(
         "Use this before direct edits so the next save_graphics_format call works from the current state of that same format. " +
         "If the user did not request a specific format, use the variant's primary format from an earlier get_graphics response or inspect the editor URL. " +
         "The returned layout is the same Layout shape screenshots use — one screen, canvas sized to the format. Read the resource applaunchflow://schema/layout for every node type's fields and valid ranges.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
         format: z.enum(SOCIAL_FORMATS),
-      },
+      }),
     },
     async ({ generationId, variantId, format }) => {
       try {
@@ -484,12 +484,15 @@ export function registerGraphicsTools(
           : undefined;
 
         // Mirror edit state and receipt in text for hosts that omit structuredContent.
-        return ok({
-          ...result,
-          editorUrl,
-          readBeforeEditSatisfied: true,
-          readReceipt,
-        }, "Fetched one social graphics format. Pass readReceipt to the matching edit tool; do not display it to the user.");
+        return ok(
+          {
+            ...result,
+            editorUrl,
+            readBeforeEditSatisfied: true,
+            readReceipt,
+          },
+          "Fetched one social graphics format. Pass readReceipt to the matching edit tool; do not display it to the user.",
+        );
       } catch (error) {
         return fail(error);
       }
@@ -503,7 +506,7 @@ export function registerGraphicsTools(
       description:
         "Persist a complete social graphics payload (template id, primary format, all per-format layouts). " +
         "Prefer save_graphics_format when editing a single format. Each layout uses the same shape as screenshot layouts; see the resource applaunchflow://schema/layout.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
         socialTemplateId: z.string().min(1),
@@ -513,14 +516,14 @@ export function registerGraphicsTools(
             z.object({
               format: z.enum(SOCIAL_FORMATS),
               layout: z
-                .record(z.any())
+                .record(z.string(), z.any())
                 .describe(
                   "Complete Layout object for this format — the SAME shape screenshot layouts use, with exactly one entry in screens[] and canvasWidth/canvasHeight matching the format. Full field reference: applaunchflow://schema/layout.",
                 ),
             }),
           )
           .min(1),
-      },
+      }),
     },
     async (args) => {
       try {
@@ -539,12 +542,12 @@ export function registerGraphicsTools(
         "Persist exactly one social graphics format after reading the latest same-format layout with get_graphics_format. " +
         "ENFORCED: each call requires a fresh get_graphics_format for the same generationId/variantId/format immediately beforehand. " +
         "Read the current layouts, mutate only the requested format in memory, then save that single layout here.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
         format: z.enum(SOCIAL_FORMATS),
         layout: z
-          .record(z.any())
+          .record(z.string(), z.any())
           .describe(
             "Complete Layout object for this one format — the SAME shape screenshot layouts use, with exactly one entry in screens[] and canvasWidth/canvasHeight matching the format. " +
               "Full field reference: read the resource applaunchflow://schema/layout.",
@@ -555,7 +558,7 @@ export function registerGraphicsTools(
           .describe(
             "Hosted connector only: pass the readReceipt returned by the immediately preceding get_graphics_format call.",
           ),
-      },
+      }),
     },
     async (args) => {
       try {

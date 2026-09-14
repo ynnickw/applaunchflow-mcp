@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { listPublicTemplateIds } from "../catalog.js";
@@ -27,7 +27,7 @@ export function registerScreenshotTools(
         "The picker shows real v1/v2 renders and creates a variant only after the user explicitly confirms a style. " +
         "Repeating this with the same app context and screenshot paths is a cache hit and does not regenerate AI content. " +
         "Clients without UI support receive the exact full-gallery URL.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid().describe("Project/generation UUID."),
         selectedScreenshotPaths: z
           .array(z.string().min(1))
@@ -45,15 +45,15 @@ export function registerScreenshotTools(
           .describe(
             "Initial preview device. All three device layouts are prepared regardless. Defaults to phone.",
           ),
-      },
+      }),
       _meta: pickerToolMeta(SCREENSHOT_PICKER_URI),
     },
     async (
       { generationId, selectedScreenshotPaths, deviceType = "phone" },
-      extra,
+      ctx,
     ) => {
       const stopHeartbeat = startProgressHeartbeat(
-        extra,
+        ctx,
         "Preparing personalized screenshot styles for every template…",
       );
       try {
@@ -80,7 +80,7 @@ export function registerScreenshotTools(
           server,
           galleryUrl,
           "Choose a personalized screenshot style. Compare v1 and v2, then create the new variant in the editor.",
-          { signal: extra.signal },
+          { signal: ctx.mcpReq.signal },
         );
         const pickerResult = await createScreenshotPickerResult(client, {
           generationId,
@@ -115,12 +115,15 @@ export function registerScreenshotTools(
   server.registerTool(
     "apply_screenshot_style",
     {
-      _meta: { ui: { visibility: ["model", "app"] }, "openai/widgetAccessible": true },
+      _meta: {
+        ui: { visibility: ["model", "app"] },
+        "openai/widgetAccessible": true,
+      },
       title: "Apply Personalized Screenshot Style",
       description:
         "Create a new screenshot variant from a previously prepared personalized style catalog without another AI generation. " +
         "Fallback for applying a template id supplied directly in chat or by an API client. The normal prepare_screenshot_styles flow now lets the user compare v1/v2 and create the variant directly in the browser. The new variant includes phone, tablet, and desktop layouts and opens in the editor.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
         catalogKey: z.string().min(1).max(128),
         templateId: z.string().min(1),
@@ -134,7 +137,7 @@ export function registerScreenshotTools(
           .describe(
             "Color palette variant. v1 is the original palette; v2 uses stronger color separation. Defaults to v1.",
           ),
-      },
+      }),
     },
     async (
       {
@@ -144,7 +147,7 @@ export function registerScreenshotTools(
         deviceType = "phone",
         paletteMode = "v1",
       },
-      extra,
+      ctx,
     ) => {
       try {
         const result = await client.applyScreenshotTemplate({
@@ -166,7 +169,7 @@ export function registerScreenshotTools(
           server,
           editorUrl,
           "Opening the selected personalized screenshot style in the editor.",
-          { signal: extra.signal },
+          { signal: ctx.mcpReq.signal },
         );
         return {
           content: [
@@ -202,9 +205,9 @@ export function registerScreenshotTools(
       title: "List Template Source Screenshots",
       description:
         "List all real source screenshots available to screenshot and social-graphics style generation, including project-relative path, signed preview URL, platform, and phone/tablet/desktop device type. No sample fallback is added. Use the returned paths to choose 3-7 inputs for prepare_screenshot_styles or prepare_social_graphics_styles.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid(),
-      },
+      }),
     },
     async ({ projectId }) => {
       try {
@@ -234,11 +237,11 @@ export function registerScreenshotTools(
     {
       title: "List Screenshots",
       description: "List uploaded screenshot paths for a project",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid(),
         deviceType: z.enum(["mobile", "tablet", "desktop"]).optional(),
         platform: z.enum(["ios", "android"]).optional(),
-      },
+      }),
     },
     async ({ projectId, deviceType, platform }) => {
       try {
@@ -260,12 +263,14 @@ export function registerScreenshotTools(
         "Fetch a screenshot image and return it for visual analysis. " +
         "Use this to inspect screenshots — extract colors, read UI text, understand layout context, or identify visual elements. " +
         "Pass projectId and the relative path from list_screenshots or get_layout (e.g. 'mobile/ios/1234-image.PNG').",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid().describe("The project UUID."),
         path: z
           .string()
-          .describe("Relative screenshot path (e.g. 'mobile/ios/1234-IMG.PNG') from list_screenshots or the layout's screenshot.path field."),
-      },
+          .describe(
+            "Relative screenshot path (e.g. 'mobile/ios/1234-IMG.PNG') from list_screenshots or the layout's screenshot.path field.",
+          ),
+      }),
     },
     async ({ projectId, path }) => {
       try {

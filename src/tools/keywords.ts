@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { fail, ok } from "./utils.js";
@@ -21,10 +21,10 @@ export function registerKeywordTools(
       description:
         "Fetch the keywords currently tracked for a project, including current rank, 7d/30d deltas, difficulty/traffic estimates, sparkline, competitor positions, and a summary (tracked count, ranked count, average position, top-10 share). " +
         "Use this as the first read for any keyword/ASO conversation.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid(),
         storeProvider: storeProviderSchema,
-      },
+      }),
     },
     async ({ projectId, storeProvider }) => {
       try {
@@ -45,10 +45,10 @@ export function registerKeywordTools(
       description:
         "List the competitor apps configured for keyword tracking on a project (name, developer, icon) plus the user's plan-based competitor limit. " +
         "These are the apps shown alongside the user's app in the keyword monitor's competitor columns.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid(),
         storeProvider: storeProviderSchema,
-      },
+      }),
     },
     async ({ projectId, storeProvider }) => {
       try {
@@ -69,8 +69,8 @@ export function registerKeywordTools(
       description:
         "Add one or more keywords to track for a project's linked app. Up to 50 keywords per call. " +
         "If appId or storeProvider is omitted, both are resolved from the project (primaryStoreProvider + appleAppId / googlePlayPackageName). " +
-        "Returns 402 with error \"keyword_limit\" if the user's plan limit would be exceeded.",
-      inputSchema: {
+        'Returns 402 with error "keyword_limit" if the user\'s plan limit would be exceeded.',
+      inputSchema: z.object({
         projectId: z.string().uuid(),
         keywords: z
           .array(z.string().min(1))
@@ -94,14 +94,14 @@ export function registerKeywordTools(
           .string()
           .length(2)
           .optional()
-          .describe("ISO country code, lowercase. Defaults to \"us\"."),
+          .describe('ISO country code, lowercase. Defaults to "us".'),
         lang: z
           .string()
           .min(2)
           .max(16)
           .optional()
-          .describe("BCP-47 language tag. Defaults to \"en-US\"."),
-      },
+          .describe('BCP-47 language tag. Defaults to "en-US".'),
+      }),
     },
     async ({ projectId, keywords, appId, storeProvider, country, lang }) => {
       try {
@@ -157,7 +157,7 @@ export function registerKeywordTools(
       description:
         "Fetch the rank time series for a single tracked keyword. Returns up to 30 days on Free and up to 365 days on Unlimited. " +
         "Pass appId to compute the history for a competitor app instead of the user's own app — defaults to the tracked keyword's owner app.",
-      inputSchema: {
+      inputSchema: z.object({
         trackedKeywordId: z
           .string()
           .uuid()
@@ -171,7 +171,7 @@ export function registerKeywordTools(
           .describe(
             "Optional store app id to compute history for. Defaults to the tracked keyword's app.",
           ),
-      },
+      }),
     },
     async ({ trackedKeywordId, appId }) => {
       try {

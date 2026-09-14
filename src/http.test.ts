@@ -3,8 +3,10 @@ import test from "node:test";
 import type { AddressInfo } from "node:net";
 import { createRequire } from "node:module";
 import { createServer as createNodeServer } from "node:http";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import {
+  Client,
+  StreamableHTTPClientTransport,
+} from "@modelcontextprotocol/client";
 import { createHttpServer } from "./http.js";
 
 async function withServer(
@@ -29,7 +31,9 @@ test("HTTP server exposes health and protected-resource metadata", async () => {
     assert.deepEqual(await health.json(), {
       ok: true,
       service: "applaunchflow-mcp",
-      version: (createRequire(import.meta.url)("../package.json") as { version: string }).version,
+      version: (
+        createRequire(import.meta.url)("../package.json") as { version: string }
+      ).version,
     });
 
     const metadata = await fetch(
@@ -189,6 +193,79 @@ test("authenticated Streamable HTTP clients can initialize and discover tools", 
     if (previousPublicUrl === undefined)
       delete process.env.APPLAUNCHFLOW_MCP_PUBLIC_URL;
     else process.env.APPLAUNCHFLOW_MCP_PUBLIC_URL = previousPublicUrl;
+    await new Promise<void>((resolve, reject) =>
+      introspectionServer.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+test("authenticated clients can pin the 2026-07-28 protocol", async () => {
+  const introspectionServer = createNodeServer((request, response) => {
+    if (
+      request.url === "/api/auth/mcp/introspect" &&
+      request.headers.authorization === "Bearer modern-access-token"
+    ) {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          active: true,
+          userId: "00000000-0000-4000-8000-000000000001",
+          clientId: "modern-test-client",
+          scopes: [
+            "projects:read",
+            "projects:write",
+            "assets:write",
+            "generations:write",
+          ],
+          expiresAt: Math.floor(Date.now() / 1000) + 3600,
+        }),
+      );
+      return;
+    }
+    response.writeHead(401).end();
+  });
+  await new Promise<void>((resolve) =>
+    introspectionServer.listen(0, "127.0.0.1", resolve),
+  );
+  const address = introspectionServer.address() as AddressInfo;
+  const previousDashboard = process.env.APPLAUNCHFLOW_BASE_URL;
+  process.env.APPLAUNCHFLOW_BASE_URL = `http://127.0.0.1:${address.port}`;
+
+  try {
+    await withServer(async (baseUrl) => {
+      const observedProtocolVersions: Array<string | null> = [];
+      const transport = new StreamableHTTPClientTransport(
+        new URL(`${baseUrl}/mcp`),
+        {
+          requestInit: {
+            headers: { authorization: "Bearer modern-access-token" },
+          },
+          fetch: async (input, init) => {
+            const headers =
+              input instanceof Request
+                ? input.headers
+                : new Headers(init?.headers);
+            observedProtocolVersions.push(headers.get("mcp-protocol-version"));
+            return fetch(input, init);
+          },
+        },
+      );
+      const client = new Client(
+        { name: "modern-http-test", version: "1.0.0" },
+        { versionNegotiation: { mode: { pin: "2026-07-28" } } },
+      );
+      await client.connect(transport);
+      try {
+        assert.equal((await client.listTools()).tools.length, 52);
+        assert.ok(observedProtocolVersions.includes("2026-07-28"));
+      } finally {
+        await client.close();
+      }
+    });
+  } finally {
+    if (previousDashboard === undefined)
+      delete process.env.APPLAUNCHFLOW_BASE_URL;
+    else process.env.APPLAUNCHFLOW_BASE_URL = previousDashboard;
     await new Promise<void>((resolve, reject) =>
       introspectionServer.close((error) => (error ? reject(error) : resolve())),
     );

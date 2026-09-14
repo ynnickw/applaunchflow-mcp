@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { ToolInputError } from "../telemetry.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
@@ -123,7 +123,7 @@ export function registerMockupTools(
         "Always omit variantId — this tool always creates a new variant. Never overwrites an existing mockup variant. " +
         "Call list_mockup_media first to pick a valid screenshotPath and list_mockup_presets to pick a presetId. " +
         "The editor opens automatically after creation.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid().describe("Project / generation UUID."),
         screenshotPath: z
           .string()
@@ -139,9 +139,7 @@ export function registerMockupTools(
         outputRatio: z
           .enum(OUTPUT_RATIOS)
           .optional()
-          .describe(
-            "Optional output aspect ratio. Defaults to 4:3 (classic).",
-          ),
+          .describe("Optional output aspect ratio. Defaults to 4:3 (classic)."),
         motionDurationSeconds: z
           .number()
           .min(1)
@@ -155,10 +153,12 @@ export function registerMockupTools(
           .min(1)
           .max(120)
           .optional()
-          .describe("Optional variant label shown in the studio's variant dropdown."),
-      },
+          .describe(
+            "Optional variant label shown in the studio's variant dropdown.",
+          ),
+      }),
     },
-    async (args, extra) => {
+    async (args, ctx) => {
       try {
         const result = await client.createMockupAnimation({
           generationId: args.projectId,
@@ -178,7 +178,7 @@ export function registerMockupTools(
           server,
           editorUrl,
           "Opening the new mockup animation in the editor.",
-          { signal: extra.signal },
+          { signal: ctx.mcpReq.signal },
         );
 
         return {
@@ -212,10 +212,10 @@ export function registerMockupTools(
       description:
         "Fetch the current mockup animation state (MockupProjectState shape) for a project. " +
         "Required before update_mockup_animation so edits operate on fresh state.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
-      },
+      }),
     },
     async ({ generationId, variantId }) => {
       try {
@@ -232,12 +232,15 @@ export function registerMockupTools(
             )
           : undefined;
         // Mirror edit state and receipt in text for hosts that omit structuredContent.
-        return ok({
-          ...result,
-          editorUrl,
-          readBeforeEditSatisfied: true,
-          readReceipt,
-        }, "Fetched mockup animation. Pass readReceipt to the matching edit tool; do not display it to the user.");
+        return ok(
+          {
+            ...result,
+            editorUrl,
+            readBeforeEditSatisfied: true,
+            readReceipt,
+          },
+          "Fetched mockup animation. Pass readReceipt to the matching edit tool; do not display it to the user.",
+        );
       } catch (error) {
         return fail(error);
       }
@@ -254,11 +257,11 @@ export function registerMockupTools(
         "There is no granular per-keyframe transform; whole-state replace is the supported edit path. " +
         "ENFORCED: each call requires a fresh get_mockup_animation for the same projectId/variantId immediately beforehand. " +
         "Validation bounds (see list_mockup_presets for the full reference): primaryKeyframes count 2–8, time 0–1, x/y -3..3, rotations -2π..2π, scale 0.2..3, speed 0.7..1.4, motionDuration 1..60, deviceScale 0.7..1.3.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
         state: z
-          .record(z.any())
+          .record(z.string(), z.any())
           .describe(
             "Full MockupProjectState object (selectedMediaPath, motion, finish, speed, background, backgroundMode, backgroundColor, backgroundGradient, backgroundImage, showDynamicIsland, outputRatio, motionDuration, deviceScale, primaryKeyframes, isPlaying). Use the object returned by get_mockup_animation as a starting point.",
           ),
@@ -268,7 +271,7 @@ export function registerMockupTools(
           .describe(
             "Hosted connector only: pass the readReceipt returned by the immediately preceding get_mockup_animation call.",
           ),
-      },
+      }),
     },
     async (args) => {
       try {
@@ -339,9 +342,9 @@ export function registerMockupTools(
         "List the screenshots and screen recordings uploaded under the project's mockups/ storage folder. " +
         "Call this before create_mockup_animation to discover valid screenshotPath values. " +
         "Returns media items with { path, signedUrl, kind: 'image' | 'video' }.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid(),
-      },
+      }),
     },
     async ({ projectId }) => {
       try {
@@ -361,13 +364,13 @@ export function registerMockupTools(
         "Return the structured set of valid mockup configuration values: motion presets, device finishes, background presets, output ratios, scene presets, and validation bounds. " +
         "Use before constructing an update_mockup_animation payload to pick valid enum values without round-tripping through the server validator. " +
         "If projectId is supplied, also returns the active screenshots variant's themeColors so the LLM can pick on-brand swatches for backgroundColor / gradient.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z
           .string()
           .uuid()
           .optional()
           .describe("Optional generation UUID to also fetch theme colors."),
-      },
+      }),
     },
     async ({ projectId }) => {
       try {

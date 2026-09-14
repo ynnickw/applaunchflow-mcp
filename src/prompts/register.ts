@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 export function registerPrompts(server: McpServer): void {
@@ -8,12 +8,12 @@ export function registerPrompts(server: McpServer): void {
       title: "Create Project Wizard",
       description:
         "Guide the user through quick project creation: ask app name + platform, then create immediately.",
-      argsSchema: {
+      argsSchema: z.object({
         userGoal: z
           .string()
           .optional()
           .describe("Optional user request or project idea to keep in view."),
-      },
+      }),
     },
     async ({ userGoal }) => ({
       description:
@@ -46,12 +46,12 @@ export function registerPrompts(server: McpServer): void {
       title: "Direct Editing Workflow",
       description:
         "Guide layout editing on an existing screenshot variant without inventing a new visual system.",
-      argsSchema: {
+      argsSchema: z.object({
         userGoal: z
           .string()
           .optional()
           .describe("Optional concrete editing request."),
-      },
+      }),
     },
     async ({ userGoal }) => ({
       description:

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createAppLaunchFlowServer } from "./index.js";
 
 const removedPickerTools = [
@@ -11,7 +10,8 @@ const removedPickerTools = [
 ] as const;
 
 test("only prepare-and-show tools are exposed for content pickers", async () => {
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
   const server = createAppLaunchFlowServer({
     baseUrl: "https://dashboard.applaunchflow.com",
     token: "test-token",
@@ -34,11 +34,17 @@ test("only prepare-and-show tools are exposed for content pickers", async () => 
     assert.equal(toolNames.has("apply_promo_video_candidate"), true);
     const instructions = client.getInstructions() || "";
     for (const name of removedPickerTools) {
-      assert.equal(toolNames.has(name), false, `${name} must not be advertised`);
+      assert.equal(
+        toolNames.has(name),
+        false,
+        `${name} must not be advertised`,
+      );
       assert.equal(instructions.includes(name), false);
-      const result = await client.callTool({ name, arguments: {} });
-      assert.equal(result.isError, true, `${name} must not remain callable`);
-      assert.match(JSON.stringify(result.content), /not found/i);
+      await assert.rejects(
+        client.callTool({ name, arguments: {} }),
+        /not found/i,
+        `${name} must not remain callable`,
+      );
     }
     assert.match(instructions, /galleryUrl from the previous result/);
     assert.match(instructions, /pickerUrl from the previous result/);

@@ -1,12 +1,34 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { fail, ok } from "./utils.js";
 
 const SUPPORTED_LANGUAGE_CODES = [
-  "en", "es", "fr", "de", "it", "pt", "pt-BR", "ja", "ko",
-  "zh-CN", "zh-TW", "nl", "ru", "ar", "tr", "pl", "sv",
-  "no", "da", "fi", "cs", "hi", "hu", "ro", "uk",
+  "en",
+  "es",
+  "fr",
+  "de",
+  "it",
+  "pt",
+  "pt-BR",
+  "ja",
+  "ko",
+  "zh-CN",
+  "zh-TW",
+  "nl",
+  "ru",
+  "ar",
+  "tr",
+  "pl",
+  "sv",
+  "no",
+  "da",
+  "fi",
+  "cs",
+  "hi",
+  "hu",
+  "ro",
+  "uk",
 ] as const;
 
 export function registerLocalizationTools(
@@ -23,13 +45,18 @@ export function registerLocalizationTools(
         "The backend translates all text in the layout while preserving positioning, styling, and screenshots. " +
         "Requires a source screenshot layout to already exist — created by the personalized gallery or apply_screenshot_style. " +
         "Pass the source variantId when available to translate that exact variant; if omitted, the active variant is used.",
-      inputSchema: {
-        generationId: z.string().uuid().describe("The project/generation UUID."),
+      inputSchema: z.object({
+        generationId: z
+          .string()
+          .uuid()
+          .describe("The project/generation UUID."),
         variantId: z
           .string()
           .uuid()
           .optional()
-          .describe("Variant to translate. If omitted, uses the active variant."),
+          .describe(
+            "Variant to translate. If omitted, uses the active variant.",
+          ),
         targetLanguages: z
           .array(z.enum(SUPPORTED_LANGUAGE_CODES))
           .min(1)
@@ -42,7 +69,7 @@ export function registerLocalizationTools(
           .describe(
             "Which layout sizes to translate. Defaults to ['mobile', 'tablet']. Include 'desktop' only if the project has a desktop layout.",
           ),
-      },
+      }),
     },
     async (args) => {
       try {
@@ -63,10 +90,10 @@ export function registerLocalizationTools(
       title: "List Translations",
       description:
         "List available translations for a project variant. Returns which languages have been translated.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
-      },
+      }),
     },
     async ({ generationId, variantId }) => {
       try {

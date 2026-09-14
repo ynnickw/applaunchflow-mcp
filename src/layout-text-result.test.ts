@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import type { AppLaunchFlowClient } from "./client/api.js";
 import { registerLayoutTools } from "./tools/layouts.js";
 import { registerGraphicsTools } from "./tools/graphics.js";
@@ -69,10 +69,16 @@ test("text-only hosted clients can read a layout and pass its receipt to a match
     const result = await handlers.transform_layout.handler(edit, {});
     assert.notEqual(result.isError, true);
     assert.equal(writes, 1);
-    const listing = await handlers.get_layout.handler({ generationId: target.generationId }, {});
+    const listing = await handlers.get_layout.handler(
+      { generationId: target.generationId },
+      {},
+    );
     assert.equal(listing.structuredContent.data.readBeforeEditSatisfied, false);
     assert.equal(listing.structuredContent.data.readReceipt, undefined);
-    assert.match(listing.structuredContent.data.nextStep, /call get_layout again/);
+    assert.match(
+      listing.structuredContent.data.nextStep,
+      /call get_layout again/,
+    );
     await server.close();
   } finally {
     if (previous === undefined) delete process.env.APPLAUNCHFLOW_MCP_REMOTE;
@@ -87,7 +93,10 @@ test("all guarded reads expose identical edit state to text-only clients", async
   try {
     const fixture = { config: { headline: "Synthetic fixture" } };
     const client = {
-      credentials: { token: "synthetic-test-token", baseUrl: "http://localhost:3000" },
+      credentials: {
+        token: "synthetic-test-token",
+        baseUrl: "http://localhost:3000",
+      },
       getGraphicsFormat: async () => fixture,
       getPromoVideo: async () => fixture,
       getMockupAnimation: async () => fixture,
@@ -97,23 +106,39 @@ test("all guarded reads expose identical edit state to text-only clients", async
     registerPromoVideoTools(server, client);
     registerMockupTools(server, client);
     registerLayoutTools(server, client);
-    const handlers = (server as unknown as {
-      _registeredTools: Record<string, { handler: Function }>;
-    })._registeredTools;
-    for (const tool of ["get_graphics_format", "get_promo_video", "get_mockup_animation"]) {
-      const result = await handlers[tool].handler({
-        generationId: "00000000-0000-4000-8000-000000000001", format: "og",
-      }, {});
-      const text = result.content.map((c: { text: string }) => c.text).join("\n");
+    const handlers = (
+      server as unknown as {
+        _registeredTools: Record<string, { handler: Function }>;
+      }
+    )._registeredTools;
+    for (const tool of [
+      "get_graphics_format",
+      "get_promo_video",
+      "get_mockup_animation",
+    ]) {
+      const result = await handlers[tool].handler(
+        {
+          generationId: "00000000-0000-4000-8000-000000000001",
+          format: "og",
+        },
+        {},
+      );
+      const text = result.content
+        .map((c: { text: string }) => c.text)
+        .join("\n");
       const data = JSON.parse(text.slice(text.indexOf("{\n")));
       assert.deepEqual(data, result.structuredContent.data, tool);
       assert.ok(data.readReceipt, tool);
       assert.deepEqual(data.config, fixture.config);
       assert.equal(text.includes("synthetic-test-token"), false);
     }
-    const missing = await handlers.get_layout.handler({
-      generationId: "00000000-0000-4000-8000-000000000001", language: "en",
-    }, {});
+    const missing = await handlers.get_layout.handler(
+      {
+        generationId: "00000000-0000-4000-8000-000000000001",
+        language: "en",
+      },
+      {},
+    );
     assert.equal(missing.structuredContent.data.readReceipt, undefined);
     assert.equal(missing.structuredContent.data.readBeforeEditSatisfied, false);
   } finally {

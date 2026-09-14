@@ -3,18 +3,20 @@ import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createAppLaunchFlowServer } from "./index.js";
 import { TOOL_ANNOTATIONS } from "./tool-metadata.js";
 
 test("all registered tools expose submission safety metadata and output schemas", async () => {
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
-  const server = createAppLaunchFlowServer({
-    baseUrl: "https://dashboard.applaunchflow.com",
-    token: "test-token",
-  });
+  const server = createAppLaunchFlowServer(
+    {
+      baseUrl: "https://dashboard.applaunchflow.com",
+      token: "test-token",
+    },
+    { hosted: true },
+  );
   const client = new Client({ name: "metadata-test", version: "1.0.0" });
 
   await server.connect(serverTransport);
@@ -22,16 +24,32 @@ test("all registered tools expose submission safety metadata and output schemas"
   try {
     const { tools } = await client.listTools();
     assert.equal(tools.length, 52);
-    assert.equal(tools.find(tool => tool.name === "replace_asset")?.annotations?.destructiveHint, true);
-    assert.equal(tools.find(tool => tool.name === "delete_assets")?.annotations?.destructiveHint, true);
-    for (const removed of ["restore_assets", "manage_asset_library"]) assert.equal(tools.some(tool => tool.name === removed), false);
+    assert.equal(
+      tools.find((tool) => tool.name === "replace_asset")?.annotations
+        ?.destructiveHint,
+      true,
+    );
+    assert.equal(
+      tools.find((tool) => tool.name === "delete_assets")?.annotations
+        ?.destructiveHint,
+      true,
+    );
+    for (const removed of ["restore_assets", "manage_asset_library"])
+      assert.equal(
+        tools.some((tool) => tool.name === removed),
+        false,
+      );
     // Assert behavior independently of the central annotation map: replacing a
     // promo candidate retires the old variant, even though creation is the default.
-    const applyPromo = tools.find((tool) => tool.name === "apply_promo_video_candidate");
+    const applyPromo = tools.find(
+      (tool) => tool.name === "apply_promo_video_candidate",
+    );
     assert.equal(applyPromo?.annotations?.destructiveHint, true);
     assert.equal(applyPromo?.annotations?.readOnlyHint, false);
     // Preparation only stores candidates; it must not be classified as deletion.
-    const preparePromo = tools.find((tool) => tool.name === "generate_promo_video");
+    const preparePromo = tools.find(
+      (tool) => tool.name === "generate_promo_video",
+    );
     assert.equal(preparePromo?.annotations?.destructiveHint, false);
     assert.deepEqual(
       tools.map((tool) => tool.name).sort(),

@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/server";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import {
   buildTemplatePreviewUrl,
@@ -100,9 +100,12 @@ export function registerResources(
 
   server.registerResource(
     "template-preview",
-    new ResourceTemplate("applaunchflow://templates/{templateId}/preview/{deviceType}", {
-      list: undefined,
-    }),
+    new ResourceTemplate(
+      "applaunchflow://templates/{templateId}/preview/{deviceType}",
+      {
+        list: undefined,
+      },
+    ),
     {
       title: "Template Preview",
       description:
@@ -166,7 +169,8 @@ export function registerResources(
     "applaunchflow://guide/workflows",
     {
       title: "Workflow Guide",
-      description: "Preferred MCP workflows for generating and editing projects",
+      description:
+        "Preferred MCP workflows for generating and editing projects",
       mimeType: "application/json",
     },
     async (uri) => asJsonResource(uri.href, WORKFLOW_GUIDE_RESOURCE),
@@ -194,13 +198,14 @@ export function registerResources(
       mimeType: "application/json",
     },
     async (uri, { projectId }) => {
-      const resolvedProjectId = Array.isArray(projectId) ? projectId[0] : projectId;
-      const [project, translations, screenshotVariants] =
-        await Promise.all([
-          client.getProject(resolvedProjectId),
-          client.getLayout({ generationId: resolvedProjectId }),
-          client.listVariants(resolvedProjectId, "screenshots"),
-        ]);
+      const resolvedProjectId = Array.isArray(projectId)
+        ? projectId[0]
+        : projectId;
+      const [project, translations, screenshotVariants] = await Promise.all([
+        client.getProject(resolvedProjectId),
+        client.getLayout({ generationId: resolvedProjectId }),
+        client.listVariants(resolvedProjectId, "screenshots"),
+      ]);
 
       return asJsonResource(uri.href, {
         project,

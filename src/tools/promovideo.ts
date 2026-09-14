@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { ToolInputError } from "../telemetry.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
@@ -45,7 +45,7 @@ export function registerPromoVideoTools(
         "Only the candidate explicitly chosen by the user becomes a saved variant. Clients without UI support receive the exact picker URL. " +
         "Use replaceVariantId only when the user explicitly chose to replace that existing variant, which also allows a safe swap at the plan limit. " +
         "Use selectedScreenshotPaths to constrain which uploaded screenshots feed the candidates.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid().describe("Project / generation UUID."),
         message: z
           .string()
@@ -74,10 +74,10 @@ export function registerPromoVideoTools(
           .describe(
             "Legacy screenshot positions. Prefer selectedScreenshotPaths.",
           ),
-      },
+      }),
       _meta: pickerToolMeta(PROMO_VIDEO_PICKER_URI),
     },
-    async (args, extra) => {
+    async (args, ctx) => {
       try {
         const result = await client.generatePromoVideo(
           buildPromoVideoCandidateRequest(args),
@@ -97,7 +97,7 @@ export function registerPromoVideoTools(
           server,
           pickerUrl,
           "Compare three personalized promo-video candidates and choose which one to create.",
-          { signal: extra.signal },
+          { signal: ctx.mcpReq.signal },
         );
 
         const pickerResult = await createPromoVideoPickerResult(client, {
@@ -131,10 +131,10 @@ export function registerPromoVideoTools(
       description:
         "Fetch the current promo video config (Remotion VideoConfig) for a project. Required before update_promo_video so edits operate on fresh state. " +
         "The returned object follows the schema in the resource applaunchflow://schema/video-config — read that resource to learn which fields and scene types exist and their valid ranges, not just which ones this config happens to use.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
-      },
+      }),
     },
     async ({ generationId, variantId }) => {
       try {
@@ -151,12 +151,15 @@ export function registerPromoVideoTools(
             )
           : undefined;
         // Mirror edit state and receipt in text for hosts that omit structuredContent.
-        return ok({
-          ...result,
-          editorUrl,
-          readBeforeEditSatisfied: true,
-          readReceipt,
-        }, "Fetched promo video. Pass readReceipt to the matching edit tool; do not display it to the user.");
+        return ok(
+          {
+            ...result,
+            editorUrl,
+            readBeforeEditSatisfied: true,
+            readReceipt,
+          },
+          "Fetched promo video. Pass readReceipt to the matching edit tool; do not display it to the user.",
+        );
       } catch (error) {
         return fail(error);
       }
@@ -174,11 +177,11 @@ export function registerPromoVideoTools(
         "ENFORCED: each call requires a fresh get_promo_video for the same projectId/variantId immediately beforehand. " +
         "SCHEMA REFERENCE: read the resource applaunchflow://schema/video-config for the full field-level reference — the six scene types and their content shapes, theme, TextStyle, ken burns, choreography preset ids, devices, overlays, and audio. " +
         "Values outside the documented ranges fail validation and reject the whole update.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
         config: z
-          .record(z.any())
+          .record(z.string(), z.any())
           .describe(
             "Full Remotion VideoConfig object — a whole-config replace, not a patch. " +
               "Required: theme (colors + typography) and scenes (at least one; each scene is a discriminated union on `type`: hook | feature | text-only | closeup | multi-phone | cta, with a matching `content` shape). " +
@@ -195,7 +198,7 @@ export function registerPromoVideoTools(
           .describe(
             "Hosted connector only: pass the readReceipt returned by the immediately preceding get_promo_video call.",
           ),
-      },
+      }),
     },
     async (args) => {
       try {
@@ -261,10 +264,10 @@ export function registerPromoVideoTools(
       title: "Clear Promo Video",
       description:
         "Wipe the promo video config for a variant so the user can start over. Does not delete the variant itself.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
-      },
+      }),
     },
     async (args) => {
       try {

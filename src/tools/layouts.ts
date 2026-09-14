@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { ToolInputError } from "../telemetry.js";
@@ -10,93 +10,97 @@ import {
   verifyHostedReadReceipt,
 } from "./utils.js";
 
-const transformOperationSchema = z.object({
-  type: z.enum([
-    "update_node",
-    "delete_node",
-    "add_node",
-    "reorder",
-    "replace_color",
-  ]).describe(
-    "Operation type. replace_color is a find-and-replace for colors across the layout — use it for bulk color changes instead of updating each text node individually. " +
-    "Example: {type:'replace_color', target:{nodeType:'screen'}, changes:{find:'#F6EFE9', replace:'#7C3AED'}} replaces that color everywhere (text marks, icon colors, backgrounds). " +
-    "Use screens:'all' to replace across all screens, or screens:[6] for a single screen.",
-  ),
-  target: z.object({
-    nodeType: z
-      .string()
+const transformOperationSchema = z
+  .object({
+    type: z
+      .enum([
+        "update_node",
+        "delete_node",
+        "add_node",
+        "reorder",
+        "replace_color",
+      ])
       .describe(
-        "REQUIRED. The node type to target: 'screen', 'text', 'screenshot', 'illustration', 'pill', 'badge', 'blob', 'rating', 'logo', 'emoji', 'header', 'panoramaBackground', 'backgroundImage'.",
+        "Operation type. replace_color is a find-and-replace for colors across the layout — use it for bulk color changes instead of updating each text node individually. " +
+          "Example: {type:'replace_color', target:{nodeType:'screen'}, changes:{find:'#F6EFE9', replace:'#7C3AED'}} replaces that color everywhere (text marks, icon colors, backgrounds). " +
+          "Use screens:'all' to replace across all screens, or screens:[6] for a single screen.",
       ),
-    nodeId: z
-      .string()
-      .optional()
-      .describe(
-        "Optional. Target a specific node by id. If omitted, the operation applies to ALL nodes of nodeType in the target screens.",
-      ),
-    selector: z
-      .string()
-      .optional()
-      .describe(
-        "Optional. Target screens by id: 'screenId:<id>'. Do NOT use '#' prefix.",
-      ),
-    screens: z
-      .union([z.literal("all"), z.array(z.number())])
-      .optional()
-      .describe(
-        "Optional. Target specific screens by index array (e.g. [0, 1, 2]) or 'all' for every screen. If omitted, targets all screens.",
-      ),
-  }),
-  changes: z.record(z.any()),
-}).superRefine((operation, ctx) => {
-  // Require nodeType for all operations except replace_color
-  if (!operation.target.nodeType && operation.type !== "replace_color") {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["target", "nodeType"],
-      message: "nodeType is required in target",
-    });
-    return;
-  }
-
-  const payload =
-    operation.changes?.node &&
-    typeof operation.changes.node === "object" &&
-    !Array.isArray(operation.changes.node)
-      ? operation.changes.node
-      : operation.changes;
-
-  if (operation.type === "add_node") {
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    target: z.object({
+      nodeType: z
+        .string()
+        .describe(
+          "REQUIRED. The node type to target: 'screen', 'text', 'screenshot', 'illustration', 'pill', 'badge', 'blob', 'rating', 'logo', 'emoji', 'header', 'panoramaBackground', 'backgroundImage'.",
+        ),
+      nodeId: z
+        .string()
+        .optional()
+        .describe(
+          "Optional. Target a specific node by id. If omitted, the operation applies to ALL nodes of nodeType in the target screens.",
+        ),
+      selector: z
+        .string()
+        .optional()
+        .describe(
+          "Optional. Target screens by id: 'screenId:<id>'. Do NOT use '#' prefix.",
+        ),
+      screens: z
+        .union([z.literal("all"), z.array(z.number())])
+        .optional()
+        .describe(
+          "Optional. Target specific screens by index array (e.g. [0, 1, 2]) or 'all' for every screen. If omitted, targets all screens.",
+        ),
+    }),
+    changes: z.record(z.string(), z.any()),
+  })
+  .superRefine((operation, ctx) => {
+    // Require nodeType for all operations except replace_color
+    if (!operation.target.nodeType && operation.type !== "replace_color") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["changes"],
-        message: "add_node requires a node object in changes or changes.node",
+        path: ["target", "nodeType"],
+        message: "nodeType is required in target",
       });
       return;
     }
 
-    if (typeof payload.id !== "string" || payload.id.trim().length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["changes", "id"],
-        message: "add_node requires a non-empty id field",
-      });
-    }
+    const payload: Record<string, unknown> =
+      operation.changes?.node &&
+      typeof operation.changes.node === "object" &&
+      !Array.isArray(operation.changes.node)
+        ? operation.changes.node
+        : operation.changes;
 
-    if (
-      operation.target.nodeType === "screen" &&
-      ("text" in payload || "screenshotPath" in payload)
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["changes"],
-        message:
-          "When adding a screen, only provide the screen container fields. Add screenshot and text nodes with separate add_node operations targeting that screen index.",
-      });
+    if (operation.type === "add_node") {
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["changes"],
+          message: "add_node requires a node object in changes or changes.node",
+        });
+        return;
+      }
+
+      if (typeof payload.id !== "string" || payload.id.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["changes", "id"],
+          message: "add_node requires a non-empty id field",
+        });
+      }
+
+      if (
+        operation.target.nodeType === "screen" &&
+        ("text" in payload || "screenshotPath" in payload)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["changes"],
+          message:
+            "When adding a screen, only provide the screen container fields. Add screenshot and text nodes with separate add_node operations targeting that screen index.",
+        });
+      }
     }
-  }
-});
+  });
 
 export function registerLayoutTools(
   server: McpServer,
@@ -109,7 +113,9 @@ export function registerLayoutTools(
     language: string;
     variantId?: string;
   }): string {
-    return [args.generationId, args.language, args.variantId || "default"].join("::");
+    return [args.generationId, args.language, args.variantId || "default"].join(
+      "::",
+    );
   }
 
   function buildEditorUrl(args: {
@@ -161,16 +167,21 @@ export function registerLayoutTools(
         "This is mandatory before every direct transform_layout call. " +
         "Returns the editor URL as a reference link — do NOT auto-open it. The user already has the editor open from the initial generation. " +
         "The returned JSON follows the layout schema documented in the resource applaunchflow://schema/layout — read it to learn which fields exist and their valid ranges, not just which ones happen to be set here.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
-        language: z.string().trim().min(1).optional().describe(
-          "Required for editing: use the exact language from the project's translations. If omitted, this only lists translations; call get_layout again with a returned language before transform_layout.",
-        ),
+        language: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe(
+            "Required for editing: use the exact language from the project's translations. If omitted, this only lists translations; call get_layout again with a returned language before transform_layout.",
+          ),
         variantId: z.string().uuid().optional(),
         sign: z.boolean().optional(),
-      },
+      }),
     },
-    async ({ generationId, language, variantId, sign }, extra) => {
+    async ({ generationId, language, variantId, sign }, ctx) => {
       try {
         const layout = await client.getLayout({
           generationId,
@@ -203,7 +214,9 @@ export function registerLayoutTools(
           previewUrl,
           readBeforeEditSatisfied: hasEditReceipt,
           readReceipt,
-          editTarget: hasEditReceipt ? { generationId, language, variantId } : undefined,
+          editTarget: hasEditReceipt
+            ? { generationId, language, variantId }
+            : undefined,
           nextStep: !language
             ? "This is a translation list, not an editable layout. Choose a language from these translations and call get_layout again with that language and the same variantId. Then pass its readReceipt to transform_layout."
             : !layout
@@ -249,30 +262,30 @@ export function registerLayoutTools(
       description:
         "Persist a full translation layout payload. Whole-layout replace per device size — prefer transform_layout for targeted edits. " +
         "Each layout must be a complete, valid Layout object; see the resource applaunchflow://schema/layout for every field and valid value range.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
         language: z.string(),
         variantId: z.string().uuid().optional(),
         mobileLayout: z
-          .record(z.any())
+          .record(z.string(), z.any())
           .describe(
             "Complete Layout object for the phone canvas. Shape documented in applaunchflow://schema/layout.",
           ),
         tabletLayout: z
-          .record(z.any())
+          .record(z.string(), z.any())
           .describe(
             "Complete Layout object for the tablet canvas. Same shape as mobileLayout, different canvasWidth/canvasHeight.",
           ),
         desktopLayout: z
-          .record(z.any())
+          .record(z.string(), z.any())
           .nullable()
           .optional()
           .describe(
             "Optional complete Layout object for the desktop canvas. Same shape as mobileLayout.",
           ),
-      },
+      }),
     },
-    async (args, extra) => {
+    async (args, ctx) => {
       try {
         return ok(await client.saveLayout(args), "Saved layout");
       } catch (error) {
@@ -299,7 +312,7 @@ export function registerLayoutTools(
         "7. Default to layouts:['mobile']. Only include tablet/desktop if the user asks. " +
         "8. FONT SIZE: The rendered font size is controlled ONLY by 'richContent.attrs.defaultFontSize' (pixel value). To change font size, use dot-notation: {'richContent.attrs.defaultFontSize': 80}. Do NOT use 'fontSizeScale' — that property is for promo videos only and has NO effect on screenshot rendering. " +
         "SCHEMA REFERENCE: read the resource applaunchflow://schema/transforms for the full operation and selector reference, and applaunchflow://schema/layout for every node type's fields and valid value ranges. Read them before any non-trivial edit rather than guessing field names.",
-      inputSchema: {
+      inputSchema: z.object({
         generationId: z.string().uuid(),
         language: z.string(),
         variantId: z.string().uuid().optional(),
@@ -307,7 +320,9 @@ export function registerLayoutTools(
         layouts: z
           .array(z.enum(["mobile", "tablet", "desktop"]))
           .optional()
-          .describe("Which layout sizes to transform. Default to ['mobile'] unless the user explicitly asks for tablet or desktop."),
+          .describe(
+            "Which layout sizes to transform. Default to ['mobile'] unless the user explicitly asks for tablet or desktop.",
+          ),
         operations: z.array(transformOperationSchema).min(1),
         readReceipt: z
           .string()
@@ -315,9 +330,9 @@ export function registerLayoutTools(
           .describe(
             "Hosted connector only: pass the readReceipt returned by the immediately preceding get_layout call.",
           ),
-      },
+      }),
     },
-    async (args, extra) => {
+    async (args, ctx) => {
       try {
         const receiptKey = buildReadReceiptKey({
           generationId: args.generationId,
@@ -385,5 +400,4 @@ export function registerLayoutTools(
       }
     },
   );
-
 }

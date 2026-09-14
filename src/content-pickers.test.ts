@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createAppLaunchFlowServer } from "./index.js";
 import { SOCIAL_GRAPHICS_PICKER_URI } from "./ui/social-graphics-picker.js";
 import { PROMO_VIDEO_PICKER_URI } from "./ui/promo-video-picker.js";
@@ -93,7 +92,11 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
             title: `Concept ${number}`,
             explanation: `Option ${number}`,
             durationInFrames: 450,
-            config: { marker: `server-config-${number}`, logoUrl: "https://example.invalid/logo?token=test", tagline: null },
+            config: {
+              marker: `server-config-${number}`,
+              logoUrl: "https://example.invalid/logo?token=test",
+              tagline: null,
+            },
           })),
         }),
       );
@@ -212,9 +215,13 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     assert.deepEqual((promo._meta?.promoVideoPicker as any).screenshotUrls, [
       "https://example.invalid/screenshot-signed",
     ]);
-    const privateBatch = JSON.parse((promo._meta?.promoVideoPicker as any).batchJson);
+    const privateBatch = JSON.parse(
+      (promo._meta?.promoVideoPicker as any).batchJson,
+    );
     assert.deepEqual(privateBatch.candidates[0].config, {
-      marker: "server-config-1", logoUrl: "https://example.invalid/logo?token=test", tagline: null,
+      marker: "server-config-1",
+      logoUrl: "https://example.invalid/logo?token=test",
+      tagline: null,
     });
     assert.equal("batch" in (promo._meta?.promoVideoPicker as any), false);
 
@@ -256,7 +263,8 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       new RegExp(variant),
     );
     assert.deepEqual(
-      requests.find((item) => item.url === "/api/graphics/apply-template")?.body,
+      requests.find((item) => item.url === "/api/graphics/apply-template")
+        ?.body,
       {
         generationId: project,
         catalogKey,
@@ -284,7 +292,11 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     )!;
     assert.deepEqual(applyRequest.body, {
       projectId: project,
-      config: { marker: "server-config-2", logoUrl: "https://example.invalid/logo?token=test", tagline: null },
+      config: {
+        marker: "server-config-2",
+        logoUrl: "https://example.invalid/logo?token=test",
+        tagline: null,
+      },
       label: "Concept 2",
     });
 

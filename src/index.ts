@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { createRequire } from "node:module";
 import { AppLaunchFlowClient, type McpCredentials } from "./client/api.js";
 import { registerPrompts } from "./prompts/register.js";
@@ -117,8 +117,10 @@ ${SERVER_INSTRUCTIONS}
 
 export function createAppLaunchFlowServer(
   credentials: McpCredentials,
+  options: { hosted?: boolean } = {},
 ): McpServer {
   const client = new AppLaunchFlowClient(credentials);
+  const hosted = options.hosted ?? false;
 
   const server = new McpServer(
     {
@@ -126,16 +128,16 @@ export function createAppLaunchFlowServer(
       version: packageJson.version,
     },
     {
-      instructions: HOSTED_SERVER_INSTRUCTIONS,
+      instructions: hosted ? HOSTED_SERVER_INSTRUCTIONS : SERVER_INSTRUCTIONS,
     },
   );
 
-  installToolMetadataPolicy(server, { hosted: true });
+  installToolMetadataPolicy(server, { hosted });
 
   registerPrompts(server);
   registerResources(server, client);
   registerProjectTools(server, client);
-  registerAssetTools(server, client);
+  registerAssetTools(server, client, { hosted });
   registerAssetManagementTools(server, client);
   registerScreenshotTools(server, client);
   registerLayoutTools(server, client);

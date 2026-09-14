@@ -1,45 +1,108 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createAppLaunchFlowServer } from "./index.js";
 import { ASSET_LIST_URI } from "./tools/assets.js";
 
 const projectId = "00000000-0000-4000-8000-000000000001";
 const origin = "https://dashboard.applaunchflow.com";
-test("folder uploads validate scope first and report uploaded paths when assignment fails without leaking credentials", async t => {
+test("folder uploads validate scope first and report uploaded paths when assignment fails without leaking credentials", async (t) => {
   const events: string[] = [];
   const folderId = "00000000-0000-4000-8000-000000000002";
-  let scope = "tablet", moveFails = false;
-  t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
-    const url = String(input);
-    if (url.includes("/api/assets/folders?") ) return Response.json({ organization: { folders: [{ id: folderId, device_type: scope, platform: "ios" }] } });
-    if (url.endsWith("/signed-url")) { events.push("grant"); const body = JSON.parse(String(init?.body)); assert.match(body.filename, /.+-shot.png$/); return Response.json({ uploadUrl: "https://upload.test/file?token=secret", path: "mobile/ios/new.png", filename: body.filename, subfolder: "mobile/ios" }); }
-    if (url.startsWith("https://upload.test/")) { events.push("upload"); return new Response(""); }
-    assert.ok(url.endsWith("/api/assets/folders")); events.push("move");
-    assert.deepEqual(JSON.parse(String(init?.body)), { projectId, action: "move", folderId, paths: ["mobile/ios/new.png"] });
-    return moveFails ? Response.json({ error: "https://private.test?token=secret" }, { status: 500 }) : Response.json({ success: true });
-  });
+  let scope = "tablet",
+    moveFails = false;
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/api/assets/folders?"))
+        return Response.json({
+          organization: {
+            folders: [{ id: folderId, device_type: scope, platform: "ios" }],
+          },
+        });
+      if (url.endsWith("/signed-url")) {
+        events.push("grant");
+        const body = JSON.parse(String(init?.body));
+        assert.match(body.filename, /.+-shot.png$/);
+        return Response.json({
+          uploadUrl: "https://upload.test/file?token=secret",
+          path: "mobile/ios/new.png",
+          filename: body.filename,
+          subfolder: "mobile/ios",
+        });
+      }
+      if (url.startsWith("https://upload.test/")) {
+        events.push("upload");
+        return new Response("");
+      }
+      assert.ok(url.endsWith("/api/assets/folders"));
+      events.push("move");
+      assert.deepEqual(JSON.parse(String(init?.body)), {
+        projectId,
+        action: "move",
+        folderId,
+        paths: ["mobile/ios/new.png"],
+      });
+      return moveFails
+        ? Response.json(
+            { error: "https://private.test?token=secret" },
+            { status: 500 },
+          )
+        : Response.json({ success: true });
+    },
+  );
   const { client, close } = await connect();
-  const args = { projectId, folderId, deviceType: "mobile", platform: "ios", sources: [{ filename: "shot.png", base64: "YWJj" }] };
+  const args = {
+    projectId,
+    folderId,
+    deviceType: "mobile",
+    platform: "ios",
+    sources: [{ filename: "shot.png", base64: "YWJj" }],
+  };
   try {
-    assert.equal((await client.callTool({ name: "upload_screenshots", arguments: args })).isError, true);
+    assert.equal(
+      (await client.callTool({ name: "upload_screenshots", arguments: args }))
+        .isError,
+      true,
+    );
     assert.deepEqual(events, []);
     scope = "mobile";
-    const success = await client.callTool({ name: "upload_screenshots", arguments: args });
+    const success = await client.callTool({
+      name: "upload_screenshots",
+      arguments: args,
+    });
     assert.notEqual(success.isError, true);
-    assert.match(JSON.stringify(success.structuredContent), /"folderAssigned":true/);
+    assert.match(
+      JSON.stringify(success.structuredContent),
+      /"folderAssigned":true/,
+    );
     assert.deepEqual(events, ["grant", "upload", "move"]);
     moveFails = true;
-    const partial = await client.callTool({ name: "upload_screenshots", arguments: args });
+    const partial = await client.callTool({
+      name: "upload_screenshots",
+      arguments: args,
+    });
     assert.equal(partial.isError, true);
-    assert.match(JSON.stringify(partial.structuredContent), /mobile\/ios\/new.png/);
-    assert.match(JSON.stringify(partial.structuredContent), /"folderAssigned":false/);
+    assert.match(
+      JSON.stringify(partial.structuredContent),
+      /mobile\/ios\/new.png/,
+    );
+    assert.match(
+      JSON.stringify(partial.structuredContent),
+      /"folderAssigned":false/,
+    );
     assert.doesNotMatch(JSON.stringify(partial), /secret|uploadUrl/);
-  } finally { await close(); }
+  } finally {
+    await close();
+  }
 });
-async function connect(token = "user-a") {
-  const server = createAppLaunchFlowServer({ baseUrl: origin, token });
+async function connect(token = "user-a", hosted = false) {
+  const server = createAppLaunchFlowServer(
+    { baseUrl: origin, token },
+    { hosted },
+  );
   const client = new Client({ name: "assets-test", version: "1" });
   const [ct, st] = InMemoryTransport.createLinkedPair();
   await server.connect(st);
@@ -52,6 +115,38 @@ async function connect(token = "user-a") {
     },
   };
 }
+
+test("hosted upload schemas omit local paths while local schemas retain them", async () => {
+  for (const hosted of [false, true]) {
+    const { client, close } = await connect("user-a", hosted);
+    try {
+      const tools = (await client.listTools()).tools;
+      const screenshots = tools.find(
+        (tool) => tool.name === "upload_screenshots",
+      )!;
+      const asset = tools.find((tool) => tool.name === "upload_asset")!;
+      const screenshotSource = (
+        screenshots.inputSchema as unknown as {
+          properties: {
+            sources: { items: { properties: Record<string, unknown> } };
+          };
+        }
+      ).properties.sources.items.properties;
+      const assetSource = (
+        asset.inputSchema as unknown as {
+          properties: { source: { properties: Record<string, unknown> } };
+        }
+      ).properties.source.properties;
+
+      assert.equal("path" in screenshotSource, !hosted);
+      assert.equal("path" in assetSource, !hosted);
+      assert.equal("url" in screenshotSource, true);
+      assert.equal("base64" in screenshotSource, true);
+    } finally {
+      await close();
+    }
+  }
+});
 
 test("list_assets isolates account data, strips private preview URLs from model output and exposes read-only UI", async (t) => {
   t.mock.method(

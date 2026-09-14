@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import {
@@ -157,7 +157,7 @@ export function registerTemplateTools(
       title: "Browse & Select Template",
       description:
         "Open the visual style gallery. With generationId and catalogKey from prepare_screenshot_styles it renders personalized v1/v2 previews and creates the selected variant directly; without them it provides static style discovery. Never offer templates via text or AskUserQuestion.",
-      inputSchema: {
+      inputSchema: z.object({
         deviceType: z
           .enum(TEMPLATE_PREVIEW_DEVICE_TYPES)
           .optional()
@@ -189,7 +189,7 @@ export function registerTemplateTools(
           .describe(
             "Catalog key from prepare_screenshot_styles. Pass together with generationId.",
           ),
-      },
+      }),
     },
     async (
       {
@@ -200,7 +200,7 @@ export function registerTemplateTools(
         generationId,
         catalogKey,
       },
-      extra,
+      ctx,
     ) => {
       try {
         if (Boolean(generationId) !== Boolean(catalogKey)) {
@@ -214,9 +214,12 @@ export function registerTemplateTools(
           await client.listTemplates(),
           client.credentials.baseUrl,
         ) as TemplateCatalogPayload;
-        const availableIds = new Set(payload.templates.map((template) => template.id));
+        const availableIds = new Set(
+          payload.templates.map((template) => template.id),
+        );
         const filteredTemplateIds =
-          templateIds?.filter((templateId) => availableIds.has(templateId)) || [];
+          templateIds?.filter((templateId) => availableIds.has(templateId)) ||
+          [];
         const droppedTemplateIds =
           templateIds?.filter((templateId) => !availableIds.has(templateId)) ||
           [];
@@ -245,7 +248,8 @@ export function registerTemplateTools(
 
         const galleryUrl = buildTemplateGalleryUrl(client.credentials.baseUrl, {
           deviceType,
-          templateIds: filteredTemplateIds.length > 0 ? filteredTemplateIds : undefined,
+          templateIds:
+            filteredTemplateIds.length > 0 ? filteredTemplateIds : undefined,
           selectedTemplateId:
             selectedTemplateId && availableIds.has(selectedTemplateId)
               ? selectedTemplateId
@@ -262,7 +266,7 @@ export function registerTemplateTools(
           generationId && catalogKey
             ? "Choose a personalized screenshot style. Compare v1 and v2, then create the new variant in the editor."
             : "Browse screenshot styles in AppLaunchFlow.",
-          { signal: extra.signal },
+          { signal: ctx.mcpReq.signal },
         );
 
         return {
@@ -306,5 +310,4 @@ export function registerTemplateTools(
       }
     },
   );
-
 }
