@@ -115,6 +115,7 @@ export class AppLaunchFlowClient {
     deviceType?: "mobile" | "tablet" | "desktop" | "watch";
     platform?: "ios" | "android";
     fileType?:
+      | "screenshot-overwrite-stage"
       | "illustration"
       | "logo"
       | "panorama"

@@ -39,7 +39,7 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   get_project: readOnly,
   create_project: createOrAppend,
   delete_project: overwriteOrDelete,
-  upload_screenshots: openWorldCreate,
+  upload_screenshots: { ...overwriteOrDelete, openWorldHint: true },
   list_illustrations: readOnly,
   list_assets: readOnly,
   list_asset_folders: readOnly,
