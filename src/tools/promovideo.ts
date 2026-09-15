@@ -211,7 +211,7 @@ export function registerPromoVideoTools(
           .describe(
             "Full Remotion VideoConfig object — a whole-config replace, not a patch. " +
               "Required: theme (colors + typography) and scenes (at least one; each scene is a discriminated union on `type`: hook | feature | text-only | closeup | multi-phone | cta, with a matching `content` shape). " +
-              "Optional: version, duration (seconds), audio, phoneId. " +
+              "Optional: version, duration (seconds), audio, phoneId. Any scene may set `hidden: true` to skip it (kept and editable, but left out of playback/export and not counted toward the video length); at least one scene must stay visible. " +
               "All coordinates are percentages of the frame (0-100, 50 = centered), never pixels. " +
               "Always start from the object returned by get_promo_video and mutate it — do not hand-build one. " +
               "Full field reference including every scene's content fields and valid ranges: read the resource applaunchflow://schema/video-config.",

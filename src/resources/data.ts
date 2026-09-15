@@ -393,6 +393,7 @@ export const VIDEO_CONFIG_SCHEMA_RESOURCE = {
       textOverlays: { type: "TextOverlay[]?", description: "Free-form rich text placed anywhere. Each: richContent (Tiptap doc JSON), text? (plain mirror), x/y (0-100), scale (0.1-4), rotation (-180..180), opacity (0-1), width (5-100, wrap width as % of frame), textAlign, fontSizeScale (0.2-4), textAnimation." },
       devices: { type: "SceneDevice[]?", description: "Extra device frames on any scene type, max 12. See sceneDevice below." },
       hiddenElements: { type: "string[]?", description: "Element ids to hide on this scene." },
+      hidden: { type: "boolean?", description: "Skip this scene: it stays in the project and editable but is excluded from playback, export, and the video length. At least one scene must remain visible." },
     },
   },
 
