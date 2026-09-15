@@ -5,7 +5,10 @@ import path from "path";
 import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import type { AppLaunchFlowClient } from "../client/api.js";
+import {
+  AppLaunchFlowApiError,
+  type AppLaunchFlowClient,
+} from "../client/api.js";
 import { upstreamSignal } from "../request-context.js";
 import { ToolInputError } from "../telemetry.js";
 import { fail, ok } from "./utils.js";
@@ -396,6 +399,18 @@ export function registerAssetTools(
         deviceType: z.enum(["mobile", "tablet", "desktop", "watch"]),
         platform: z.enum(["ios", "android"]),
         sources: z.array(exposedUploadSourceSchema).min(1),
+        overwrite: z
+          .boolean()
+          .optional()
+          .describe(
+            "Explicit opt-in: replace same-name screenshot bytes in place, updating ALL designs bound to that path. Previous bytes are backed up. Reload open editors afterwards.",
+          ),
+        targetPath: z
+          .string()
+          .optional()
+          .describe(
+            "Exact existing relative path to overwrite when legacy filenames are ambiguous. Requires overwrite=true and exactly one source.",
+          ),
         folderId: z
           .string()
           .uuid()
@@ -405,14 +420,31 @@ export function registerAssetTools(
           ),
       }),
     },
-    async ({ projectId, deviceType, platform, sources, folderId }) => {
+    async ({
+      projectId,
+      deviceType,
+      platform,
+      sources,
+      folderId,
+      overwrite,
+      targetPath,
+    }) => {
+      let pendingOverwrite:
+        | { operationId: string; sourcePath: string; targetPath?: string }
+        | undefined;
       const uploads: Array<{
         filename: string;
         path: string;
         subfolder: string;
         folderAssigned: boolean;
+        revision?: string;
+        backupPath?: string | null;
       }> = [];
       try {
+        if (targetPath && (!overwrite || sources.length !== 1))
+          throw new Error(
+            "targetPath requires overwrite=true and exactly one source",
+          );
         if (folderId) {
           const library = await client.requestJson<{
             organization: {
@@ -435,6 +467,8 @@ export function registerAssetTools(
         }
         for (const source of sources) {
           const payloads = await resolveUploadPayload(source);
+          if (targetPath && payloads.length !== 1)
+            throw new Error("targetPath requires exactly one image, not a ZIP");
           for (const payload of payloads) {
             const signed = await client.createSignedUpload({
               projectId,
@@ -442,17 +476,49 @@ export function registerAssetTools(
               contentType: payload.contentType,
               deviceType,
               platform,
+              ...(overwrite
+                ? { fileType: "screenshot-overwrite-stage" as const }
+                : {}),
             });
             await client.uploadBinary(
               signed.uploadUrl,
               payload.buffer,
               payload.contentType,
             );
+            if (overwrite)
+              pendingOverwrite = {
+                operationId: randomUUID(),
+                sourcePath: signed.path,
+                targetPath,
+              };
+            const stored = overwrite
+              ? await client.requestJson<{
+                  path: string;
+                  filename: string;
+                  subfolder: string;
+                  revision: string;
+                  backupPath: string | null;
+                }>("/api/assets/overwrite", {
+                  method: "POST",
+                  timeoutMs: 65_000,
+                  body: {
+                    projectId,
+                    deviceType,
+                    platform,
+                    filename: payload.filename,
+                    ...pendingOverwrite,
+                  },
+                })
+              : signed;
+            pendingOverwrite = undefined;
             uploads.push({
-              filename: signed.filename,
-              path: signed.path,
-              subfolder: signed.subfolder,
+              filename: stored.filename,
+              path: stored.path,
+              subfolder: stored.subfolder,
               folderAssigned: false,
+              ...("revision" in stored
+                ? { revision: stored.revision, backupPath: stored.backupPath }
+                : {}),
             });
             if (folderId) {
               await client.requestJson("/api/assets/folders", {
@@ -461,21 +527,41 @@ export function registerAssetTools(
                   projectId,
                   action: "move",
                   folderId,
-                  paths: [signed.path],
+                  paths: [stored.path],
                 },
               });
               uploads[uploads.length - 1].folderAssigned = true;
             }
           }
         }
-        return ok({ uploads }, "Uploaded assets");
+        return ok(
+          { uploads },
+          overwrite
+            ? "Screenshots overwritten in place. Existing bindings are unchanged; reload open editors to refresh. Previous bytes and staged sources are retained."
+            : "Uploaded assets",
+        );
       } catch (error) {
         if (error instanceof ToolInputError && !uploads.length)
           return fail(error);
         return {
           ...ok(
-            { uploads, folderId, complete: false },
-            "Upload incomplete. Successfully uploaded files are listed; unassigned files can be moved with move_assets. No saved designs were changed.",
+            {
+              uploads,
+              folderId,
+              pendingOverwrite,
+              complete: false,
+              ...(error instanceof AppLaunchFlowApiError &&
+              error.body?.code === "AMBIGUOUS_FILENAME"
+                ? {
+                    code: "AMBIGUOUS_FILENAME",
+                    nextStep:
+                      "Supply the exact targetPath already bound in the design; filename matches were ambiguous and this file was not overwritten.",
+                  }
+                : {}),
+            },
+            overwrite
+              ? "Overwrite incomplete. Completed overwrites are listed and may affect existing designs. Do not blindly retry: check project/operation state first. Staged uploads and backups are retained."
+              : "Upload incomplete. Successfully uploaded files are listed; unassigned files can be moved with move_assets. No saved designs were changed.",
           ),
           isError: true,
         };
