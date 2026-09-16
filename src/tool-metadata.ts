@@ -57,6 +57,8 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   list_source_screenshots: readOnly,
   list_screenshots: readOnly,
   view_screenshot: readOnly,
+  store_review_snapshot: createOrAppend,
+  view_review_snapshot: readOnly,
   get_layout: readOnly,
   save_layout: overwriteOrDelete,
   transform_layout: overwriteOrDelete,

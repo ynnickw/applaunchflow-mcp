@@ -6,6 +6,7 @@ import { registerResources } from "./resources/register.js";
 import { registerAssetTools } from "./tools/assets.js";
 import { registerAssetManagementTools } from "./tools/asset-management.js";
 import { registerLayoutTools } from "./tools/layouts.js";
+import { registerReviewSnapshotTools } from "./tools/review-snapshot.js";
 import { registerProjectTools } from "./tools/projects.js";
 import { registerScreenshotTools } from "./tools/screenshots.js";
 import { registerTemplateTools } from "./tools/templates.js";
@@ -141,6 +142,7 @@ export function createAppLaunchFlowServer(
   registerAssetManagementTools(server, client);
   registerScreenshotTools(server, client);
   registerLayoutTools(server, client);
+  registerReviewSnapshotTools(server, client);
   registerTemplateTools(server, client);
   registerGraphicsTools(server, client);
   registerPromoVideoTools(server, client);
