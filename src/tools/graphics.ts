@@ -23,6 +23,10 @@ import {
   SOCIAL_GRAPHICS_PICKER_URI,
 } from "../ui/social-graphics-picker.js";
 import { pickerToolMeta } from "../ui/picker-resource.js";
+import {
+  graphicsResultMetadata,
+  LAYOUT_RESULT_URI,
+} from "../ui/layout-result.js";
 
 type SocialTemplateCatalogPayload = {
   templates: Array<{
@@ -503,6 +507,7 @@ export function registerGraphicsTools(
     "save_graphics",
     {
       title: "Save Social Graphics",
+      _meta: pickerToolMeta(LAYOUT_RESULT_URI),
       description:
         "Persist a complete social graphics payload (template id, primary format, all per-format layouts). " +
         "Prefer save_graphics_format when editing a single format. Each layout uses the same shape as screenshot layouts; see the resource applaunchflow://schema/layout.",
@@ -527,7 +532,46 @@ export function registerGraphicsTools(
     },
     async (args) => {
       try {
-        return ok(await client.saveGraphics(args), "Saved social graphics");
+        const result = await client.saveGraphics(args);
+        let metadata;
+        let editorUrl = buildGraphicsEditorUrl(client, {
+          ...args,
+          format: args.socialPrimaryFormat,
+        });
+        try {
+          const saved = await client.getGraphics(
+            args.generationId,
+            args.variantId,
+          );
+          editorUrl = buildGraphicsEditorUrl(client, {
+            ...args,
+            variantId: saved.variantId,
+            format: args.socialPrimaryFormat,
+          });
+          const formats = args.graphics.map((item) => item.format);
+          formats.sort(
+            (a, b) =>
+              Number(b === args.socialPrimaryFormat) -
+              Number(a === args.socialPrimaryFormat),
+          );
+          metadata = graphicsResultMetadata(
+            saved,
+            args.generationId,
+            formats,
+            editorUrl,
+          );
+        } catch {
+          /* The save succeeded even if its preview cannot be loaded. */
+        }
+        return {
+          ...ok(
+            { ...result, editorUrl },
+            metadata
+              ? "Saved social graphics. The widget previews the saved formats; Review this result sends the selected format's rendered PNG for visual review."
+              : "Saved social graphics. The preview is unavailable; open the editor without repeating the save.",
+          ),
+          ...(metadata ? { _meta: metadata } : {}),
+        };
       } catch (error) {
         return fail(error);
       }
@@ -538,6 +582,7 @@ export function registerGraphicsTools(
     "save_graphics_format",
     {
       title: "Save One Social Graphics Format",
+      _meta: pickerToolMeta(LAYOUT_RESULT_URI),
       description:
         "Persist exactly one social graphics format after reading the latest same-format layout with get_graphics_format. " +
         "ENFORCED: each call requires a fresh get_graphics_format for the same generationId/variantId/format immediately beforehand. " +
@@ -590,17 +635,38 @@ export function registerGraphicsTools(
 
         const editorUrl = buildGraphicsEditorUrl(client, {
           generationId: args.generationId,
-          variantId: args.variantId,
+          variantId: result.variantId || args.variantId,
           format: args.format,
         });
 
+        let metadata;
+        try {
+          const saved = await client.getGraphicsFormat(
+            args.generationId,
+            args.format,
+            result.variantId || args.variantId,
+          );
+          metadata = graphicsResultMetadata(
+            saved,
+            args.generationId,
+            [args.format],
+            editorUrl,
+          );
+        } catch {
+          /* Never ask the user to repeat a saved edit for a preview failure. */
+        }
+
         return {
+          ...(metadata ? { _meta: metadata } : {}),
           content: [
             {
               type: "text" as const,
               text: [
                 `Saved social graphics format ${args.format}.`,
-                `Editor URL (already open — do NOT run \`open\` again): ${editorUrl}`,
+                `Editor URL: ${editorUrl}`,
+                metadata
+                  ? "The widget previews the saved format. Review this result sends its rendered PNG for visual review."
+                  : "The preview is unavailable; open the editor without repeating the save.",
                 "This save consumed the current same-format read receipt. Call get_graphics_format again before the next direct edit.",
               ].join("\n"),
             },

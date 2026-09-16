@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { ToolInputError } from "../telemetry.js";
 import { pickerToolMeta, registerPickerResource } from "../ui/picker-resource.js";
-const LAYOUT_RESULT_URI = "ui://applaunchflow/layout-result-v1.html";
+import { LAYOUT_RESULT_URI } from "../ui/layout-result.js";
 import {
   createHostedReadReceipt,
   fail,
@@ -108,7 +108,7 @@ export function registerLayoutTools(
   server: McpServer,
   client: AppLaunchFlowClient,
 ): void {
-  registerPickerResource(server, client, { name: "layout-result", uri: LAYOUT_RESULT_URI, assetFilename: "layout-result.html", assetPrefix: "layout-result", description: "Client-rendered saved screenshot edit" });
+  registerPickerResource(server, client, { name: "layout-result", uri: LAYOUT_RESULT_URI, assetFilename: "layout-result.html", assetPrefix: "layout-result", description: "Client-rendered saved screenshot or social graphics edit" });
   const layoutReadReceipts = new Map<string, number>();
 
   function buildReadReceiptKey(args: {
