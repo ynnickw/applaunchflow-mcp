@@ -2,6 +2,8 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { ToolInputError } from "../telemetry.js";
+import { pickerToolMeta, registerPickerResource } from "../ui/picker-resource.js";
+const LAYOUT_RESULT_URI = "ui://applaunchflow/layout-result-v1.html";
 import {
   createHostedReadReceipt,
   fail,
@@ -106,6 +108,7 @@ export function registerLayoutTools(
   server: McpServer,
   client: AppLaunchFlowClient,
 ): void {
+  registerPickerResource(server, client, { name: "layout-result", uri: LAYOUT_RESULT_URI, assetFilename: "layout-result.html", assetPrefix: "layout-result", description: "Client-rendered saved screenshot edit" });
   const layoutReadReceipts = new Map<string, number>();
 
   function buildReadReceiptKey(args: {
@@ -298,6 +301,7 @@ export function registerLayoutTools(
     "transform_layout",
     {
       title: "Transform Layout",
+      _meta: pickerToolMeta(LAYOUT_RESULT_URI),
       description:
         "Apply transform operations to an existing layout. Primary editing tool for text, screenshots, colors, and structure changes. " +
         "IMPORTANT: Always call get_layout FIRST to inspect the current layout state before using this tool. Never transform blindly. " +
@@ -357,7 +361,8 @@ export function registerLayoutTools(
         }
 
         const { readReceipt: _readReceipt, ...transformArgs } = args;
-        const transformed = await client.transformLayout(transformArgs);
+        const response = await client.transformLayout({ ...transformArgs, includeResultPreview: true });
+        const { layoutResult, ...transformed } = response;
         layoutReadReceipts.delete(receiptKey);
 
         const editorUrl = buildEditorUrl({
@@ -371,11 +376,13 @@ export function registerLayoutTools(
         });
 
         return {
+          ...(layoutResult ? { _meta: { layoutResult: { ...layoutResult, editorUrl } } } : {}),
           content: [
             {
               type: "text" as const,
               text: [
-                "Applied layout transform.",
+                transformed.partialSuccess ? "Applied layout transform partially; inspect the reported errors." : "Applied layout transform.",
+                "The widget renders the saved revision client-side. No image has been sent to the model yet; the user can choose Review this result if the host supports image messages.",
                 `Editor URL (already open — do NOT run \`open\` again): ${editorUrl}`,
                 previewUrl ? `Preview URL: ${previewUrl}` : null,
                 "This transform consumed the current read receipt. Call get_layout again before the next direct edit.",

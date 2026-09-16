@@ -22,9 +22,10 @@ test("text-only hosted clients can read a layout and pass its receipt to a match
         baseUrl: "http://localhost:3000",
       },
       getLayout: async () => layout,
-      transformLayout: async () => {
+      transformLayout: async (body: Record<string, unknown>) => {
+        assert.equal(body.includeResultPreview, true);
         writes++;
-        return { success: true };
+        return { success: true, layoutResult: { revision: "saved-revision", layouts: { mobile: { imageUrl: "https://private.test?token=preview-secret" } } } };
       },
     } as unknown as AppLaunchFlowClient);
     // Model a host exposing only text blocks, not structuredContent, to its agent.
@@ -69,6 +70,9 @@ test("text-only hosted clients can read a layout and pass its receipt to a match
     const result = await handlers.transform_layout.handler(edit, {});
     assert.notEqual(result.isError, true);
     assert.equal(writes, 1);
+    assert.equal(result._meta.layoutResult.revision, "saved-revision");
+    assert.doesNotMatch(JSON.stringify(result.structuredContent), /preview-secret/);
+    assert.doesNotMatch(JSON.stringify(result.content), /preview-secret/);
     const listing = await handlers.get_layout.handler(
       { generationId: target.generationId },
       {},
