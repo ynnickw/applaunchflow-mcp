@@ -27,44 +27,17 @@ export type FormatId =
   | "android.phone"
   | "android.tablet7"
   | "android.tablet10";
-export interface DesignVersionInput {
-  projectId: string;
-  variantId: string;
-  language: string;
-  name: string;
-}
-export interface DesignVersion {
-  id: string;
-  projectId: string;
-  variantId: string | null;
-  name: string;
-  language: string;
-  contentHash: string;
-  bindings: Array<{
-    key: string;
-    kind: "capture" | "copy";
-    device: string;
-    screenId: string;
-    nodeId: string;
-    defaultValue: string;
-  }>;
-  createdAt: string;
-}
 export interface RenderInput {
-  designVersionId: string;
+  projectId: string;
+  variantId?: string;
   formats: FormatId[];
-  languages: Array<{
-    locale: string;
-    captures: Record<string, string>;
-    copy: Record<string, string>;
-    useDefaults?: boolean;
-  }>;
+  languages: string[];
   package?: "fastlane";
 }
 export interface Render {
   id: string;
   projectId: string;
-  designVersionId: string;
+  variantId: string;
   status:
     | "queued"
     | "dispatching"
@@ -81,8 +54,8 @@ export interface Render {
 export interface Manifest {
   schemaVersion: 1;
   valid: true;
-  designVersionId: string;
-  designVersionHash: string;
+  projectId: string;
+  variantId: string;
   inputHash: string;
   rendererVersion: string;
   files: Array<{
@@ -96,26 +69,6 @@ export interface Manifest {
     sha256: string;
     sizeBytes: number;
   }>;
-}
-export interface Asset {
-  id: string;
-  projectId: string;
-  name: string;
-  status: "pending" | "ready";
-  sha256: string;
-  sizeBytes: number;
-  width: number | null;
-  height: number | null;
-}
-export interface Upload {
-  asset: Asset;
-  upload: {
-    method: "PUT";
-    url: string;
-    headers: Record<string, string>;
-    expiresAt: string;
-  };
-  completeUrl: string;
 }
 export class AppLaunchFlow extends AppLaunchFlowClient {
   constructor(credentials: McpCredentials) {
@@ -178,89 +131,6 @@ export class AppLaunchFlow extends AppLaunchFlowClient {
       locales: { ios: string[]; android: string[] };
       limits: Record<string, number>;
     }>("/api/v1/formats");
-  }
-  saveDesignVersion(input: DesignVersionInput, idempotencyKey: string) {
-    return this.requestJson<DesignVersion>("/api/v1/design-versions", {
-      method: "POST",
-      body: input,
-      headers: { "Idempotency-Key": idempotencyKey },
-      timeoutMs: 300000,
-    });
-  }
-  getDesignVersion(id: string) {
-    return this.requestJson<DesignVersion>(
-      `/api/v1/design-versions/${encodeURIComponent(id)}`,
-    );
-  }
-  createAsset(
-    input: {
-      projectId: string;
-      name: string;
-      contentType: "image/png" | "image/jpeg";
-      sizeBytes: number;
-      sha256: string;
-    },
-    idempotencyKey: string,
-  ) {
-    return this.requestJson<Upload>("/api/v1/assets", {
-      method: "POST",
-      body: input,
-      headers: { "Idempotency-Key": idempotencyKey },
-    });
-  }
-  completeAsset(id: string, idempotencyKey: string) {
-    return this.requestJson<Asset>(
-      `/api/v1/assets/${encodeURIComponent(id)}/complete`,
-      {
-        method: "POST",
-        body: {},
-        headers: { "Idempotency-Key": idempotencyKey },
-      },
-    );
-  }
-  getAsset(id: string) {
-    return this.requestJson<Asset>(`/api/v1/assets/${encodeURIComponent(id)}`);
-  }
-  renewAssetUpload(id: string) {
-    return this.requestJson<Upload>(
-      `/api/v1/assets/${encodeURIComponent(id)}/upload-url`,
-      { method: "POST", body: {} },
-    );
-  }
-  async uploadCapture(
-    projectId: string,
-    name: string,
-    bytes: Uint8Array,
-    contentType: "image/png" | "image/jpeg",
-    idempotencyKey: string,
-  ) {
-    let upload = await this.createAsset(
-      {
-        projectId,
-        name,
-        contentType,
-        sizeBytes: bytes.length,
-        sha256: createHash("sha256").update(bytes).digest("hex"),
-      },
-      idempotencyKey,
-    );
-    const existing = await this.getAsset(upload.asset.id);
-    if (existing.status === "ready") return existing;
-    if (Date.parse(upload.upload.expiresAt) < Date.now() + 30000)
-      upload = await this.renewAssetUpload(upload.asset.id);
-    const response = await fetch(upload.upload.url, {
-      method: "PUT",
-      headers: upload.upload.headers,
-      body: Buffer.from(bytes),
-      redirect: "error",
-      signal: AbortSignal.timeout(120000),
-    });
-    if (!response.ok)
-      throw new Error(`Capture upload failed (${response.status})`);
-    return this.completeAsset(
-      upload.asset.id,
-      `complete:${createHash("sha256").update(idempotencyKey).digest("hex")}`,
-    );
   }
   createRender(input: RenderInput, idempotencyKey: string) {
     return this.requestJson<Render>("/api/v1/renders", {

@@ -4,9 +4,9 @@ MCP server for AppLaunchFlow — create App Store & Google Play screenshots with
 
 ## Official API and CI releases
 
-The MCP and the Node SDK now share the versioned `/api/v1` API. Import `AppLaunchFlow` from `applaunchflow/api` for project-scoped API key authentication, immutable design versions, validated capture uploads, asynchronous renders and checksum-verified downloads. Browser OAuth remains the normal way to connect MCP.
+The MCP and the Node SDK now share the versioned `/api/v1` API. Import `AppLaunchFlow` from `applaunchflow/api` for project-scoped API key authentication, active-variant editing, asynchronous renders and checksum-verified downloads. Browser OAuth remains the normal way to connect MCP.
 
-Use the [CI and Fastlane example](examples/README.md). Review the design in the editor, save a fixed design version, then supply its `designVersionId` with localized captures and copy from CI. Saving a version makes it immediately usable; no separate approval API is required. CI keys only need asset, design-read and export scopes. [HTTP API reference](https://dashboard.applaunchflow.com/docs/api).
+Use the [CI and Fastlane example](examples/README.md). Update captures and localized copy directly in the active variant, then render with `projectId`, `languages` and `formats`. CI keys need asset, design read/write and export scopes. [HTTP API reference](https://dashboard.applaunchflow.com/docs/api).
 
 **Release ordering:** 0.7.0 requires the dashboard v1 API and validating bundler to be enabled before this MCP/SDK release is published or deployed.
 

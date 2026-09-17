@@ -36,12 +36,8 @@ const openWorldCreate: ToolAnnotations = {
 
 export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   list_export_formats: readOnly,
-  save_design_version: { ...createOrAppend, idempotentHint: true },
-  get_design_version: readOnly,
-  render_design_version: { ...createOrAppend, idempotentHint: true },
+  render_screenshots: { ...createOrAppend, idempotentHint: true },
   get_release_render: readOnly,
-  prepare_release_capture: { ...createOrAppend, idempotentHint: true },
-  complete_release_capture: { ...createOrAppend, idempotentHint: true },
   list_projects: readOnly,
   get_project: readOnly,
   create_project: createOrAppend,

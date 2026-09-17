@@ -73,7 +73,7 @@ test("official SDK uses one authenticated v1 contract, parses problems, and veri
     const client = new AppLaunchFlow({ baseUrl: origin, token: "private-key" });
     assert.equal((await client.listProjects()).projects[0].id, "project");
     await client.createRender(
-      { designVersionId: "version", formats: ["ios.phone.6.5"], languages: [] },
+      { projectId: "project", formats: ["ios.phone.6.5"], languages: [] },
       "stable-release-key",
     );
     assert.equal(requests.at(-1)?.key, "stable-release-key");
@@ -136,7 +136,7 @@ test("SDK honors rate-limit retry without changing the mutation key", async () =
       token: "key",
     });
     await client.createRender(
-      { designVersionId: "version", formats: [], languages: [] },
+      { projectId: "project", formats: [], languages: [] },
       "stable-rate-limit-key",
     );
     assert.deepEqual(keys, ["stable-rate-limit-key", "stable-rate-limit-key"]);
@@ -175,42 +175,23 @@ test("legacy folder helper uses the paginated official asset catalog", async () 
   );
 });
 
-test("a saved design version can be rendered directly without approval calls", async () => {
-  const calls: Array<{
-    method: string;
-    path: string;
-    body: unknown;
-    key: string | undefined;
-  }> = [];
-  const version = {
-    id: "11111111-1111-4111-8111-111111111111",
-    projectId: "22222222-2222-4222-8222-222222222222",
-    variantId: "33333333-3333-4333-8333-333333333333",
-    language: "en",
-    name: "release",
-    contentHash: "a".repeat(64),
-    bindings: [],
-    createdAt: new Date().toISOString(),
-  };
+test("SDK edits the existing variant then renders saved translations", async () => {
+  const calls: Array<{ path: string; body: unknown; key: string | undefined }> =
+    [];
+  const projectId = "11111111-1111-4111-8111-111111111111";
+  const variantId = "22222222-2222-4222-8222-222222222222";
   const server = createServer(async (req, res) => {
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(Buffer.from(chunk));
-    const raw = Buffer.concat(chunks).toString();
     calls.push({
-      method: req.method!,
       path: req.url!,
-      body: raw ? JSON.parse(raw) : undefined,
-      key: req.headers["idempotency-key"] as string | undefined,
+      body: JSON.parse(Buffer.concat(chunks).toString()),
+      key: req.headers["idempotency-key"] as string,
     });
     res.setHeader("Content-Type", "application/json");
-    res.statusCode =
-      req.url === "/api/v1/renders" ? 202 : req.method === "POST" ? 201 : 200;
     res.end(
       JSON.stringify({
-        data:
-          req.url === "/api/v1/renders"
-            ? { id: "render", designVersionId: version.id, status: "queued" }
-            : version,
+        data: { id: "render", projectId, variantId, status: "queued" },
         meta: { requestId: "fixture" },
       }),
     );
@@ -221,40 +202,30 @@ test("a saved design version can be rendered directly without approval calls", a
       baseUrl: `http://127.0.0.1:${(server.address() as { port: number }).port}`,
       token: "key",
     });
-    const saved = await client.saveDesignVersion(
-      {
-        projectId: version.projectId,
-        variantId: version.variantId,
-        language: "en",
-        name: "release",
-      },
-      "save-version-release",
-    );
-    assert.equal(saved.id, version.id);
-    assert.ok(!("status" in saved));
-    assert.equal(
-      (await client.getDesignVersion(saved.id)).contentHash,
-      version.contentHash,
-    );
-    const input = {
-      designVersionId: saved.id,
-      formats: ["ios.phone.6.5" as const],
-      languages: [
-        { locale: "en-US", captures: {}, copy: {}, useDefaults: true },
-      ],
+    const layout = {
+      generationId: projectId,
+      variantId,
+      language: "de",
+      mobileLayout: { screens: [] },
+      tabletLayout: { screens: [] },
     };
-    const render = await client.createRender(input, "render-version-release");
-    assert.equal(render.designVersionId, saved.id);
+    await client.saveLayout(layout);
+    const input = {
+      projectId,
+      variantId,
+      languages: ["de"],
+      formats: ["ios.phone.6.5" as const],
+    };
+    const rendered = await client.createRender(input, "render-active-variant");
+    assert.equal(rendered.variantId, variantId);
     assert.deepEqual(
-      calls.map((c) => [c.method, c.path]),
-      [
-        ["POST", "/api/v1/design-versions"],
-        ["GET", `/api/v1/design-versions/${saved.id}`],
-        ["POST", "/api/v1/renders"],
-      ],
+      calls.map((c) => c.path),
+      ["/api/v1/translations", "/api/v1/renders"],
     );
-    assert.deepEqual(calls[2].body, input);
-    assert.equal(calls[2].key, "render-version-release");
+    assert.deepEqual(calls[0].body, layout);
+    assert.deepEqual(calls[1].body, input);
+    assert.ok(calls[0].key);
+    assert.equal(calls[1].key, "render-active-variant");
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }

@@ -1,16 +1,5 @@
 {
-  "designVersionId": "REPLACE_WITH_DESIGN_VERSION_UUID",
-  "formats": ["ios.phone.6.5", "ios.tablet.13", "android.phone"],
-  "languages": [
-    {
-      "locale": "en-US",
-      "captures": {
-        "phone:SCREEN_ID:CAPTURE_NODE_ID": "captures/en-US/home.png"
-      },
-      "copy": {
-        "phone:SCREEN_ID:TEXT_NODE_ID:0": "Your localized headline"
-      },
-      "useDefaults": false
-    }
-  ]
+  "projectId": "11111111-1111-4111-8111-111111111111",
+  "languages": ["en", "de"],
+  "formats": ["ios.phone.6.5", "android.phone"]
 }

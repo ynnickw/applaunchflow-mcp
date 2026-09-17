@@ -9,54 +9,6 @@ export function registerReleaseTools(
 ) {
   const client = new AppLaunchFlow(base.credentials);
   server.registerTool(
-    "prepare_release_capture",
-    {
-      title: "Prepare Release Capture",
-      description:
-        "Reserve a checksummed immutable CI capture. PUT the exact bytes to the returned upload URL with all returned headers, then complete_release_capture. This does not modify editor assets.",
-      inputSchema: z.object({
-        projectId: z.string().uuid(),
-        name: z.string(),
-        contentType: z.enum(["image/png", "image/jpeg"]),
-        sizeBytes: z.number().int().positive(),
-        sha256: z.string().regex(/^[a-f0-9]{64}$/),
-        idempotencyKey: z.string().min(8).max(119),
-      }),
-    },
-    async ({ idempotencyKey, ...input }) => {
-      try {
-        return ok(
-          await client.createAsset(input, idempotencyKey),
-          "Upload reserved",
-        );
-      } catch (e) {
-        return fail(e);
-      }
-    },
-  );
-  server.registerTool(
-    "complete_release_capture",
-    {
-      title: "Complete Release Capture",
-      description:
-        "Validate an immutable uploaded capture before using its asset ID in a release render.",
-      inputSchema: z.object({
-        assetId: z.string().uuid(),
-        idempotencyKey: z.string().min(8).max(128),
-      }),
-    },
-    async ({ assetId, idempotencyKey }) => {
-      try {
-        return ok(
-          await client.completeAsset(assetId, idempotencyKey),
-          "Capture validated",
-        );
-      } catch (e) {
-        return fail(e);
-      }
-    },
-  );
-  server.registerTool(
     "list_export_formats",
     {
       title: "List Export Formats",
@@ -73,66 +25,16 @@ export function registerReleaseTools(
     },
   );
   server.registerTool(
-    "save_design_version",
+    "render_screenshots",
     {
-      title: "Save Design Version",
+      title: "Render Screenshots",
       description:
-        "Save the current variant and its assets as a fixed design version. Returns a version ID and CI binding names, immediately usable for rendering.",
+        "Render the saved translations of the active screenshot variant (or a specified existing variant). Update captures and copy through the normal asset and layout tools first. Reuse idempotencyKey for retries; never replace it after an uncertain outcome.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
-        variantId: z.string().uuid(),
-        language: z.string(),
-        name: z.string(),
-        idempotencyKey: z.string().min(8).max(128),
-      }),
-    },
-    async ({ idempotencyKey, ...input }) => {
-      try {
-        return ok(
-          await client.saveDesignVersion(input, idempotencyKey),
-          "Design version saved; ready to render",
-        );
-      } catch (e) {
-        return fail(e);
-      }
-    },
-  );
-  server.registerTool(
-    "get_design_version",
-    {
-      title: "Get Design Version",
-      description:
-        "Read a saved design version, its content hash and immutable capture/copy bindings.",
-      inputSchema: z.object({ designVersionId: z.string().uuid() }),
-    },
-    async ({ designVersionId }) => {
-      try {
-        return ok(
-          await client.getDesignVersion(designVersionId),
-          "Fixed design version",
-        );
-      } catch (e) {
-        return fail(e);
-      }
-    },
-  );
-  server.registerTool(
-    "render_design_version",
-    {
-      title: "Render Design Version",
-      description:
-        "Render a saved design version with completed immutable capture asset IDs and localized copy. Every requested binding is required unless useDefaults is explicitly true. Reuse idempotencyKey for retries; never replace it after an uncertain outcome.",
-      inputSchema: z.object({
-        designVersionId: z.string().uuid(),
+        variantId: z.string().uuid().optional(),
         formats: z.array(z.string()),
-        languages: z.array(
-          z.object({
-            locale: z.string(),
-            captures: z.record(z.string(), z.string().uuid()),
-            copy: z.record(z.string(), z.string()),
-            useDefaults: z.boolean().default(false),
-          }),
-        ),
+        languages: z.array(z.string()),
         idempotencyKey: z.string().min(8).max(128),
       }),
     },
