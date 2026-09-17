@@ -73,11 +73,11 @@ export function registerReleaseTools(
     },
   );
   server.registerTool(
-    "freeze_design_revision",
+    "save_design_version",
     {
-      title: "Freeze Design Revision",
+      title: "Save Design Version",
       description:
-        "Copy the saved design and its assets into an immutable draft revision. Returns CI binding names. Review and approve it in the dashboard before release.",
+        "Save the current variant and its assets as a fixed design version. Returns a version ID and CI binding names, immediately usable for rendering.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z.string().uuid(),
@@ -89,11 +89,8 @@ export function registerReleaseTools(
     async ({ idempotencyKey, ...input }) => {
       try {
         return ok(
-          {
-            ...(await client.createRevision(input, idempotencyKey)),
-            reviewUrl: `${base.credentials.baseUrl}/developer`,
-          },
-          "Fixed revision saved; approval is required",
+          await client.saveDesignVersion(input, idempotencyKey),
+          "Design version saved; ready to render",
         );
       } catch (e) {
         return fail(e);
@@ -101,18 +98,18 @@ export function registerReleaseTools(
     },
   );
   server.registerTool(
-    "get_design_revision",
+    "get_design_version",
     {
-      title: "Get Design Revision",
+      title: "Get Design Version",
       description:
-        "Read approval status, content hash and immutable capture/copy bindings.",
-      inputSchema: z.object({ revisionId: z.string().uuid() }),
+        "Read a saved design version, its content hash and immutable capture/copy bindings.",
+      inputSchema: z.object({ designVersionId: z.string().uuid() }),
     },
-    async ({ revisionId }) => {
+    async ({ designVersionId }) => {
       try {
         return ok(
-          await client.getRevision(revisionId),
-          "Fixed design revision",
+          await client.getDesignVersion(designVersionId),
+          "Fixed design version",
         );
       } catch (e) {
         return fail(e);
@@ -120,13 +117,13 @@ export function registerReleaseTools(
     },
   );
   server.registerTool(
-    "render_design_revision",
+    "render_design_version",
     {
-      title: "Render Approved Design",
+      title: "Render Design Version",
       description:
-        "Render an approved revision with completed immutable capture asset IDs and localized copy. Every requested binding is required unless useDefaults is explicitly true. Reuse idempotencyKey for retries; never replace it after an uncertain outcome.",
+        "Render a saved design version with completed immutable capture asset IDs and localized copy. Every requested binding is required unless useDefaults is explicitly true. Reuse idempotencyKey for retries; never replace it after an uncertain outcome.",
       inputSchema: z.object({
-        revisionId: z.string().uuid(),
+        designVersionId: z.string().uuid(),
         formats: z.array(z.string()),
         languages: z.array(
           z.object({

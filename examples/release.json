@@ -1,12 +1,14 @@
 {
-  "revisionId": "REPLACE_WITH_APPROVED_REVISION_UUID",
-  "revisionHash": "REPLACE_WITH_64_CHARACTER_CONTENT_HASH",
+  "designVersionId": "REPLACE_WITH_DESIGN_VERSION_UUID",
+  "designVersionHash": "REPLACE_WITH_64_CHARACTER_CONTENT_HASH",
   "formats": ["ios.phone.6.5", "ios.tablet.13", "android.phone"],
   "languages": [
     {
       "locale": "en-US",
-      "captures": {"phone:SCREEN_ID:CAPTURE_NODE_ID": "captures/en-US/home.png"},
-      "copy": {"phone:SCREEN_ID:TEXT_NODE_ID:0": "Your localized headline"},
+      "captures": {
+        "phone:SCREEN_ID:CAPTURE_NODE_ID": "captures/en-US/home.png"
+      },
+      "copy": { "phone:SCREEN_ID:TEXT_NODE_ID:0": "Your localized headline" },
       "useDefaults": false
     }
   ]

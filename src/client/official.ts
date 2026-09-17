@@ -27,19 +27,18 @@ export type FormatId =
   | "android.phone"
   | "android.tablet7"
   | "android.tablet10";
-export interface RevisionInput {
+export interface DesignVersionInput {
   projectId: string;
   variantId: string;
   language: string;
   name: string;
 }
-export interface Revision {
+export interface DesignVersion {
   id: string;
   projectId: string;
   variantId: string | null;
   name: string;
   language: string;
-  status: "draft" | "approved" | "revoked";
   contentHash: string;
   bindings: Array<{
     key: string;
@@ -50,10 +49,9 @@ export interface Revision {
     defaultValue: string;
   }>;
   createdAt: string;
-  approvedAt: string | null;
 }
 export interface RenderInput {
-  revisionId: string;
+  designVersionId: string;
   formats: FormatId[];
   languages: Array<{
     locale: string;
@@ -66,7 +64,7 @@ export interface RenderInput {
 export interface Render {
   id: string;
   projectId: string;
-  revisionId: string;
+  designVersionId: string;
   status:
     | "queued"
     | "dispatching"
@@ -83,8 +81,8 @@ export interface Render {
 export interface Manifest {
   schemaVersion: 1;
   valid: true;
-  revisionId: string;
-  revisionHash: string;
+  designVersionId: string;
+  designVersionHash: string;
   inputHash: string;
   rendererVersion: string;
   files: Array<{
@@ -181,43 +179,17 @@ export class AppLaunchFlow extends AppLaunchFlowClient {
       limits: Record<string, number>;
     }>("/api/v1/formats");
   }
-  createRevision(input: RevisionInput, idempotencyKey: string) {
-    return this.requestJson<Revision>("/api/v1/design-revisions", {
+  saveDesignVersion(input: DesignVersionInput, idempotencyKey: string) {
+    return this.requestJson<DesignVersion>("/api/v1/design-versions", {
       method: "POST",
       body: input,
       headers: { "Idempotency-Key": idempotencyKey },
       timeoutMs: 300000,
     });
   }
-  getRevision(id: string) {
-    return this.requestJson<Revision>(
-      `/api/v1/design-revisions/${encodeURIComponent(id)}`,
-    );
-  }
-  approveRevision(id: string, contentHash: string, idempotencyKey: string) {
-    return this.requestJson<Revision>(
-      `/api/v1/design-revisions/${encodeURIComponent(id)}/approve`,
-      {
-        method: "POST",
-        body: {},
-        headers: {
-          "If-Match": `"${contentHash}"`,
-          "Idempotency-Key": idempotencyKey,
-        },
-      },
-    );
-  }
-  revokeRevision(id: string, contentHash: string, idempotencyKey: string) {
-    return this.requestJson<Revision>(
-      `/api/v1/design-revisions/${encodeURIComponent(id)}/revoke`,
-      {
-        method: "POST",
-        body: {},
-        headers: {
-          "If-Match": `"${contentHash}"`,
-          "Idempotency-Key": idempotencyKey,
-        },
-      },
+  getDesignVersion(id: string) {
+    return this.requestJson<DesignVersion>(
+      `/api/v1/design-versions/${encodeURIComponent(id)}`,
     );
   }
   createAsset(

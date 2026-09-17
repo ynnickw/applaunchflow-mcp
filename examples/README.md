@@ -1,8 +1,8 @@
-# CI → approved design → Fastlane
+# CI → saved design version → Fastlane
 
-1. Save a design in the editor. Open **Developer API**, freeze the saved variant/language, review every frozen preview, and approve the revision. Save its ID, content hash and binding keys in your release configuration.
-2. Create a project-restricted key with `assets:read`, `assets:write`, `designs:read`, `exports:read`, `exports:write`. Store it as `APPLAUNCHFLOW_API_KEY` in the CI secret store. Keep `designs:approve` out of CI.
-3. Capture your app separately for each requested locale. Fill every capture and copy binding for the requested device layouts in `release.json`. The example is illustrative; use the exact binding keys from your revision. Use `useDefaults:true` only when intentionally retaining approved defaults.
+1. Review and save a design in the editor. Open **Developer API** and choose **Save design version**, or call `POST /api/v1/design-versions` with `projectId`, `variantId`, `language` and `name`. Keep its ID as `designVersionId`, its content hash as `designVersionHash`, and its binding keys in your release configuration. The version is immediately ready to render; later editor changes cannot alter it.
+2. Create a project-restricted key with `assets:read`, `assets:write`, `designs:read`, `exports:read`, `exports:write`. Store it as `APPLAUNCHFLOW_API_KEY` in the CI secret store. CI that only renders an existing version does not need `designs:write`.
+3. Capture your app separately for each requested locale. Fill every capture and copy binding for the requested device layouts in `release.json`. The example is illustrative; use the exact binding keys from your version. Use `useDefaults:true` only when intentionally retaining saved defaults.
 4. Install the released `applaunchflow` version containing the `applaunchflow/api` export. This branch must be released together with the dashboard v1 API; the previous npm version does not include it.
 5. Set `APPLAUNCHFLOW_RELEASE_ID` to a stable release identity (for example repository + commit SHA + workflow name). Preserve it across retries. Run `node examples/release.mjs release.json release.zip` with Node 24. Preserve the receipt as a CI artifact even if polling times out. A changed request with the same identity returns 409, so a release cannot silently drift.
 6. Run `python3 examples/unpack-release.py release.zip output`. The destination must not exist. The SDK has already checked the ZIP SHA-256; extraction checks the manifest, file paths, sizes, CRCs and per-file SHA-256.

@@ -19,14 +19,9 @@ const client = new AppLaunchFlow({
     process.env.APPLAUNCHFLOW_BASE_URL || "https://dashboard.applaunchflow.com",
   token: process.env.APPLAUNCHFLOW_API_KEY,
 });
-const revision = await client.getRevision(config.revisionId);
-if (
-  revision.status !== "approved" ||
-  revision.contentHash !== config.revisionHash
-)
-  throw new Error(
-    "The configured revision must be approved and match the pinned content hash.",
-  );
+const version = await client.getDesignVersion(config.designVersionId);
+if (version.contentHash !== config.designVersionHash)
+  throw new Error("The design version must match the pinned content hash.");
 const releaseKey = createHash("sha256")
   .update(process.env.APPLAUNCHFLOW_RELEASE_ID)
   .digest("hex");
@@ -41,7 +36,7 @@ for (const language of config.languages) {
     let asset = uploads.get(checksum);
     if (!asset) {
       asset = await client.uploadCapture(
-        revision.projectId,
+        version.projectId,
         path,
         bytes,
         /\.png$/i.test(file) ? "image/png" : "image/jpeg",
@@ -60,7 +55,7 @@ for (const language of config.languages) {
 }
 const render = await client.createRender(
   {
-    revisionId: revision.id,
+    designVersionId: version.id,
     formats: config.formats,
     languages,
     package: "fastlane",
@@ -72,8 +67,8 @@ await writeFile(
   JSON.stringify(
     {
       renderId: render.id,
-      revisionId: revision.id,
-      revisionHash: revision.contentHash,
+      designVersionId: version.id,
+      designVersionHash: version.contentHash,
       idempotencyKey: releaseKey,
     },
     null,
@@ -86,8 +81,8 @@ console.log(
 );
 await client.waitForRender(render.id);
 const manifest = await client.getManifest(render.id);
-if (manifest.revisionHash !== config.revisionHash)
-  throw new Error("Package revision mismatch");
+if (manifest.designVersionHash !== config.designVersionHash)
+  throw new Error("Package version mismatch");
 await client.downloadPackage(render.id, outputPath);
 console.log(
   `Validated ${manifest.files.length} screenshots. Saved ${outputPath}.`,
