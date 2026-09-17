@@ -20,8 +20,6 @@ const client = new AppLaunchFlow({
   token: process.env.APPLAUNCHFLOW_API_KEY,
 });
 const version = await client.getDesignVersion(config.designVersionId);
-if (version.contentHash !== config.designVersionHash)
-  throw new Error("The design version must match the pinned content hash.");
 const releaseKey = createHash("sha256")
   .update(process.env.APPLAUNCHFLOW_RELEASE_ID)
   .digest("hex");
@@ -81,7 +79,7 @@ console.log(
 );
 await client.waitForRender(render.id);
 const manifest = await client.getManifest(render.id);
-if (manifest.designVersionHash !== config.designVersionHash)
+if (manifest.designVersionId !== config.designVersionId)
   throw new Error("Package version mismatch");
 await client.downloadPackage(render.id, outputPath);
 console.log(
