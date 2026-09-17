@@ -230,3 +230,56 @@ test("SDK edits the existing variant then renders saved translations", async () 
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+test("SDK reads the shared allowance and exposes quota exhaustion without retrying", async () => {
+  let posts = 0;
+  const server = createServer((req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    if (req.url === "/api/v1/account/usage") {
+      return res.end(
+        JSON.stringify({
+          data: {
+            pro: true,
+            unlimited: false,
+            limit: 10,
+            used: 10,
+            remaining: 0,
+            resetsAt: "2026-10-01T00:00:00Z",
+          },
+          meta: { requestId: "usage" },
+        }),
+      );
+    }
+    posts++;
+    req.resume();
+    res.statusCode = 402;
+    res.end(
+      JSON.stringify({
+        code: "api_export_quota_exhausted",
+        detail: "Monthly exports used",
+        requestId: "quota",
+      }),
+    );
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const client = new AppLaunchFlow({
+      baseUrl: `http://127.0.0.1:${(server.address() as { port: number }).port}`,
+      token: "fixture",
+    });
+    assert.equal((await client.getApiUsage()).remaining, 0);
+    await assert.rejects(
+      client.createRender(
+        { projectId: "project", formats: [], languages: [] },
+        "quota-test",
+      ),
+      (e: unknown) =>
+        e instanceof AppLaunchFlowApiError &&
+        e.status === 402 &&
+        e.body.code === "api_export_quota_exhausted",
+    );
+    assert.equal(posts, 1);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});

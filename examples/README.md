@@ -1,5 +1,13 @@
 # CI → active variant → Fastlane
 
+## Pro allowance and Automation
+
+API and MCP exports require an active Pro subscription. Pro includes **10 export jobs per month**, shared across all API keys, projects and MCP clients. One job includes its requested languages and device formats. Annual Pro also receives a monthly allowance. Editor exports keep their existing limits.
+
+Add **Automation for €19/month on top of Pro** for unlimited API exports. Rate limits, job-size limits and AI generation credits still apply. Manage the add-on on the dashboard's Developer API page.
+
+Use `await client.getApiUsage()` (requires `exports:read`) to check `used`, `remaining`, `unlimited` and `resetsAt`. The API returns HTTP 402 with code `api_export_quota_exhausted` when the monthly allowance is exhausted, and HTTP 403 with `api_pro_required` without Pro. Replaying the same idempotency key does not spend another export. Failed and canceled jobs restore their credit; an uncertain dispatch remains reserved until its outcome is known. Polling and downloads are included.
+
 1. Create and save a design in the editor. CI edits this same variant directly.
 2. Create a project-restricted key with `projects:read`, `assets:read`, `assets:write`, `designs:read`, `designs:write`, `exports:read`, `exports:write`. Store it as `APPLAUNCHFLOW_API_KEY` in the CI secret store.
 3. Upload captures using `POST /api/v1/assets/upload/signed-url` and the returned upload instructions, or update existing capture paths through `/api/v1/assets/overwrite`. Read and save layouts using `/api/v1/translations`; copy and capture changes appear in the editor. The existing MCP asset and layout tools use these same endpoints.

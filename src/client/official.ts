@@ -27,6 +27,15 @@ export type FormatId =
   | "android.phone"
   | "android.tablet7"
   | "android.tablet10";
+export interface ApiUsage {
+  pro: boolean;
+  unlimited: boolean;
+  limit: number;
+  used: number;
+  remaining: number | null;
+  periodStart: string;
+  resetsAt: string;
+}
 export interface RenderInput {
   projectId: string;
   variantId?: string;
@@ -117,6 +126,9 @@ export class AppLaunchFlow extends AppLaunchFlowClient {
         });
       }
     }
+  }
+  getApiUsage() {
+    return this.requestJson<ApiUsage>("/api/v1/account/usage");
   }
   formats() {
     return this.requestJson<{
