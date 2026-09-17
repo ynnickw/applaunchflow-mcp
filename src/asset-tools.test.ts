@@ -16,7 +16,7 @@ test("folder uploads validate scope first and report uploaded paths when assignm
     "fetch",
     async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
-      if (url.includes("/api/assets/folders?"))
+      if (url.includes("/api/v1/assets/folders?"))
         return Response.json({
           organization: {
             folders: [{ id: folderId, device_type: scope, platform: "ios" }],
@@ -37,7 +37,7 @@ test("folder uploads validate scope first and report uploaded paths when assignm
         events.push("upload");
         return new Response("");
       }
-      assert.ok(url.endsWith("/api/assets/folders"));
+      assert.ok(url.endsWith("/api/v1/assets/folders"));
       events.push("move");
       assert.deepEqual(JSON.parse(String(init?.body)), {
         projectId,
@@ -155,7 +155,7 @@ test("list_assets isolates account data, strips private preview URLs from model 
     async (input: string | URL | Request, init?: RequestInit) => {
       assert.equal(
         String(input),
-        `${origin}/api/assets/list?projectId=${projectId}`,
+        `${origin}/api/v1/assets/list?projectId=${projectId}`,
       );
       const token = new Headers(init?.headers).get("authorization");
       return Response.json({
@@ -214,7 +214,7 @@ test("upload_asset supports image/media/font categories and rejects wrong media 
     "fetch",
     async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
-      if (url === `${origin}/api/assets/upload/signed-url`) {
+      if (url === `${origin}/api/v1/assets/upload/signed-url`) {
         const body = JSON.parse(String(init?.body));
         requests.push({ url, body });
         return Response.json({
@@ -319,7 +319,7 @@ test("iframe upload grants are app-only, account-authenticated and private; uplo
     globalThis,
     "fetch",
     async (input: string | URL | Request, init?: RequestInit) => {
-      assert.equal(String(input), `${origin}/api/assets/upload/signed-url`);
+      assert.equal(String(input), `${origin}/api/v1/assets/upload/signed-url`);
       assert.equal(init?.method, "POST");
       tokens.push(new Headers(init?.headers).get("authorization")!);
       const body = JSON.parse(String(init?.body));

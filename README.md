@@ -1,6 +1,22 @@
 # AppLaunchFlow MCP
 
+## Pro allowance and Automation
+
+API and MCP exports require an active Pro subscription. Pro includes **10 export jobs per month**, shared across all API keys, projects and MCP clients. One job includes its requested languages and device formats. Annual Pro also receives a monthly allowance. Editor exports keep their existing limits.
+
+Add **Automation for €19/month on top of Pro** for unlimited API exports. Rate limits, job-size limits and AI generation credits still apply.
+
+Use `await client.getApiUsage()` (requires `exports:read`) to check `used`, `remaining`, `unlimited` and `resetsAt`. The API returns HTTP 402 with code `api_export_quota_exhausted` when the monthly allowance is exhausted, and HTTP 403 with `api_pro_required` without Pro. Replaying the same idempotency key does not spend another export. Failed and canceled jobs restore their credit; an uncertain dispatch remains reserved until its outcome is known. Polling and downloads are included.
+
 MCP server for AppLaunchFlow — create App Store & Google Play screenshots with AI.
+
+## Official API and CI releases
+
+The MCP and the Node SDK now share the versioned `/api/v1` API. Import `AppLaunchFlow` from `applaunchflow/api` for project-scoped API key authentication, active-variant editing, asynchronous renders and checksum-verified downloads. Browser OAuth remains the normal way to connect MCP.
+
+Use the [CI and Fastlane example](examples/README.md). Update captures and localized copy directly in the active variant, then render with `projectId`, `languages` and `formats`. CI keys need asset, design read/write and export scopes. [HTTP API reference](https://dashboard.applaunchflow.com/docs/api).
+
+**Release ordering:** 0.7.0 requires the dashboard v1 API and validating bundler to be enabled before this MCP/SDK release is published or deployed.
 
 ## Connect
 
@@ -184,6 +200,7 @@ npm run dev
 Run `npm test` before publishing or deploying. See
 [`docs/openai-submission.md`](docs/openai-submission.md) for the final OpenAI
 submission checklist and manual test cases.
+
 # Embedded project and asset lists
 
 `list_projects` shows a compact list with app icons, explicit project selection,

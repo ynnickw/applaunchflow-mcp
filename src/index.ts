@@ -14,6 +14,7 @@ import { registerGraphicsTools } from "./tools/graphics.js";
 import { registerPromoVideoTools } from "./tools/promovideo.js";
 import { registerMockupTools } from "./tools/mockups.js";
 import { registerLocalizationTools } from "./tools/localization.js";
+import { registerReleaseTools } from "./tools/releases.js";
 import { registerVariantTools } from "./tools/variants.js";
 import { registerKeywordTools } from "./tools/keywords.js";
 import { installToolMetadataPolicy } from "./tool-metadata.js";
@@ -149,6 +150,7 @@ export function createAppLaunchFlowServer(
   registerMockupTools(server, client);
   registerLocalizationTools(server, client);
   registerVariantTools(server, client);
+  registerReleaseTools(server, client);
   registerKeywordTools(server, client);
   registerScreenshotPicker(server, client);
   registerSocialGraphicsPicker(server, client);

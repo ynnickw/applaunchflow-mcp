@@ -37,7 +37,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     }
     assert.equal(request.headers.authorization, "Bearer test-token");
     response.setHeader("content-type", "application/json");
-    if (url === "/api/graphics/generate") {
+    if (url === "/api/v1/graphics/generate") {
       response.end(
         JSON.stringify({
           catalogKey,
@@ -47,7 +47,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       );
       return;
     }
-    if (url === "/api/promovideo/generate") {
+    if (url === "/api/v1/promovideo/generate") {
       response.end(
         JSON.stringify({
           candidateKey,
@@ -60,11 +60,11 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       );
       return;
     }
-    if (url.startsWith("/api/app/")) {
+    if (url.startsWith("/api/v1/projects/") && !url.endsWith("/screenshots")) {
       response.end(JSON.stringify({ id: project }));
       return;
     }
-    if (url.startsWith("/api/graphics/template-catalog?")) {
+    if (url.startsWith("/api/v1/graphics/template-catalog?")) {
       response.end(
         JSON.stringify({
           templateIds: ["social-clean"],
@@ -81,7 +81,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       );
       return;
     }
-    if (url.startsWith("/api/promovideo/candidate-catalog?")) {
+    if (url.startsWith("/api/v1/promovideo/candidate-catalog?")) {
       response.end(
         JSON.stringify({
           generationId: project,
@@ -102,7 +102,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       );
       return;
     }
-    if (url === `/api/projects/${project}/screenshots`) {
+    if (url === `/api/v1/projects/${project}/screenshots`) {
       response.end(
         JSON.stringify({
           paths: [`${project}/mobile/one.png`],
@@ -115,8 +115,8 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       return;
     }
     if (
-      url === "/api/promovideo/apply-candidate" ||
-      url === "/api/graphics/apply-template"
+      url === "/api/v1/promovideo/apply-candidate" ||
+      url === "/api/v1/graphics/apply-template"
     ) {
       let raw = "";
       request.on("data", (chunk) => {
@@ -263,7 +263,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       new RegExp(variant),
     );
     assert.deepEqual(
-      requests.find((item) => item.url === "/api/graphics/apply-template")
+      requests.find((item) => item.url === "/api/v1/graphics/apply-template")
         ?.body,
       {
         generationId: project,
@@ -288,7 +288,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       new RegExp(variant),
     );
     const applyRequest = requests.find(
-      (item) => item.url === "/api/promovideo/apply-candidate",
+      (item) => item.url === "/api/v1/promovideo/apply-candidate",
     )!;
     assert.deepEqual(applyRequest.body, {
       projectId: project,
@@ -306,7 +306,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     });
     assert.equal(invalid.isError, true);
     assert.equal(
-      requests.filter((item) => item.url === "/api/promovideo/apply-candidate")
+      requests.filter((item) => item.url === "/api/v1/promovideo/apply-candidate")
         .length,
       1,
     );

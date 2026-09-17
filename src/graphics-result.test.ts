@@ -23,7 +23,7 @@ test("social saves attach saved signed layouts privately, with failure isolated 
       }
       if (previewFails)
         return Response.json({ error: "unavailable" }, { status: 403 });
-      assert.equal(url.pathname, "/api/graphics");
+      assert.equal(url.pathname, "/api/v1/graphics");
       return Response.json({
         variantId,
         language: "de",

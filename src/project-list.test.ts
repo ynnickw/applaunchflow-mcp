@@ -13,7 +13,7 @@ test("list_projects exposes a read-only widget, keeps private icons out of model
     "fetch",
     async (input: string | URL | Request, init?: RequestInit) => {
       requests.push(String(input));
-      assert.equal(String(input), `${origin}/api/projects`);
+      assert.equal(String(input), `${origin}/api/v1/projects`);
       const token = new Headers(init?.headers).get("authorization");
       return Response.json({
         projects: [

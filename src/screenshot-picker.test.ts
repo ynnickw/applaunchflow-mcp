@@ -47,7 +47,7 @@ test("inline picker resource, private data, authenticated read, validation, and 
     }
     assert.equal(req.headers.authorization, "Bearer test-token");
     res.setHeader("content-type", "application/json");
-    if (req.url === "/api/screenshots/generate") {
+    if (req.url === "/api/v1/screenshots/generate") {
       res.end(
         JSON.stringify({
           catalogKey: "a".repeat(64),
@@ -57,7 +57,7 @@ test("inline picker resource, private data, authenticated read, validation, and 
       );
       return;
     }
-    if (req.url === "/api/screenshots/apply-template") {
+    if (req.url === "/api/v1/screenshots/apply-template") {
       assert.equal(req.method, "POST");
       let body = "";
       req.on("data", (chunk) => {
@@ -79,13 +79,13 @@ test("inline picker resource, private data, authenticated read, validation, and 
       });
       return;
     }
-    if (req.url?.startsWith("/api/app/")) {
+    if (req.url?.startsWith("/api/v1/projects/")) {
       res
         .writeHead(denied ? 403 : 200)
         .end(JSON.stringify(denied ? { error: "Forbidden" } : { id: project }));
       return;
     }
-    if (req.url?.startsWith("/api/screenshots/template-catalog?")) {
+    if (req.url?.startsWith("/api/v1/screenshots/template-catalog?")) {
       res.writeHead(stale ? 400 : 200).end(
         JSON.stringify(
           stale
@@ -197,20 +197,20 @@ test("inline picker resource, private data, authenticated read, validation, and 
       (result.structuredContent as any).data.galleryUrl,
       /action=apply/,
     );
-    assert.ok(requests.at(-2)?.startsWith("/api/app/"));
+    assert.ok(requests.at(-2)?.startsWith("/api/v1/projects/"));
     assert.ok(
-      requests.at(-1)?.startsWith("/api/screenshots/template-catalog?"),
+      requests.at(-1)?.startsWith("/api/v1/screenshots/template-catalog?"),
     );
     assert.equal(
       (result.structuredContent as any).message,
       "Reused personalized screenshot styles; picker ready",
     );
     assert.equal(
-      requests.filter((path) => path === "/api/screenshots/generate").length,
+      requests.filter((path) => path === "/api/v1/screenshots/generate").length,
       1,
     );
     assert.equal(
-      requests.includes("/api/screenshots/apply-template"),
+      requests.includes("/api/v1/screenshots/apply-template"),
       false,
       "preparing the inline picker must not apply a selection",
     );
@@ -230,7 +230,7 @@ test("inline picker resource, private data, authenticated read, validation, and 
       /variantId=00000000-0000-4000-8000-000000000002/,
     );
     assert.equal(
-      requests.filter((path) => path === "/api/screenshots/apply-template")
+      requests.filter((path) => path === "/api/v1/screenshots/apply-template")
         .length,
       1,
     );

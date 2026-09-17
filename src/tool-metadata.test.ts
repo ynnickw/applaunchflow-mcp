@@ -23,7 +23,7 @@ test("all registered tools expose submission safety metadata and output schemas"
   await client.connect(clientTransport);
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 54);
+    assert.equal(tools.length, 57);
     assert.equal(
       tools.find((tool) => tool.name === "replace_asset")?.annotations
         ?.destructiveHint,
@@ -81,12 +81,12 @@ test("all registered tools expose submission safety metadata and output schemas"
 
 test("hosted tools emit privacy-safe structured outcome logs", async () => {
   const api = createServer((request, response) => {
-    if (request.url === "/api/projects") {
+    if (request.url === "/api/v1/projects") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ projects: [] }));
       return;
     }
-    if (request.url?.startsWith("/api/app/")) {
+    if (request.url?.startsWith("/api/v1/projects/")) {
       response.writeHead(500, { "content-type": "application/json" });
       response.end(JSON.stringify({ error: "synthetic backend failure" }));
       return;

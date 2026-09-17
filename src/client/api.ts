@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import type { AssetList } from "../contracts/index.js";
 import { upstreamSignal } from "../request-context.js";
 
 type QueryValue =
@@ -29,6 +31,8 @@ export interface McpCredentials {
 export class AppLaunchFlowApiError extends Error {
   status: number;
   body: any;
+  retryAfter?: number;
+  requestId?: string;
 
   constructor(message: string, status: number, body: any) {
     super(message);
@@ -72,40 +76,67 @@ export class AppLaunchFlowClient {
   }
 
   async requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const url = `${this.credentials.baseUrl}${path}${buildSearchParams(options.query)}`;
+    const versioned = officialApiPath(path);
+    const url = new URL(versioned, this.credentials.baseUrl);
+    const query = new URLSearchParams(buildSearchParams(options.query));
+    for (const [key, value] of query) url.searchParams.append(key, value);
+    if (url.origin !== new URL(this.credentials.baseUrl).origin)
+      throw new Error("API paths must stay on the configured origin");
     const headers = this.buildHeaders(options.headers);
 
-    if (options.body !== undefined && !headers.has("Content-Type")) {
+    const mutation = !["GET", "HEAD"].includes(options.method ?? "GET");
+    if (mutation && !headers.has("Idempotency-Key"))
+      headers.set("Idempotency-Key", randomUUID());
+    if (mutation && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }
 
     const response = await fetch(url, {
       method: options.method || "GET",
+      redirect: "error",
       headers,
       signal: upstreamSignal(
         options.timeoutMs ?? DEFAULT_API_TIMEOUT_MS,
         options.signal,
       ),
-      body:
-        options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      body: mutation ? JSON.stringify(options.body ?? {}) : undefined,
     });
 
     const contentType = response.headers.get("content-type") || "";
-    const payload = contentType.includes("application/json")
-      ? await response.json()
-      : await response.text();
+    const payload =
+      response.status !== 204 &&
+      (contentType.includes("application/json") ||
+        contentType.includes("application/problem+json"))
+        ? await response.json()
+        : await response.text();
 
     if (!response.ok) {
       const message =
         typeof payload === "string"
           ? payload
-          : payload?.error ||
+          : payload?.detail ||
+            payload?.error ||
             payload?.message ||
             `Request failed with status ${response.status}`;
-      throw new AppLaunchFlowApiError(message, response.status, payload);
+      const error = new AppLaunchFlowApiError(
+        message,
+        response.status,
+        payload,
+      );
+      const retry = response.headers.get("retry-after");
+      error.retryAfter = retry ? Number(retry) : undefined;
+      error.requestId = response.headers.get("x-request-id") ?? undefined;
+      throw error;
     }
 
-    return payload as T;
+    return (
+      payload &&
+      typeof payload === "object" &&
+      "data" in payload &&
+      "meta" in payload
+        ? payload.data
+        : payload
+    ) as T;
   }
 
   async createSignedUpload(args: {
@@ -161,8 +192,16 @@ export class AppLaunchFlowClient {
     );
   }
 
-  listProjects() {
-    return this.requestJson<{ projects: any[] }>("/api/projects");
+  async listProjects() {
+    const projects: any[] = [];
+    let cursor: string | null = null;
+    do {
+      const page: { projects: any[]; nextCursor?: string | null } =
+        await this.requestJson("/api/projects", { query: { cursor } });
+      projects.push(...page.projects);
+      cursor = page.nextCursor ?? null;
+    } while (cursor);
+    return { projects };
   }
 
   createProject(body: Record<string, unknown>) {
@@ -526,10 +565,33 @@ export class AppLaunchFlowClient {
     if (folder === "illustrations") {
       return this.listProjectIllustrations(projectId);
     }
-    // For panorama/backgrounds/logo — use the screenshots list with a folder hint
-    // These are stored under {projectId}/{folder}/ in the screenshots bucket
-    return this.requestJson<any>(`/api/app/${projectId}/assets`, {
-      query: { folder },
-    });
+    const result: AssetList = { projectId, assets: [], truncated: false };
+    let offset = 0;
+    let more: boolean;
+    do {
+      const page = await this.requestJson<AssetList>("/api/assets/list", {
+        query: { projectId, offset },
+      });
+      result.assets.push(
+        ...page.assets.filter((asset) => asset.path.startsWith(`${folder}/`)),
+      );
+      more = page.truncated;
+      offset += 100;
+    } while (more);
+    return result;
   }
+}
+
+/** One wire contract for the MCP and direct SDK consumers. */
+export function officialApiPath(path: string) {
+  if (path.startsWith("/api/v1/")) return path;
+  return path
+    .replace(/^\/api\/mcp\/transform(?=\?|$)/, "/api/v1/designs/transform")
+    .replace(/^\/api\/mcp\/review-snapshot(?=\?|$)/, "/api/v1/review-snapshots")
+    .replace(
+      /^\/api\/mcp\/(social-templates|templates)(?=\/|\?|$)/,
+      "/api/v1/$1",
+    )
+    .replace(/^\/api\/app\//, "/api/v1/projects/")
+    .replace(/^\/api\/(?!v1\/)/, "/api/v1/");
 }

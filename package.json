@@ -1,7 +1,7 @@
 {
   "name": "applaunchflow",
-  "version": "0.6.2",
-  "description": "Hosted OAuth MCP connector for AppLaunchFlow.",
+  "version": "0.7.0",
+  "description": "Official AppLaunchFlow API client and hosted OAuth MCP connector.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -35,5 +35,11 @@
     "@types/node": "^24.6.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.3"
+  },
+  "exports": {
+    "./api": {
+      "types": "./build/client/official.d.ts",
+      "import": "./build/client/official.js"
+    }
   }
 }

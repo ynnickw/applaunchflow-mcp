@@ -8,7 +8,7 @@ test("review snapshots expose an app-only upload and return image content to the
   const snapshotId = "00000000-0000-4000-8000-000000000099";
   let denied = false;
   t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
-    assert.equal(String(input), "https://dashboard.applaunchflow.com/api/mcp/review-snapshot");
+    assert.equal(String(input), "https://dashboard.applaunchflow.com/api/v1/review-snapshots");
     assert.equal(new Headers(init?.headers).get("Authorization"), "Bearer snapshot-user");
     if (denied) return Response.json({ error: "private diagnostic" }, { status: 403 });
     const body = JSON.parse(String(init?.body));
