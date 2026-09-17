@@ -2,7 +2,7 @@
 
 ## Pro allowance and Automation
 
-API and MCP exports require an active Pro subscription. Pro includes **10 export jobs per month**, shared across all API keys, projects and MCP clients. One job includes its requested languages and device formats. Annual Pro also receives a monthly allowance. Editor exports keep their existing limits.
+API and MCP exports require an active Pro subscription. Pro includes **5 export jobs per month**, shared across all API keys, projects and MCP clients. One job includes its requested languages and device formats. Annual Pro also receives a monthly allowance. Editor exports keep their existing limits.
 
 Add **Automation for €19/month on top of Pro** for unlimited API exports. Rate limits, job-size limits and AI generation credits still apply.
 
