@@ -21,7 +21,7 @@ test("explicit recapture stages bytes then overwrites a stable bound path; defau
         });
       }
       if (url.startsWith("https://upload.test")) return new Response("");
-      assert.ok(url.endsWith("/api/assets/overwrite"));
+      assert.ok(url.endsWith("/api/v1/assets/overwrite"));
       const body = JSON.parse(String(init?.body));
       bodies.push(body);
       assert.equal(body.filename, "shot.png");

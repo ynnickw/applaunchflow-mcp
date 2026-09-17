@@ -139,7 +139,7 @@ test("hosted reliability regressions over real HTTP", async (t) => {
     response.setHeader("content-type", "application/json");
     if (request.url === "/api/auth/mcp/introspect") {
       response.writeHead(authStatus).end(JSON.stringify(authPayload));
-    } else if (request.url?.startsWith("/api/translations")) {
+    } else if (request.url?.startsWith("/api/v1/translations")) {
       const language = new URL(
         request.url,
         "http://localhost",
@@ -154,7 +154,7 @@ test("hosted reliability regressions over real HTTP", async (t) => {
             : { translations: [{ language: "en" }] },
         ),
       );
-    } else if (request.url === "/api/mcp/transform") {
+    } else if (request.url === "/api/v1/designs/transform") {
       let body = "";
       request.on("data", (chunk) => {
         body += chunk;
@@ -163,14 +163,14 @@ test("hosted reliability regressions over real HTTP", async (t) => {
         layoutWrites.push(JSON.parse(body));
         response.end(JSON.stringify({ success: true }));
       });
-    } else if (request.url === "/api/screenshots/apply-template") {
+    } else if (request.url === "/api/v1/screenshots/apply-template") {
       response.end(
         JSON.stringify({ variantId: "test-variant", detectedLanguage: "en" }),
       );
-    } else if (request.url === "/api/projects") {
+    } else if (request.url === "/api/v1/projects") {
       onProjectRequest?.();
       setTimeout(() => response.end(JSON.stringify({ projects: [] })), 20);
-    } else if (request.url?.startsWith("/api/app/")) {
+    } else if (request.url?.startsWith("/api/v1/projects/")) {
       response.writeHead(500).end(
         JSON.stringify({
           error: {
