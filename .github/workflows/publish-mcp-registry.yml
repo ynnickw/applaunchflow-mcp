@@ -1,0 +1,92 @@
+name: Release MCP Registry
+
+on:
+  deployment_status:
+
+concurrency:
+  group: mcp-registry-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment == 'applaunchflow-mcp / production' &&
+      github.event.deployment.creator.login == 'railway-app[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.deployment.sha }}
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Check release provenance
+        id: release
+        env:
+          DEPLOY_SHA: ${{ github.event.deployment.sha }}
+        run: |
+          package="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          previous_version="$(git show HEAD^:package.json | node -e "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => process.stdout.write(JSON.parse(input).version));")"
+          published_sha="$(npm view "${package}@${version}" gitHead --prefer-online 2>/dev/null || true)"
+          if [ "${published_sha}" != "${DEPLOY_SHA}" ]; then
+            if [ "${version}" != "${previous_version}" ]; then
+              echo "Release ${version} was deployed from ${DEPLOY_SHA}, but npm reports ${published_sha:-no SHA}" >&2
+              exit 1
+            fi
+            echo "Skipping unchanged version ${version}: npm was published from ${published_sha:-no SHA}."
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "should_publish=true" >> "$GITHUB_OUTPUT"
+
+      - name: Verify hosted release
+        if: steps.release.outputs.should_publish == 'true'
+        env:
+          DEPLOY_SHA: ${{ github.event.deployment.sha }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error --max-time 10 https://mcp.applaunchflow.com/healthz \
+              | jq -e --arg version "${version}" --arg sha "${DEPLOY_SHA}" \
+                '.ok == true and .version == $version and .commitSha == $sha' >/dev/null; then
+              exit 0
+            fi
+            echo "Waiting for hosted version and commit (${attempt}/60)"
+            sleep 5
+          done
+          echo "Hosted MCP did not report version ${version} from ${DEPLOY_SHA}" >&2
+          exit 1
+
+      - name: Validate MCP Registry manifest
+        if: steps.release.outputs.should_publish == 'true'
+        run: node --test scripts/registry-manifest.test.mjs
+
+      - name: Install MCP Registry publisher
+        if: steps.release.outputs.should_publish == 'true'
+        env:
+          MCP_PUBLISHER_VERSION: v1.8.1
+        run: |
+          archive="mcp-publisher_linux_amd64.tar.gz"
+          release="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+          curl --fail --location --silent --show-error --output "${archive}" "${release}/${archive}"
+          curl --fail --location --silent --show-error --output checksums.txt "${release}/registry_1.8.1_checksums.txt"
+          grep " ${archive}$" checksums.txt | sha256sum --check --strict
+          tar -xzf "${archive}" mcp-publisher
+          ./mcp-publisher --help
+
+      - name: Authenticate with GitHub OIDC
+        if: steps.release.outputs.should_publish == 'true'
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        if: steps.release.outputs.should_publish == 'true'
+        run: ./mcp-publisher publish server.json

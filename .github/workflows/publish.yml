@@ -1,4 +1,4 @@
-name: Release npm and MCP Registry
+name: Release npm
 
 on:
   push:
@@ -96,44 +96,3 @@ jobs:
           done
           echo "npm did not expose ${package}@${version} after publication" >&2
           exit 1
-
-      - name: Validate MCP Registry manifest
-        if: steps.version.outputs.should_publish == 'true'
-        run: node --test scripts/registry-manifest.test.mjs
-
-      - name: Verify hosted release
-        if: steps.version.outputs.should_publish == 'true'
-        run: |
-          version="$(node -p "require('./package.json').version")"
-          for attempt in $(seq 1 60); do
-            if curl --fail --silent --show-error --max-time 10 https://mcp.applaunchflow.com/healthz \
-              | jq -e --arg version "${version}" --arg sha "${GITHUB_SHA}" \
-                '.ok == true and .version == $version and .commitSha == $sha' >/dev/null; then
-              exit 0
-            fi
-            echo "Waiting for hosted version and commit (${attempt}/60)"
-            sleep 5
-          done
-          echo "Hosted MCP did not report version ${version} from ${GITHUB_SHA}" >&2
-          exit 1
-
-      - name: Install MCP Registry publisher
-        if: steps.version.outputs.should_publish == 'true'
-        env:
-          MCP_PUBLISHER_VERSION: v1.8.1
-        run: |
-          archive="mcp-publisher_linux_amd64.tar.gz"
-          release="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
-          curl --fail --location --silent --show-error --output "${archive}" "${release}/${archive}"
-          curl --fail --location --silent --show-error --output checksums.txt "${release}/registry_1.8.1_checksums.txt"
-          grep " ${archive}$" checksums.txt | sha256sum --check --strict
-          tar -xzf "${archive}" mcp-publisher
-          ./mcp-publisher --help
-
-      - name: Authenticate with GitHub OIDC
-        if: steps.version.outputs.should_publish == 'true'
-        run: ./mcp-publisher login github-oidc
-
-      - name: Publish to MCP Registry
-        if: steps.version.outputs.should_publish == 'true'
-        run: ./mcp-publisher publish server.json
