@@ -121,7 +121,9 @@ export function registerMockupTools(
       description:
         "Create a new mockup-animation variant seeded from a SCENE_PRESETS preset and a specific screenshot/recording path. " +
         "Always omit variantId — this tool always creates a new variant. Never overwrites an existing mockup variant. " +
-        "Call list_mockup_media first to pick a valid screenshotPath and list_mockup_presets to pick a presetId. " +
+        "Use list_assets to find existing project screenshots, or list_mockup_media to find dedicated mockup uploads and recordings. " +
+        "Both return valid project-relative screenshotPath values; an empty mockup-media list does not mean the project has no screenshots. " +
+        "Reuse the requested existing screenshot without re-uploading it. Call list_mockup_presets to pick a presetId. " +
         "The editor opens automatically after creation.",
       inputSchema: z.object({
         projectId: z.string().uuid().describe("Project / generation UUID."),
@@ -129,7 +131,7 @@ export function registerMockupTools(
           .string()
           .min(1)
           .describe(
-            'Storage-relative path for the device screen content, e.g. "mockups/1715191234567-clip.mp4" or "mobile/ios/1715191234567-home.png". Returned by list_mockup_media.',
+            'Project-relative path for the device screen content, e.g. "mockups/1715191234567-clip.mp4" from list_mockup_media or "mobile/ios/1715191234567-home.png" from list_assets. Use an existing asset from the same project.',
           ),
         presetId: z
           .enum(SCENE_PRESET_IDS)
@@ -340,7 +342,7 @@ export function registerMockupTools(
       title: "List Mockup Media",
       description:
         "List the screenshots and screen recordings uploaded under the project's mockups/ storage folder. " +
-        "Call this before create_mockup_animation to discover valid screenshotPath values. " +
+        "For existing project screenshots outside mockups/, use list_assets instead. An empty result here does not prevent creating a mockup from an existing screenshot. " +
         "Returns media items with { path, signedUrl, kind: 'image' | 'video' }.",
       inputSchema: z.object({
         projectId: z.string().uuid(),

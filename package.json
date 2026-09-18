@@ -1,6 +1,6 @@
 {
   "name": "applaunchflow",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Official AppLaunchFlow API client and hosted OAuth MCP connector.",
   "license": "MIT",
   "repository": {
