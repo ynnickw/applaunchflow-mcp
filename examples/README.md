@@ -1,5 +1,21 @@
 # CI → active variant → Fastlane
 
+## GitHub Actions example
+
+[Download or copy the screenshot workflow](github-actions/screenshots.yml). It renders saved designs on an Ubuntu runner and retains the validated package and retry receipt for seven days. App capture and store upload remain separate steps.
+
+1. Copy `examples/release.mjs` and `examples/unpack-release.py` into the same paths in your app repository.
+2. Copy `examples/release.json` to `release.json` at your repository root. Replace the example project UUID and select languages and device layouts already saved in AppLaunchFlow. Optionally set an existing `variantId`.
+3. Run `npm install --save-exact applaunchflow@0.7.0` locally and commit `package.json` and `package-lock.json`. The workflow runs `npm ci` with Node 24.
+4. Add a project-restricted API key with `exports:read` and `exports:write` as the GitHub Actions repository secret `APPLAUNCHFLOW_API_KEY`. An active API-eligible subscription and export allowance are required.
+5. Copy `examples/github-actions/screenshots.yml` to `.github/workflows/screenshots.yml` and commit it to your default branch.
+6. In GitHub, open **Actions → Screenshot release package → Run workflow**. Enter a stable release ID, for example `v2.4.0-screenshots-1`. Reuse it for retries of the same operation. Use a new ID after intentional design or export-parameter changes.
+7. Download the `screenshots-<run-id>-<attempt>` artifact. Review the images before handing `output/fastlane/` to your store-upload job.
+
+The job validates setup before rendering, uses read-only repository permissions, and passes the API key only to the setup check and render step. It retains any available ZIP, receipt, configuration and extracted output even after a failure. A polling timeout does not cancel the remote render; preserve the original release ID and receipt when investigating or retrying.
+
+The concurrency group serializes this example within one repository. Give other workflows targeting the same project the same group; separate repositories need their own coordination. GitHub may replace an older pending run with a newer one, so this is not a durable release queue. Major-version action tags are used for readability; pin them to reviewed commit SHAs if required by your repository policy.
+
 ## Pro allowance and Automation
 
 API and MCP exports require an active Pro subscription. Pro includes **5 export jobs per month**, shared across all API keys, projects and MCP clients. One job includes its requested languages and device formats. Annual Pro also receives a monthly allowance. Editor exports keep their existing limits.

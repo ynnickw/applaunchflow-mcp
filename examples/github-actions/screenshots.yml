@@ -1,0 +1,76 @@
+# Save as .github/workflows/screenshots.yml on your default branch.
+# Setup: https://www.applaunchflow.com/blog/app-store-screenshots-github-actions
+# Required: APPLAUNCHFLOW_API_KEY repository secret, release.json,
+# examples/release.mjs, examples/unpack-release.py, and a committed npm lockfile
+# with applaunchflow@0.7.0 installed. See the setup guide for the helpers.
+# Render saved designs only; app capture and store upload are separate steps.
+name: Screenshot release package
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: Stable release identity; reuse for retries
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: applaunchflow-screenshot-project
+  cancel-in-progress: false
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Check release setup
+        env:
+          APPLAUNCHFLOW_API_KEY: ${{ secrets.APPLAUNCHFLOW_API_KEY }}
+          RELEASE_ID: ${{ inputs.release_id }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, accessSync } from "node:fs";
+          if (!process.env.APPLAUNCHFLOW_API_KEY?.trim())
+            throw new Error("Add the APPLAUNCHFLOW_API_KEY repository secret.");
+          if (!process.env.RELEASE_ID?.trim())
+            throw new Error("Enter a stable, non-empty release_id.");
+          for (const path of ["examples/release.mjs", "examples/unpack-release.py", "package-lock.json"])
+            accessSync(path);
+          const config = JSON.parse(readFileSync("release.json", "utf8"));
+          if (!config.projectId || config.projectId === "11111111-1111-4111-8111-111111111111")
+            throw new Error("Set your AppLaunchFlow project ID in release.json.");
+          for (const key of ["languages", "formats"])
+            if (!Array.isArray(config[key]) || !config[key].length)
+              throw new Error("Set at least one saved " + key + " entry in release.json.");
+          if (config.package !== "fastlane")
+            throw new Error("This example expects package: fastlane.");
+          NODE
+      - run: npm ci
+      - name: Render saved layouts
+        env:
+          APPLAUNCHFLOW_API_KEY: ${{ secrets.APPLAUNCHFLOW_API_KEY }}
+          APPLAUNCHFLOW_RELEASE_ID: ${{ github.repository }}:screenshots:${{ inputs.release_id }}
+        run: node examples/release.mjs release.json release.zip
+      - name: Validate and extract
+        run: python3 examples/unpack-release.py release.zip output
+      - name: Keep output and retry receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            release.zip
+            release.zip.receipt.json
+            release.json
+            output/
+          if-no-files-found: warn
+          retention-days: 7
