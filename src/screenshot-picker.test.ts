@@ -170,7 +170,7 @@ test("inline picker resource, private data, authenticated read, validation, and 
     assert.doesNotMatch(resource.contents[0].text, /<script[^>]+src=/);
     assert.equal(
       resource.contents[0]._meta?.["openai/widgetDomain"],
-      undefined,
+      "https://mcp.applaunchflow.com",
     );
     assert.equal(
       (resource.contents[0]._meta?.ui as any).csp.frameDomains,

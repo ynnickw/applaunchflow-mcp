@@ -171,7 +171,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       assert.doesNotMatch(resource.contents[0].text, /<script[^>]+src=/);
       assert.equal(
         resource.contents[0]._meta?.["openai/widgetDomain"],
-        undefined,
+        "https://mcp.applaunchflow.com",
       );
     }
 
