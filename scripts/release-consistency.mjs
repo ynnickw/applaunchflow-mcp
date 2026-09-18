@@ -5,6 +5,7 @@ import { isVersionIncrease } from "./release-version.mjs";
 
 const DEPLOYABLE_PATHS = [
   /^\.claude-plugin\/plugin\.json$/,
+  /^\.cursor-plugin\/plugin\.json$/,
   /^src\//,
   /^picker-release\//,
   /^Dockerfile$/,
@@ -24,6 +25,7 @@ export function validateReleaseState({
   lockRootVersion,
   serverVersion,
   pluginVersion,
+  cursorPluginVersion,
   previousVersion,
   changedPaths,
 }) {
@@ -33,10 +35,11 @@ export function validateReleaseState({
     lockRootVersion,
     serverVersion,
     pluginVersion,
+    cursorPluginVersion,
   ]);
   if (versions.size !== 1) {
     throw new Error(
-      `Release versions must match: package=${packageVersion}, lock=${lockVersion}, lock-root=${lockRootVersion}, server=${serverVersion}, plugin=${pluginVersion}`,
+      `Release versions must match: package=${packageVersion}, lock=${lockVersion}, lock-root=${lockRootVersion}, server=${serverVersion}, claude-plugin=${pluginVersion}, cursor-plugin=${cursorPluginVersion}`,
     );
   }
 
@@ -77,6 +80,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const packageLock = readJson("package-lock.json");
   const serverJson = readJson("server.json");
   const pluginJson = readJson(".claude-plugin/plugin.json");
+  const cursorPluginJson = readJson(".cursor-plugin/plugin.json");
   const previousPackage = JSON.parse(git("show", `${base}:package.json`));
   const changedPaths = git("diff", "--name-only", base, head)
     .split("\n")
@@ -89,6 +93,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
       lockRootVersion: packageLock.packages?.[""]?.version,
       serverVersion: serverJson.version,
       pluginVersion: pluginJson.version,
+      cursorPluginVersion: cursorPluginJson.version,
       previousVersion: previousPackage.version,
       changedPaths,
     });

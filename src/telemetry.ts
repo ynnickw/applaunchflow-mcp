@@ -84,9 +84,24 @@ const METHODS = new Set([
   "notifications/progress",
   "logging/setLevel",
   "completion/complete",
+  "subscriptions/listen",
 ]);
 
 export function safeRpcMethod(method: unknown): string | undefined {
   if (typeof method !== "string") return undefined;
   return METHODS.has(method) ? method : "other";
+}
+
+/** Keep subscription stream closures distinct from interrupted tool calls. */
+export function abortedRequestCompletion(
+  rpcMethod: string | undefined,
+  durationMs: number,
+  headersSent: boolean,
+): "aborted" | "subscription_disconnected" | "subscription_lifetime_limit" {
+  if (rpcMethod !== "subscriptions/listen" || !headersSent) return "aborted";
+  // Railway currently closes these streams at about 900 seconds. This is a
+  // classification only: retain HTTP 499 so we do not imply a clean response.
+  return durationMs >= 895_000
+    ? "subscription_lifetime_limit"
+    : "subscription_disconnected";
 }

@@ -34,6 +34,7 @@ test("HTTP server exposes health and protected-resource metadata", async () => {
       version: (
         createRequire(import.meta.url)("../package.json") as { version: string }
       ).version,
+      commitSha: null,
     });
 
     const metadata = await fetch(
@@ -49,6 +50,25 @@ test("HTTP server exposes health and protected-resource metadata", async () => {
       "https://dashboard.applaunchflow.com",
     ]);
   });
+});
+
+test("health exposes only a validated Railway Git commit SHA", async () => {
+  const previous = process.env.RAILWAY_GIT_COMMIT_SHA;
+  try {
+    process.env.RAILWAY_GIT_COMMIT_SHA = "A".repeat(40);
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/healthz`);
+      assert.equal((await response.json()).commitSha, "a".repeat(40));
+    });
+    process.env.RAILWAY_GIT_COMMIT_SHA = "secret-or-arbitrary-value";
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/healthz`);
+      assert.equal((await response.json()).commitSha, null);
+    });
+  } finally {
+    if (previous === undefined) delete process.env.RAILWAY_GIT_COMMIT_SHA;
+    else process.env.RAILWAY_GIT_COMMIT_SHA = previous;
+  }
 });
 
 test("HTTP server exposes the configured OpenAI domain challenge", async () => {

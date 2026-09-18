@@ -22,6 +22,7 @@ import {
   withWidgetFallback,
 } from "./request-context.js";
 import {
+  abortedRequestCompletion,
   errorCategory,
   protocolErrorCategory,
   safeRpcMethod,
@@ -33,6 +34,11 @@ const DEFAULT_DASHBOARD_URL = "https://dashboard.applaunchflow.com";
 const SERVICE_VERSION = (
   createRequire(import.meta.url)("../package.json") as { version: string }
 ).version;
+
+function sourceCommitSha(): string | null {
+  const value = process.env.RAILWAY_GIT_COMMIT_SHA?.trim();
+  return value && /^[a-f\d]{40,64}$/i.test(value) ? value.toLowerCase() : null;
+}
 const REQUIRED_SCOPES = [
   "projects:read",
   "projects:write",
@@ -234,6 +240,7 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
   const logRequest = (aborted = false) => {
     if (logged) return;
     logged = true;
+    const durationMs = Date.now() - startedAt;
     console.info(
       JSON.stringify({
         event: "mcp_http_request",
@@ -242,10 +249,18 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
         path: request.url?.split("?", 1)[0] || "/mcp",
         status: aborted ? 499 : response.statusCode,
         auth: authStatus,
-        durationMs: Date.now() - startedAt,
+        durationMs,
         userAgent: request.headers["user-agent"]?.slice(0, 256) || null,
         ...diagnostics,
-        ...(aborted ? { completion: "aborted" } : {}),
+        ...(aborted
+          ? {
+              completion: abortedRequestCompletion(
+                diagnostics.rpcMethod,
+                durationMs,
+                response.headersSent,
+              ),
+            }
+          : {}),
       }),
     );
   };
@@ -397,6 +412,7 @@ export function createHttpServer() {
         ok: true,
         service: "applaunchflow-mcp",
         version: SERVICE_VERSION,
+        commitSha: sourceCommitSha(),
       });
       return;
     }

@@ -76,11 +76,23 @@ jobs:
         run: |
           package="$(node -p "require('./package.json').name")"
           version="$(node -p "require('./package.json').version")"
-          for _ in 1 2 3 4 5; do
-            if [ "$(npm view "${package}@${version}" version 2>/dev/null)" = "${version}" ]; then
+          for attempt in $(seq 1 36); do
+            published_version="$(npm view "${package}@${version}" version --prefer-online 2>/dev/null || true)"
+            if [ "${published_version}" = "${version}" ]; then
+              published_sha="$(npm view "${package}@${version}" gitHead --prefer-online 2>/dev/null || true)"
+              if [ -z "${published_sha}" ]; then
+                echo "Waiting for npm provenance metadata (${attempt}/36)"
+                sleep 5
+                continue
+              fi
+              if [ "${published_sha}" != "${GITHUB_SHA}" ]; then
+                echo "npm ${package}@${version} is from ${published_sha:-unknown}, not ${GITHUB_SHA}" >&2
+                exit 1
+              fi
               exit 0
             fi
-            sleep 3
+            echo "Waiting for npm registry visibility (${attempt}/36)"
+            sleep 5
           done
           echo "npm did not expose ${package}@${version} after publication" >&2
           exit 1
@@ -88,6 +100,22 @@ jobs:
       - name: Validate MCP Registry manifest
         if: steps.version.outputs.should_publish == 'true'
         run: node --test scripts/registry-manifest.test.mjs
+
+      - name: Verify hosted release
+        if: steps.version.outputs.should_publish == 'true'
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error --max-time 10 https://mcp.applaunchflow.com/healthz \
+              | jq -e --arg version "${version}" --arg sha "${GITHUB_SHA}" \
+                '.ok == true and .version == $version and .commitSha == $sha' >/dev/null; then
+              exit 0
+            fi
+            echo "Waiting for hosted version and commit (${attempt}/60)"
+            sleep 5
+          done
+          echo "Hosted MCP did not report version ${version} from ${GITHUB_SHA}" >&2
+          exit 1
 
       - name: Install MCP Registry publisher
         if: steps.version.outputs.should_publish == 'true'

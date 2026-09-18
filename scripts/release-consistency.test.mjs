@@ -11,6 +11,7 @@ const alignedRelease = {
   lockRootVersion: "0.3.10",
   serverVersion: "0.3.10",
   pluginVersion: "0.3.10",
+  cursorPluginVersion: "0.3.10",
   previousVersion: "0.3.9",
 };
 
@@ -23,6 +24,7 @@ test("classifies production inputs separately from workflow and documentation fi
   assert.equal(isDeployablePath("Dockerfile"), true);
   assert.equal(isDeployablePath("server.json"), true);
   assert.equal(isDeployablePath(".claude-plugin/plugin.json"), true);
+  assert.equal(isDeployablePath(".cursor-plugin/plugin.json"), true);
   assert.equal(isDeployablePath(".github/workflows/ci.yml"), false);
   assert.equal(isDeployablePath("README.md"), false);
 });
@@ -52,6 +54,18 @@ test("rejects mismatched release versions", () => {
   );
 });
 
+test("rejects a stale Cursor plugin version", () => {
+  assert.throws(
+    () =>
+      validateReleaseState({
+        ...alignedRelease,
+        cursorPluginVersion: "0.3.9",
+        changedPaths: [".cursor-plugin/plugin.json"],
+      }),
+    /Release versions must match/,
+  );
+});
+
 test("rejects deployable changes without a version increase", () => {
   assert.throws(
     () =>
@@ -62,6 +76,7 @@ test("rejects deployable changes without a version increase", () => {
         lockRootVersion: "0.3.9",
         serverVersion: "0.3.9",
         pluginVersion: "0.3.9",
+        cursorPluginVersion: "0.3.9",
         changedPaths: ["src/http.ts"],
       }),
     /Deployable changes require a version increase/,
@@ -76,6 +91,7 @@ test("allows workflow-only changes without a version increase", () => {
     lockRootVersion: "0.3.9",
     serverVersion: "0.3.9",
     pluginVersion: "0.3.9",
+    cursorPluginVersion: "0.3.9",
     changedPaths: [".github/workflows/ci.yml"],
   });
   assert.deepEqual(result.deployableChanges, []);

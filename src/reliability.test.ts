@@ -10,6 +10,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { createHttpServer } from "./http.js";
 import { openUrl, fail } from "./tools/utils.js";
 import {
+  abortedRequestCompletion,
   errorCategory,
   protocolErrorCategory,
   safeRpcMethod,
@@ -93,6 +94,20 @@ test("diagnostic categories never echo arbitrary errors or method names", () => 
   assert.equal(protocolErrorCategory(new Error(secret)), "transport_error");
   assert.equal(safeRpcMethod(secret), "other");
   assert.equal(safeRpcMethod("tools/call"), "tools/call");
+  assert.equal(safeRpcMethod("subscriptions/listen"), "subscriptions/listen");
+  assert.equal(abortedRequestCompletion("tools/call", 900_000, true), "aborted");
+  assert.equal(
+    abortedRequestCompletion("subscriptions/listen", 900_000, true),
+    "subscription_lifetime_limit",
+  );
+  assert.equal(
+    abortedRequestCompletion("subscriptions/listen", 30_000, true),
+    "subscription_disconnected",
+  );
+  assert.equal(
+    abortedRequestCompletion("subscriptions/listen", 900_000, false),
+    "aborted",
+  );
   for (const [code, category] of [
     ["READ_BEFORE_EDIT_REQUIRED", "read_before_edit_required"],
     ["HOSTED_FILE_PATH_UNSUPPORTED", "hosted_file_path_unsupported"],
@@ -108,6 +123,7 @@ test("hosted reliability regressions over real HTTP", async (t) => {
   const entries: Array<Record<string, unknown>> = [];
   const rawLogs: string[] = [];
   let onAborted: (() => void) | undefined;
+  let onSubscriptionClosed: (() => void) | undefined;
   let onProjectRequest: (() => void) | undefined;
   for (const level of ["info", "log", "warn", "error"] as const) {
     t.mock.method(console, level, (line: unknown) => {
@@ -120,6 +136,11 @@ test("hosted reliability regressions over real HTTP", async (t) => {
           entry.completion === "aborted"
         )
           onAborted?.();
+        if (
+          entry.event === "mcp_http_request" &&
+          entry.requestId === "subscription-disconnected"
+        )
+          onSubscriptionClosed?.();
       }
     });
   }
@@ -594,6 +615,60 @@ test("hosted reliability regressions over real HTTP", async (t) => {
           )?.errorCategory,
           "upstream_error",
         );
+      },
+    );
+
+    await t.test(
+      "modern subscription disconnects are identified without leaking input",
+      { timeout: 2000 },
+      async () => {
+        const logged = new Promise<void>((resolve) => {
+          onSubscriptionClosed = resolve;
+        });
+        const controller = new AbortController();
+        const response = await fetch(`${baseUrl}/mcp`, {
+          method: "POST",
+          headers: {
+            ...headers,
+            "x-request-id": "subscription-disconnected",
+            "mcp-protocol-version": "2026-07-28",
+            "mcp-method": "subscriptions/listen",
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "subscriptions/listen",
+            params: {
+              _meta: {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientInfo": {
+                  name: "subscription-test",
+                  version: "1.0.0",
+                },
+                "io.modelcontextprotocol/clientCapabilities": {},
+              },
+              notifications: { toolsListChanged: true },
+            },
+          }),
+        });
+        if (response.status !== 200) {
+          assert.fail(`Subscription returned ${response.status}: ${await response.text()}`);
+        }
+        assert.match(response.headers.get("content-type") || "", /text\/event-stream/);
+        await response.body?.getReader().read();
+        controller.abort();
+        await logged;
+        onSubscriptionClosed = undefined;
+        const matching = entries.filter(
+          (entry) =>
+            entry.event === "mcp_http_request" &&
+            entry.requestId === "subscription-disconnected",
+        );
+        assert.equal(matching.length, 1);
+        assert.equal(matching[0].status, 499);
+        assert.equal(matching[0].rpcMethod, "subscriptions/listen");
+        assert.equal(matching[0].completion, "subscription_disconnected");
       },
     );
 
