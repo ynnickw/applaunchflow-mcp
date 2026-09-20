@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { ToolInputError } from "../telemetry.js";
 import { z } from "zod";
+import { getEditorReference } from "../resources/editor-reference.js";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import {
   createHostedReadReceipt,
@@ -26,6 +27,7 @@ const OUTPUT_RATIOS = ["1:1", "4:3", "16:9", "9:16"] as const;
 
 const MOCKUP_PRESETS_DATA = {
   motions: [
+    { id: "custom", label: "Custom keyframes", durationSeconds: null },
     { id: "hero-reveal", label: "Hero reveal", durationSeconds: 6 },
     { id: "feature-sweep", label: "Feature sweep", durationSeconds: 7 },
     { id: "showcase-orbit", label: "Showcase orbit", durationSeconds: 10 },
@@ -35,6 +37,9 @@ const MOCKUP_PRESETS_DATA = {
     { id: "silver", label: "Silver" },
     { id: "cosmic-orange", label: "Cosmic Orange" },
     { id: "deep-blue", label: "Deep Blue" },
+    { id: "pixel-obsidian", label: "Pixel Obsidian" },
+    { id: "pixel-porcelain", label: "Pixel Porcelain" },
+    { id: "pixel-moonstone", label: "Pixel Moonstone" },
   ],
   backgroundPresets: [
     { id: "soft", label: "Soft" },
@@ -213,7 +218,7 @@ export function registerMockupTools(
       title: "Get Mockup Animation",
       description:
         "Fetch the current mockup animation state (MockupProjectState shape) for a project. " +
-        "Required before update_mockup_animation so edits operate on fresh state.",
+        "Required before update_mockup_animation so edits operate on fresh state. Read get_editing_reference(feature: mockups) for all supported configuration fields.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
@@ -265,7 +270,7 @@ export function registerMockupTools(
         state: z
           .record(z.string(), z.any())
           .describe(
-            "Full MockupProjectState object (selectedMediaPath, motion, finish, speed, background, backgroundMode, backgroundColor, backgroundGradient, backgroundImage, showDynamicIsland, outputRatio, motionDuration, deviceScale, primaryKeyframes, isPlaying). Use the object returned by get_mockup_animation as a starting point.",
+            "Complete MockupProjectState from get_mockup_animation. devices[] is canonical when present (1–6 independent devices); preserve all devices and mirror the first into legacy fields. Read get_editing_reference(feature: mockups) for the full contract, including names, timing, transitions, keyframe lidOpen, audio and presenter overlay.",
           ),
         readReceipt: z
           .string()
@@ -388,7 +393,7 @@ export function registerMockupTools(
           }
         }
         return ok(
-          { ...MOCKUP_PRESETS_DATA, themeColors },
+          { ...MOCKUP_PRESETS_DATA, themeColors, editingReference: getEditorReference("mockups") },
           "Mockup preset reference",
         );
       } catch (error) {

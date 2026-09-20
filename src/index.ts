@@ -13,6 +13,7 @@ import { registerTemplateTools } from "./tools/templates.js";
 import { registerGraphicsTools } from "./tools/graphics.js";
 import { registerPromoVideoTools } from "./tools/promovideo.js";
 import { registerMockupTools } from "./tools/mockups.js";
+import { registerEditingReferenceTool } from "./tools/editing-reference.js";
 import { registerLocalizationTools } from "./tools/localization.js";
 import { registerReleaseTools } from "./tools/releases.js";
 import { registerVariantTools } from "./tools/variants.js";
@@ -28,6 +29,7 @@ const packageJson = createRequire(import.meta.url)("../package.json") as {
 
 export const SERVER_INSTRUCTIONS = `
 AppLaunchFlow MCP supports four content types: app store screenshots, social graphics, promo videos, and mockup animations.
+Before editing screenshots, social graphics, promo videos or mockups, call get_editing_reference with the corresponding feature. Read its index, then retrieve the root and nested symbols relevant to the change. This reference covers ALL current fields, not just those already present in the saved document. Do not guess configuration names or infer capability from permissive validation. Use this tool if your client cannot browse resources.
 Use it for project setup, screenshot uploads, AI generation of screenshots/graphics/videos, mockup animation editing, variant management, direct layout editing, and translation.
 Do not treat this MCP as an ASO or generic graphics-design assistant — every tool is scoped to one of those four content types.
 
@@ -48,7 +50,8 @@ Schema references (MCP resources — read them, they are not loaded automaticall
 - applaunchflow://schema/layout — every field of the layout JSON: all 11 node types, their properties, and valid value ranges. Used by BOTH screenshots and social graphics (a social layout is the same shape with exactly one screen and the format's canvas size).
 - applaunchflow://schema/transforms — the transform_layout operations, selector syntax, and the selector pitfalls that silently match every screen.
 - applaunchflow://schema/video-config — the full Remotion VideoConfig: six scene types and their content shapes, theme, text styles, ken burns, choreography preset ids, device/text overlays, audio.
-- For mockup animations the equivalent is the list_mockup_presets TOOL, not a resource.
+- applaunchflow://editing/mockups — complete MockupProjectState, device timing, keyframes, model/finish/lid controls, backgrounds, presenter overlay, audio and validation. list_mockup_presets supplements it with seed presets.
+- applaunchflow://editing/socialGraphics — shared Layout contract plus format IDs, dimensions and constraints.
 - Read the relevant resource before hand-writing or non-trivially editing JSON. A get_* response only shows what is currently set — it does not tell you what is possible.
 
 Screenshot workflows:
@@ -138,6 +141,7 @@ export function createAppLaunchFlowServer(
 
   registerPrompts(server);
   registerResources(server, client);
+  registerEditingReferenceTool(server);
   registerProjectTools(server, client);
   registerAssetTools(server, client, { hosted });
   registerAssetManagementTools(server, client);

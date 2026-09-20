@@ -1,6 +1,6 @@
 {
   "name": "applaunchflow",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Official AppLaunchFlow API client and hosted OAuth MCP connector.",
   "license": "MIT",
   "repository": {
@@ -16,6 +16,8 @@
     "picker-release"
   ],
   "scripts": {
+    "sync:editor-reference": "node scripts/sync-editor-reference.mjs",
+    "check:editor-reference": "node scripts/sync-editor-reference.mjs --check",
     "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\"",
     "build": "npm run clean && npm run check:pickers && tsc -p tsconfig.json && chmod 755 build/cli.js",
     "dev:http": "tsx src/http.ts",

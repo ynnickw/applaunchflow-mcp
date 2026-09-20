@@ -120,6 +120,41 @@ the AppLaunchFlow OAuth flow when authentication is required.
 
 ## Hosted service
 
+### Editor knowledge and configuration reference
+
+The MCP connector does not train or replace the user's model. It supplies
+server instructions, read/edit tools and an on-demand configuration reference.
+Before any edit, the instructions direct the assistant to
+`get_editing_reference(feature)`, then to retrieve the relevant named symbols.
+This also works in clients that do not expose MCP resource browsing.
+
+Supported features are `screenshots`, `socialGraphics`, `promoVideo`, and
+`mockups`. The index includes the full persisted types, API/renderer validators,
+device/format/music/motion catalogs, units, bounds, defaults, and read-before-save
+workflows. Examples: `ScreenshotNode` for overflow/crop/status bars,
+`Model3DConfig` for laptop lids, `MultiPhoneContentSchema` for promo slot arrays,
+and `mockupDeviceSchema` for independent device entrances/exits. Complete
+references are also available at `applaunchflow://editing/<feature>`; the existing
+layout and video-config resource URLs resolve to these current references.
+
+The checked-in reference is generated from an explicit allowlist of dashboard
+contracts. It contains no project data or secrets and has no runtime dependency
+on a dashboard checkout. To refresh and verify it against the dashboard release:
+
+```bash
+APPLAUNCHFLOW_DASHBOARD_PATH=../applaunchflow npm run sync:editor-reference
+APPLAUNCHFLOW_DASHBOARD_PATH=../applaunchflow npm run check:editor-reference
+npm test
+```
+
+Run the drift check whenever editor contracts change and before publishing the
+connector alongside a dashboard release. Passing MCP tests alone does not prove
+the deployed dashboard matches the snapshot. UI-only actions (selection, undo,
+browser rendering, recording camera input) are not persisted configuration and
+must not be advertised as MCP tools. Models can still make mistakes: preserve
+unrelated fields, read back after saving and verify visual composition where a
+preview is available.
+
 ### Inline screenshot picker
 
 `prepare_screenshot_styles` returns the personalized V1/V2 picker directly in

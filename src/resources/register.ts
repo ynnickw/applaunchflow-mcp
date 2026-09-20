@@ -8,13 +8,12 @@ import {
   isTemplatePreviewDeviceType,
 } from "../template-previews.js";
 import {
-  LAYOUT_SCHEMA_RESOURCE,
   PROJECT_CREATION_WIZARD_RESOURCE,
   SUPPORTED_DEVICES,
   TRANSFORM_SCHEMA_RESOURCE,
-  VIDEO_CONFIG_SCHEMA_RESOURCE,
   WORKFLOW_GUIDE_RESOURCE,
 } from "./data.js";
+import { getFullEditorReference } from "./editor-reference.js";
 
 function asJsonResource(uri: string, payload: unknown) {
   return {
@@ -44,6 +43,13 @@ export function registerResources(
   server: McpServer,
   client: AppLaunchFlowClient,
 ): void {
+  for (const feature of ["screenshots", "socialGraphics", "promoVideo", "mockups"] as const) {
+    server.registerResource(`editing-${feature}`, `applaunchflow://editing/${feature}`, {
+      title: `${feature} complete editing reference`,
+      description: "Complete current editor contracts, validators, catalogs, coordinate units and safe editing workflow. For smaller targeted responses use get_editing_reference.",
+      mimeType: "application/json",
+    }, async uri => asJsonResource(uri.href, getFullEditorReference(feature)));
+  }
   server.registerResource(
     "layout-schema",
     "applaunchflow://schema/layout",
@@ -53,7 +59,7 @@ export function registerResources(
         "Full field-level reference for the layout JSON used by BOTH screenshots and social graphics: every node type, its properties and valid value ranges. Read before hand-writing or editing layout JSON.",
       mimeType: "application/json",
     },
-    async (uri) => asJsonResource(uri.href, LAYOUT_SCHEMA_RESOURCE),
+    async (uri) => asJsonResource(uri.href, getFullEditorReference("screenshots")),
   );
 
   server.registerResource(
@@ -65,7 +71,7 @@ export function registerResources(
         "Full field-level reference for the Remotion VideoConfig: scene types and their content shapes, theme, text styles, ken burns, choreography preset ids, audio. Read before editing a promo video config.",
       mimeType: "application/json",
     },
-    async (uri) => asJsonResource(uri.href, VIDEO_CONFIG_SCHEMA_RESOURCE),
+    async (uri) => asJsonResource(uri.href, getFullEditorReference("promoVideo")),
   );
 
   server.registerResource(

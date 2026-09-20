@@ -63,6 +63,7 @@ export function registerPrompts(server: McpServer): void {
             type: "text",
             text: [
               "Operate directly on the existing AppLaunchFlow screenshot layout.",
+              "Call get_editing_reference with feature screenshots, then retrieve the Layout and relevant nested node/schema symbols before constructing edits.",
               "Call get_layout first and inspect the relevant existing screens before every transform_layout call.",
               "This read-before-edit rule is mandatory even for small direct edits.",
               "Composition-sensitive edits include adding screens, reusing screenshots, changing screenshot placement, moving text, changing spacing, or any request that should match the current style.",
