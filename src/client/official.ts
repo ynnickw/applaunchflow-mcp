@@ -40,6 +40,12 @@ export interface RenderInput {
   projectId: string;
   variantId?: string;
   formats: FormatId[];
+  resolutions?: Partial<
+    Record<
+      FormatId,
+      { preset: "play-high" | "preview" } | { width: number; height: number }
+    >
+  >;
   languages: string[];
   package?: "fastlane";
 }
@@ -141,6 +147,15 @@ export class AppLaunchFlow extends AppLaunchFlowClient {
         storeType: string;
       }>;
       locales: { ios: string[]; android: string[] };
+      resolutionOptions?: {
+        androidPhonePresets: Record<
+          string,
+          { width: number; height: number; label: string }
+        >;
+        custom: { min: number; max: number };
+        orientation: string;
+        note: string;
+      };
       limits: Record<string, number>;
     }>("/api/v1/formats");
   }

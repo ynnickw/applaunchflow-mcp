@@ -5,8 +5,13 @@ import { fail, ok } from "./utils.js";
 
 const SUPPORTED_LANGUAGE_CODES = [
   "en",
+  "en-GB",
+  "en-AU",
+  "en-CA",
   "es",
+  "es-MX",
   "fr",
+  "fr-CA",
   "de",
   "it",
   "pt",
@@ -29,6 +34,16 @@ const SUPPORTED_LANGUAGE_CODES = [
   "hu",
   "ro",
   "uk",
+  "el",
+  "he",
+  "id",
+  "ms",
+  "th",
+  "vi",
+  "fil",
+  "hr",
+  "sk",
+  "ca",
 ] as const;
 
 export function registerLocalizationTools(
@@ -61,7 +76,7 @@ export function registerLocalizationTools(
           .array(z.enum(SUPPORTED_LANGUAGE_CODES))
           .min(1)
           .describe(
-            "Array of target language codes (e.g. ['en', 'ja', 'de']). The source language is auto-detected and excluded.",
+            "Array of target language codes (e.g. ['en', 'ja', 'de']). Use el for Greek (el-GR), he for Hebrew (iw-IL), and fil for Filipino. The source language is auto-detected and excluded.",
           ),
         layouts: z
           .array(z.enum(["mobile", "tablet", "desktop"]))
