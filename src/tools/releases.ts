@@ -29,11 +29,25 @@ export function registerReleaseTools(
     {
       title: "Render Screenshots",
       description:
-        "Render the saved translations of the active screenshot variant (or a specified existing variant). Update captures and copy through the normal asset and layout tools first. Reuse idempotencyKey for retries; never replace it after an uncertain outcome.",
+        "Render the saved translations of the active screenshot variant (or a specified existing variant). Use list_export_formats for sizes. Set resolutions['android.phone'] to {preset:'preview'} for 1290x2796 or {preset:'play-high'} for 2160x3840 (default). Any requested format can use exact custom {width,height} (320-8192 pixels); custom sizes may not satisfy store requirements. Presets follow layout orientation. One resolution per format per request. Update captures and copy through the normal asset and layout tools first. Reuse idempotencyKey for retries; never replace it after an uncertain outcome.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
         formats: z.array(z.string()),
+        resolutions: z
+          .record(
+            z.string(),
+            z.union([
+              z.object({ preset: z.enum(["play-high", "preview"]) }).strict(),
+              z
+                .object({
+                  width: z.number().int().min(320).max(8192),
+                  height: z.number().int().min(320).max(8192),
+                })
+                .strict(),
+            ]),
+          )
+          .optional(),
         languages: z.array(z.string()),
         idempotencyKey: z.string().min(8).max(128),
       }),

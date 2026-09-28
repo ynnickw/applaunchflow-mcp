@@ -215,6 +215,7 @@ test("SDK edits the existing variant then renders saved translations", async () 
       variantId,
       languages: ["de"],
       formats: ["ios.phone.6.5" as const],
+      resolutions: { "ios.phone.6.5": { width: 1290, height: 2796 } },
     };
     const rendered = await client.createRender(input, "render-active-variant");
     assert.equal(rendered.variantId, variantId);
