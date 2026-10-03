@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { errorCategory } from "./telemetry.js";
 
 const requestSignalStorage = new AsyncLocalStorage<AbortSignal>();
 const widgetFallbackStorage = new AsyncLocalStorage<boolean>();
@@ -10,14 +11,26 @@ export function withWidgetFallback<T>(enabled: boolean, run: () => T): T {
 export function needsWidgetFallback(): boolean {
   return widgetFallbackStorage.getStore() === true;
 }
-const requestTelemetryStorage = new AsyncLocalStorage<{ requestId: string }>();
+interface RequestTelemetry {
+  requestId: string;
+  analyticsIdentity?: { userId: string; clientName: string };
+}
+const requestTelemetryStorage = new AsyncLocalStorage<RequestTelemetry>();
 
-export function runWithRequestTelemetry<T>(requestId: string, callback: () => T): T {
-  return requestTelemetryStorage.run({ requestId }, callback);
+export function runWithRequestTelemetry<T>(
+  requestId: string,
+  callback: () => T,
+  analyticsIdentity?: RequestTelemetry["analyticsIdentity"],
+): T {
+  return requestTelemetryStorage.run(
+    { requestId, analyticsIdentity },
+    callback,
+  );
 }
 
 export function requestTelemetry(): { requestId?: string } {
-  return requestTelemetryStorage.getStore() || {};
+  const requestId = requestTelemetryStorage.getStore()?.requestId;
+  return requestId ? { requestId } : {};
 }
 
 export function runWithRequestSignal<T>(
@@ -38,4 +51,18 @@ export function upstreamSignal(
   ].filter((signal): signal is AbortSignal => signal !== undefined);
 
   return signals.length === 1 ? signals[0] : AbortSignal.any(signals);
+}
+
+export function requestAnalyticsIdentity() {
+  return requestTelemetryStorage.getStore()?.analyticsIdentity;
+}
+
+/** SDK cancellation reasons may be plain Error objects, not AbortError. */
+export function requestErrorCategory(
+  error: unknown,
+  signal = requestSignalStorage.getStore(),
+): string {
+  if (signal?.aborted)
+    return errorCategory(signal.reason) === "timeout" ? "timeout" : "cancelled";
+  return errorCategory(error);
 }

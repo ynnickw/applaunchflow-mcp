@@ -182,7 +182,11 @@ export class AppLaunchFlowClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Upload failed with status ${response.status}`);
+      throw new AppLaunchFlowApiError(
+        `Upload failed with status ${response.status}`,
+        response.status,
+        undefined,
+      );
     }
   }
 

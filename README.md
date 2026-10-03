@@ -274,3 +274,26 @@ For maintainers, regenerate the packaged list views and shared contracts with
 they match without updating the connector artifacts. `npm test` checks artifact
 integrity and contract hashes without requiring another checkout or network.
 Existing screenshot, social and promo picker behavior is unchanged.
+
+
+### Hosted MCP runtime metrics
+
+Set both `APPLAUNCHFLOW_MCP_POSTHOG_KEY` (the PostHog project token, not a personal
+API key) and `APPLAUNCHFLOW_MCP_POSTHOG_HOST` (for example,
+`https://eu.i.posthog.com`) to opt into hosted `$mcp_tool_call` events.
+Use the ingestion host for the same project that receives dashboard/landing events.
+Capture is disabled when either variable is absent and for local stdio calls.
+
+Events use the account ID returned by authenticated token introspection and contain
+only the tool name, client family, duration, outcome and fixed error category.
+Arguments, outputs, asset URLs, prompts, bearer tokens and project contents are
+excluded. Capture runs in the background, is bounded, and never retries a tool or
+changes its result when analytics is unavailable. Existing Railway logs remain.
+No session or agent-intent grouping is inferred from stateless requests.
+
+Long-running style generation sends progress when the MCP request supplies a
+progress token. Clients must request progress and reset their timeout on it;
+a fixed client deadline can still end the call. After an uncertain generation,
+inspect project/catalog state before retrying. For rendering, reuse the original
+idempotency key and poll `get_release_render` until the job reaches a terminal
+status; acceptance alone does not prove the package succeeded.

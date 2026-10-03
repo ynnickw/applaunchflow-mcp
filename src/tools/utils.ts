@@ -5,6 +5,7 @@ import type {
   ServerContext,
 } from "@modelcontextprotocol/server";
 import { AppLaunchFlowApiError } from "../client/api.js";
+import { requestErrorCategory } from "../request-context.js";
 import { ToolInputError } from "../telemetry.js";
 
 /**
@@ -244,9 +245,9 @@ interface ValidationIssue {
 function extractValidationIssues(error: unknown): ValidationIssue[] | null {
   if (!(error instanceof AppLaunchFlowApiError)) return null;
   const body = error.body as
-    | { details?: unknown; error?: { details?: unknown } }
+    | { errors?: unknown; details?: unknown; error?: { details?: unknown } }
     | undefined;
-  const details = body?.details ?? body?.error?.details;
+  const details = body?.errors ?? body?.details ?? body?.error?.details;
   if (!Array.isArray(details)) return null;
   return details.filter(
     (issue): issue is ValidationIssue =>
@@ -278,6 +279,7 @@ function formatValidationIssue(issue: ValidationIssue): string {
 
 export function fail(error: unknown) {
   const issues = extractValidationIssues(error);
+  const category = requestErrorCategory(error);
 
   const normalized =
     error instanceof AppLaunchFlowApiError
@@ -296,9 +298,9 @@ export function fail(error: unknown) {
           code:
             error instanceof ToolInputError
               ? error.code
-              : error instanceof Error && error.name === "AbortError"
+              : category === "cancelled"
                 ? "REQUEST_CANCELLED"
-                : error instanceof Error && error.name === "TimeoutError"
+                : category === "timeout"
                   ? "UPSTREAM_TIMEOUT"
                   : "UNKNOWN",
           type: error instanceof ToolInputError ? "validation" : "server",
@@ -327,6 +329,31 @@ export function fail(error: unknown) {
     structuredContent: {
       success: false,
       error: normalized,
+    },
+  };
+}
+
+/** Preserve only a fixed category when upstream errors may contain upload secrets. */
+export function safeFail(error: unknown, message: string) {
+  const category = requestErrorCategory(error);
+  const result = fail(new Error(message));
+  return {
+    ...result,
+    structuredContent: {
+      success: false,
+      error: {
+        code:
+          error instanceof ToolInputError ? error.code : category.toUpperCase(),
+        type:
+          category === "validation" || error instanceof ToolInputError
+            ? "validation"
+            : "server",
+        category,
+        message,
+        ...(error instanceof AppLaunchFlowApiError
+          ? { status: error.status }
+          : {}),
+      },
     },
   };
 }

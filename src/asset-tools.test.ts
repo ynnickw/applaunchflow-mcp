@@ -3,6 +3,7 @@ import test from "node:test";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createAppLaunchFlowServer } from "./index.js";
 import { ASSET_LIST_URI } from "./tools/assets.js";
+import { toolErrorCategory } from "./telemetry.js";
 
 const projectId = "00000000-0000-4000-8000-000000000001";
 const origin = "https://dashboard.applaunchflow.com";
@@ -85,6 +86,11 @@ test("folder uploads validate scope first and report uploaded paths when assignm
       arguments: args,
     });
     assert.equal(partial.isError, true);
+    assert.equal(
+      (partial.structuredContent as { success: boolean }).success,
+      false,
+    );
+    assert.equal(toolErrorCategory(partial), "upstream_error");
     assert.match(
       JSON.stringify(partial.structuredContent),
       /mobile\/ios\/new.png/,
@@ -267,6 +273,7 @@ test("upload_asset supports image/media/font categories and rejects wrong media 
       },
     });
     assert.equal(rejected.isError, true);
+    assert.equal(toolErrorCategory(rejected), "validation");
     assert.equal(requests.length, before);
     const screenshot = await client.callTool({
       name: "upload_screenshots",
@@ -420,4 +427,50 @@ test("iframe upload grants are app-only, account-authenticated and private; uplo
     }
   }
   assert.notEqual(bodies[0].filename, bodies[1].filename);
+});
+
+test("upload failures preserve safe categories without exposing signed URLs or API bodies", async (t) => {
+  let status = 403;
+  let binary = false;
+  t.mock.method(globalThis, "fetch", async (input: unknown) => {
+    if (String(input).endsWith("/signed-url") && binary)
+      return Response.json({
+        uploadUrl: "https://upload.test/file?token=private-upload-token",
+        path: "logo/new.png",
+        filename: "new.png",
+        subfolder: "logo",
+      });
+    return Response.json(
+      { error: { message: "private-upload-token", code: "private-code" } },
+      { status },
+    );
+  });
+  const { client, close } = await connect();
+  try {
+    for (const phase of ["authorization", "binary"]) {
+      binary = phase === "binary";
+      for (const [httpStatus, category] of [
+        [403, "forbidden"],
+        [503, "upstream_error"],
+      ] as const) {
+        status = httpStatus;
+        const result = await client.callTool({
+          name: "upload_asset",
+          arguments: {
+            projectId,
+            fileType: "logo",
+            source: { filename: "logo.png", base64: "YWJj" },
+          },
+        });
+        assert.equal(result.isError, true);
+        assert.equal(toolErrorCategory(result), category, phase);
+        assert.doesNotMatch(
+          JSON.stringify(result),
+          /private-|uploadUrl|Bearer/,
+        );
+      }
+    }
+  } finally {
+    await close();
+  }
 });

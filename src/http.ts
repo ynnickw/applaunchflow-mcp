@@ -28,6 +28,8 @@ import {
   safeRpcMethod,
 } from "./telemetry.js";
 
+import { mcpClientName } from "./mcp-analytics.js";
+
 const DEFAULT_PORT = 8787;
 const INTROSPECTION_TIMEOUT_MS = 10_000;
 const DEFAULT_DASHBOARD_URL = "https://dashboard.applaunchflow.com";
@@ -398,7 +400,10 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
     } finally {
       await handler.close().catch(() => undefined);
     }
-  });
+  }, typeof auth.extra?.userId === "string" ? {
+    userId: auth.extra.userId,
+    clientName: mcpClientName(request.headers["user-agent"]),
+  } : undefined);
 }
 
 export function createHttpServer() {

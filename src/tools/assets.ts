@@ -11,7 +11,7 @@ import {
 } from "../client/api.js";
 import { upstreamSignal } from "../request-context.js";
 import { ToolInputError } from "../telemetry.js";
-import { fail, ok } from "./utils.js";
+import { fail, ok, safeFail } from "./utils.js";
 import { assetSummary } from "./asset-summary.js";
 
 import {
@@ -73,10 +73,16 @@ export function isPrivateOrReservedIp(address: string): boolean {
 async function assertSafeRemoteUrl(value: string): Promise<URL> {
   const url = new URL(value);
   if (url.protocol !== "https:") {
-    throw new Error("Hosted connectors only fetch assets over HTTPS");
+    throw new ToolInputError(
+      "INVALID_UPLOAD_INPUT",
+      "Hosted connectors only fetch assets over HTTPS",
+    );
   }
   if (url.username || url.password) {
-    throw new Error("Asset URLs must not contain embedded credentials");
+    throw new ToolInputError(
+      "INVALID_UPLOAD_INPUT",
+      "Asset URLs must not contain embedded credentials",
+    );
   }
 
   const addresses = await dns.lookup(url.hostname, {
@@ -87,7 +93,10 @@ async function assertSafeRemoteUrl(value: string): Promise<URL> {
     addresses.length === 0 ||
     addresses.some(({ address }) => isPrivateOrReservedIp(address))
   ) {
-    throw new Error("Asset URL resolves to a private or reserved network");
+    throw new ToolInputError(
+      "INVALID_UPLOAD_INPUT",
+      "Asset URL resolves to a private or reserved network",
+    );
   }
   return url;
 }
@@ -95,7 +104,10 @@ async function assertSafeRemoteUrl(value: string): Promise<URL> {
 async function readResponseWithLimit(response: Response): Promise<Buffer> {
   const declaredLength = Number(response.headers.get("content-length") || 0);
   if (declaredLength > MAX_UPLOAD_BYTES) {
-    throw new Error("Asset exceeds the 25 MB upload limit");
+    throw new ToolInputError(
+      "INVALID_UPLOAD_INPUT",
+      "Asset exceeds the 25 MB upload limit",
+    );
   }
   if (!response.body) return Buffer.alloc(0);
 
@@ -108,7 +120,10 @@ async function readResponseWithLimit(response: Response): Promise<Buffer> {
     total += value.byteLength;
     if (total > MAX_UPLOAD_BYTES) {
       await reader.cancel();
-      throw new Error("Asset exceeds the 25 MB upload limit");
+      throw new ToolInputError(
+        "INVALID_UPLOAD_INPUT",
+        "Asset exceeds the 25 MB upload limit",
+      );
     }
     chunks.push(value);
   }
@@ -258,7 +273,11 @@ async function resolveUploadPayload(
   if (source.url) {
     const { response, finalUrl } = await fetchRemoteAsset(source.url);
     if (!response.ok) {
-      throw new Error(`Failed to fetch ${source.url}: ${response.status}`);
+      throw new AppLaunchFlowApiError(
+        "Asset source download failed",
+        response.status,
+        undefined,
+      );
     }
     const contentType = response.headers.get("content-type") || "";
     if (
@@ -266,8 +285,9 @@ async function resolveUploadPayload(
         contentType,
       )
     ) {
-      throw new Error(
-        `Asset URL returned unsupported content type: ${contentType || "unknown"}`,
+      throw new ToolInputError(
+        "INVALID_UPLOAD_INPUT",
+        "Asset URL returned an unsupported content type",
       );
     }
     const buffer = await readResponseWithLimit(response);
@@ -286,7 +306,10 @@ async function resolveUploadPayload(
   const normalizedBase64 = source.base64!.replace(/^data:[^;]+;base64,/, "");
   const buffer = Buffer.from(normalizedBase64, "base64");
   if (buffer.byteLength > MAX_UPLOAD_BYTES) {
-    throw new Error("Asset exceeds the 25 MB upload limit");
+    throw new ToolInputError(
+      "INVALID_UPLOAD_INPUT",
+      "Asset exceeds the 25 MB upload limit",
+    );
   }
   return [
     {
@@ -378,12 +401,11 @@ export function registerAssetTools(
           ...ok({ projectId: request.projectId }, "Upload permission prepared"),
           _meta: { assetUpload: grant },
         };
-      } catch {
+      } catch (error) {
         // Validation errors can contain the signed URL. Never echo upload secrets to the model.
-        return fail(
-          new Error(
-            "Could not authorize this upload. Check the file type, size, connection and project access.",
-          ),
+        return safeFail(
+          error,
+          "Could not authorize this upload. Check the file type, size, connection and project access.",
         );
       }
     },
@@ -442,7 +464,8 @@ export function registerAssetTools(
       }> = [];
       try {
         if (targetPath && (!overwrite || sources.length !== 1))
-          throw new Error(
+          throw new ToolInputError(
+            "INVALID_UPLOAD_INPUT",
             "targetPath requires overwrite=true and exactly one source",
           );
         if (folderId) {
@@ -463,12 +486,18 @@ export function registerAssetTools(
                 folder.platform === platform,
             )
           )
-            throw new Error("Folder does not match upload scope");
+            throw new ToolInputError(
+              "INVALID_UPLOAD_INPUT",
+              "Folder does not match upload scope",
+            );
         }
         for (const source of sources) {
           const payloads = await resolveUploadPayload(source);
           if (targetPath && payloads.length !== 1)
-            throw new Error("targetPath requires exactly one image, not a ZIP");
+            throw new ToolInputError(
+              "INVALID_UPLOAD_INPUT",
+              "targetPath requires exactly one image, not a ZIP",
+            );
           for (const payload of payloads) {
             const signed = await client.createSignedUpload({
               projectId,
@@ -543,27 +572,34 @@ export function registerAssetTools(
       } catch (error) {
         if (error instanceof ToolInputError && !uploads.length)
           return fail(error);
+        const partial = ok(
+          {
+            uploads,
+            folderId,
+            pendingOverwrite,
+            complete: false,
+            ...(error instanceof AppLaunchFlowApiError &&
+            error.body?.code === "AMBIGUOUS_FILENAME"
+              ? {
+                  code: "AMBIGUOUS_FILENAME",
+                  nextStep:
+                    "Supply the exact targetPath already bound in the design; filename matches were ambiguous and this file was not overwritten.",
+                }
+              : {}),
+          },
+          overwrite
+            ? "Overwrite incomplete. Completed overwrites are listed and may affect existing designs. Do not blindly retry: check project/operation state first. Staged uploads and backups are retained."
+            : "Upload incomplete. Successfully uploaded files are listed; unassigned files can be moved with move_assets. No saved designs were changed.",
+        );
         return {
-          ...ok(
-            {
-              uploads,
-              folderId,
-              pendingOverwrite,
-              complete: false,
-              ...(error instanceof AppLaunchFlowApiError &&
-              error.body?.code === "AMBIGUOUS_FILENAME"
-                ? {
-                    code: "AMBIGUOUS_FILENAME",
-                    nextStep:
-                      "Supply the exact targetPath already bound in the design; filename matches were ambiguous and this file was not overwritten.",
-                  }
-                : {}),
-            },
-            overwrite
-              ? "Overwrite incomplete. Completed overwrites are listed and may affect existing designs. Do not blindly retry: check project/operation state first. Staged uploads and backups are retained."
-              : "Upload incomplete. Successfully uploaded files are listed; unassigned files can be moved with move_assets. No saved designs were changed.",
-          ),
+          ...partial,
           isError: true,
+          structuredContent: {
+            ...partial.structuredContent,
+            success: false,
+            error: safeFail(error, partial.structuredContent.message!)
+              .structuredContent.error,
+          },
         };
       }
     },
@@ -657,7 +693,10 @@ export function registerAssetTools(
         const payloads = await resolveUploadPayload(source);
         const payload = payloads[0];
         if (payload.buffer.byteLength > MAX_UPLOAD_BYTES)
-          throw new Error("Asset exceeds the 25 MB upload limit");
+          throw new ToolInputError(
+            "INVALID_UPLOAD_INPUT",
+            "Asset exceeds the 25 MB upload limit",
+          );
         const mime = payload.contentType;
         const allowed =
           fileType === "font"
@@ -667,7 +706,10 @@ export function registerAssetTools(
                 mime.startsWith("video/")) ||
               (fileType === "promo-media" && mime.startsWith("audio/"));
         if (!allowed)
-          throw new Error(`Unsupported content type for ${fileType}: ${mime}`);
+          throw new ToolInputError(
+            "INVALID_UPLOAD_INPUT",
+            "Unsupported content type for this asset category",
+          );
         const signed = await client.createSignedUpload({
           projectId,
           filename: `${randomUUID()}-${payload.filename}`,
@@ -687,11 +729,10 @@ export function registerAssetTools(
           },
           `Uploaded ${fileType} asset`,
         );
-      } catch {
-        return fail(
-          new Error(
-            "Asset upload failed. Check file type, size and project access; list assets before retrying an uncertain upload.",
-          ),
+      } catch (error) {
+        return safeFail(
+          error,
+          "Asset upload failed. Check file type, size and project access; list assets before retrying an uncertain upload.",
         );
       }
     },
