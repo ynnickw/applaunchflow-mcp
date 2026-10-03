@@ -3,7 +3,8 @@ export class ToolInputError extends Error {
   constructor(
     public readonly code:
       | "READ_BEFORE_EDIT_REQUIRED"
-      | "HOSTED_FILE_PATH_UNSUPPORTED",
+      | "HOSTED_FILE_PATH_UNSUPPORTED"
+      | "INVALID_UPLOAD_INPUT",
     message: string,
   ) {
     super(message);
@@ -16,8 +17,30 @@ function record(value: unknown): Record<string, unknown> {
     : {};
 }
 
+const ERROR_CATEGORIES = new Set([
+  "read_before_edit_required",
+  "hosted_file_path_unsupported",
+  "cancelled",
+  "timeout",
+  "validation",
+  "unauthorized",
+  "forbidden",
+  "not_found",
+  "conflict",
+  "rate_limited",
+  "upstream_error",
+  "unknown",
+]);
+
 export function errorCategory(error: unknown): string {
   const value = record(error);
+  if (
+    typeof value.category === "string" &&
+    ERROR_CATEGORIES.has(value.category)
+  )
+    return value.category;
+  if (value.code === "INVALID_UPLOAD_INPUT" || value.name === "ZodError")
+    return "validation";
   if (value.code === "READ_BEFORE_EDIT_REQUIRED")
     return "read_before_edit_required";
   if (value.code === "HOSTED_FILE_PATH_UNSUPPORTED")

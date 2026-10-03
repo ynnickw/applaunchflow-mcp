@@ -2,11 +2,13 @@ import type { McpServer, ToolAnnotations } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
   requestTelemetry,
+  requestErrorCategory,
   runWithRequestSignal,
   needsWidgetFallback,
 } from "./request-context.js";
 import { cursorWidgetResult } from "./widget-result.js";
-import { errorCategory, toolErrorCategory } from "./telemetry.js";
+import { captureMcpTool } from "./mcp-analytics.js";
+import { toolErrorCategory } from "./telemetry.js";
 
 const readOnly: ToolAnnotations = {
   readOnlyHint: true,
@@ -144,8 +146,7 @@ export function installToolMetadataPolicy(
     const instrumentedCallback = async (...args: unknown[]) => {
       const startedAt = performance.now();
       const context = args[1] as
-        | { mcpReq?: { signal?: AbortSignal } }
-        | undefined;
+        { mcpReq?: { signal?: AbortSignal } } | undefined;
 
       try {
         const result = await runWithRequestSignal(context?.mcpReq?.signal, () =>
@@ -166,6 +167,12 @@ export function installToolMetadataPolicy(
             ...(isError ? { errorCategory: toolErrorCategory(result) } : {}),
           }),
         );
+        void captureMcpTool({
+          tool: name,
+          outcome: isError ? "error" : "success",
+          durationMs: Math.round(performance.now() - startedAt),
+          ...(isError ? { category: toolErrorCategory(result) } : {}),
+        });
         return needsWidgetFallback() ? cursorWidgetResult(result) : result;
       } catch (error) {
         console.error(
@@ -175,9 +182,15 @@ export function installToolMetadataPolicy(
             tool: name,
             outcome: "exception",
             durationMs: Math.round(performance.now() - startedAt),
-            errorCategory: errorCategory(error),
+            errorCategory: requestErrorCategory(error, context?.mcpReq?.signal),
           }),
         );
+        void captureMcpTool({
+          tool: name,
+          outcome: "exception",
+          durationMs: Math.round(performance.now() - startedAt),
+          category: requestErrorCategory(error, context?.mcpReq?.signal),
+        });
         throw error;
       }
     };
