@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { createHttpServer } from "./http.js";
-import { captureMcpTool } from "./mcp-analytics.js";
+import { captureMcpTool, requireMcpAnalyticsConfig } from "./mcp-analytics.js";
 import {
   runWithRequestTelemetry,
   requestTelemetry,
@@ -27,7 +30,7 @@ function restoreEnv() {
   };
 }
 
-test("opt-in hosted tool analytics use verified identity and metadata only across concurrent requests", async (t) => {
+test("required hosted tool analytics use verified identity and metadata only across concurrent requests", async (t) => {
   const restore = restoreEnv();
   const events: Array<Record<string, any>> = [];
   const nativeFetch = globalThis.fetch;
@@ -137,7 +140,7 @@ test("opt-in hosted tool analytics use verified identity and metadata only acros
   }
 });
 
-test("analytics are disabled without configuration or verified hosted identity and failures do not escape", async (t) => {
+test("hosted analytics require configuration; local calls are excluded and delivery failures do not escape", async (t) => {
   const restore = restoreEnv();
   let calls = 0;
   t.mock.method(console, "warn", () => undefined);
@@ -155,14 +158,11 @@ test("analytics are disabled without configuration or verified hosted identity a
   try {
     delete process.env.APPLAUNCHFLOW_MCP_POSTHOG_KEY;
     delete process.env.APPLAUNCHFLOW_MCP_POSTHOG_HOST;
-    await runWithRequestTelemetry(
-      "request",
-      () => captureMcpTool(args),
-      identity,
-    );
-    assert.equal(calls, 0);
+    assert.throws(() => requireMcpAnalyticsConfig(), /Hosted MCP requires/);
     process.env.APPLAUNCHFLOW_MCP_POSTHOG_KEY = "fixture-project-token";
+    assert.throws(() => requireMcpAnalyticsConfig(), /Hosted MCP requires/);
     process.env.APPLAUNCHFLOW_MCP_POSTHOG_HOST = analyticsHost;
+    assert.equal(requireMcpAnalyticsConfig().origin.origin, analyticsHost);
     await captureMcpTool(args); // stdio/local: no verified account identity
     assert.equal(calls, 0);
     await runWithRequestTelemetry(
@@ -173,6 +173,10 @@ test("analytics are disabled without configuration or verified hosted identity a
     assert.equal(calls, 1);
     process.env.APPLAUNCHFLOW_MCP_POSTHOG_HOST =
       "https://secret@eu.i.posthog.com";
+    assert.throws(
+      () => requireMcpAnalyticsConfig(),
+      /Invalid MCP PostHog host/,
+    );
     await runWithRequestTelemetry(
       "request",
       () => captureMcpTool(args),
@@ -182,4 +186,25 @@ test("analytics are disabled without configuration or verified hosted identity a
   } finally {
     restore();
   }
+});
+
+test("production HTTP entrypoint exits before listening when required PostHog configuration is missing", async () => {
+  const env = { ...process.env };
+  delete env.APPLAUNCHFLOW_MCP_POSTHOG_KEY;
+  delete env.APPLAUNCHFLOW_MCP_POSTHOG_HOST;
+  env.PORT = "0";
+  await assert.rejects(
+    promisify(execFile)(
+      process.execPath,
+      [fileURLToPath(new URL("./http.js", import.meta.url))],
+      { env, timeout: 3000 },
+    ),
+    (error: unknown) => {
+      const failure = error as { code: number; stdout: string; stderr: string };
+      assert.equal(failure.code, 1);
+      assert.match(failure.stderr, /Hosted MCP requires/);
+      assert.doesNotMatch(failure.stdout, /server listening/);
+      return true;
+    },
+  );
 });

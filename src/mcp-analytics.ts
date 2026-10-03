@@ -15,31 +15,47 @@ export function mcpClientName(userAgent: string | undefined): string {
   return "Other";
 }
 
-/** Metadata-only, opt-in hosted telemetry. Never capture tool arguments/results. */
+/** Hosted MCP must never start with silently disabled runtime analytics. */
+export function requireMcpAnalyticsConfig() {
+  const apiKey = process.env.APPLAUNCHFLOW_MCP_POSTHOG_KEY?.trim();
+  const host = process.env.APPLAUNCHFLOW_MCP_POSTHOG_HOST?.trim();
+  if (!apiKey || !host) {
+    throw new Error(
+      "Hosted MCP requires APPLAUNCHFLOW_MCP_POSTHOG_KEY and APPLAUNCHFLOW_MCP_POSTHOG_HOST",
+    );
+  }
+  let origin: URL;
+  try {
+    origin = new URL(host);
+  } catch {
+    throw new Error("Invalid MCP PostHog host");
+  }
+  if (
+    origin.protocol !== "https:" ||
+    origin.username ||
+    origin.password ||
+    origin.search ||
+    origin.hash ||
+    origin.pathname !== "/"
+  ) {
+    throw new Error("Invalid MCP PostHog host");
+  }
+  return { apiKey, origin };
+}
+
+/** Required hosted telemetry. Never capture tool arguments/results. */
 export async function captureMcpTool(args: {
   tool: string;
   outcome: "success" | "error" | "exception";
   durationMs: number;
   category?: string;
 }): Promise<void> {
-  const apiKey = process.env.APPLAUNCHFLOW_MCP_POSTHOG_KEY;
-  const host = process.env.APPLAUNCHFLOW_MCP_POSTHOG_HOST;
   const identity = requestAnalyticsIdentity();
   // Local stdio calls have no verified account identity and are not captured.
-  if (!apiKey || !host || !identity || inFlight >= MAX_IN_FLIGHT) return;
+  if (!identity || inFlight >= MAX_IN_FLIGHT) return;
   inFlight++;
   try {
-    const origin = new URL(host);
-    if (
-      origin.protocol !== "https:" ||
-      origin.username ||
-      origin.password ||
-      origin.search ||
-      origin.hash ||
-      origin.pathname !== "/"
-    ) {
-      throw new Error("Invalid analytics host");
-    }
+    const { apiKey, origin } = requireMcpAnalyticsConfig();
     const category = errorCategory({ category: args.category });
     const errorTypes: Record<string, string> = {
       validation: "validation",

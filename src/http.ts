@@ -28,7 +28,7 @@ import {
   safeRpcMethod,
 } from "./telemetry.js";
 
-import { mcpClientName } from "./mcp-analytics.js";
+import { mcpClientName, requireMcpAnalyticsConfig } from "./mcp-analytics.js";
 
 const DEFAULT_PORT = 8787;
 const INTROSPECTION_TIMEOUT_MS = 10_000;
@@ -465,6 +465,7 @@ export function createHttpServer() {
 }
 
 async function main() {
+  requireMcpAnalyticsConfig();
   const port = Number(process.env.PORT || DEFAULT_PORT);
   const server = createHttpServer();
   server.listen(port, "0.0.0.0", () => {

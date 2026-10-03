@@ -280,9 +280,10 @@ Existing screenshot, social and promo picker behavior is unchanged.
 
 Set both `APPLAUNCHFLOW_MCP_POSTHOG_KEY` (the PostHog project token, not a personal
 API key) and `APPLAUNCHFLOW_MCP_POSTHOG_HOST` (for example,
-`https://eu.i.posthog.com`) to opt into hosted `$mcp_tool_call` events.
+`https://eu.i.posthog.com`) for the required hosted `$mcp_tool_call` events.
 Use the ingestion host for the same project that receives dashboard/landing events.
-Capture is disabled when either variable is absent and for local stdio calls.
+The hosted server refuses to start if either variable is missing or the host is invalid.
+Local stdio calls are excluded because they have no verified hosted account identity.
 
 Events use the account ID returned by authenticated token introspection and contain
 only the tool name, client family, duration, outcome and fixed error category.
