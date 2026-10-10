@@ -415,7 +415,7 @@ export function registerAssetTools(
     {
       title: "Upload Screenshots",
       description:
-        "Upload screenshot images for screenshot generation workflows. Hosted connectors must use HTTPS URLs or base64 data; local file paths are available only to the npm/stdio connector.",
+        "Upload screenshot images for screenshot generation workflows. Hosted connectors must use HTTPS URLs or base64 data; local file paths are available only to the npm/stdio connector. If a batch is incomplete, follow its recovery guidance and do not re-upload completed files.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         deviceType: z.enum(["mobile", "tablet", "desktop", "watch"]),
@@ -454,7 +454,14 @@ export function registerAssetTools(
       let pendingOverwrite:
         | { operationId: string; sourcePath: string; targetPath?: string }
         | undefined;
+      let sourceIndex = 0;
+      let fileIndex = 0;
+      let phase = "source_download";
+      let pendingUpload: { path: string; filename: string } | undefined;
       const uploads: Array<{
+        sourceIndex: number;
+        fileIndex: number;
+        sourceFilename: string;
         filename: string;
         path: string;
         subfolder: string;
@@ -491,14 +498,19 @@ export function registerAssetTools(
               "Folder does not match upload scope",
             );
         }
-        for (const source of sources) {
+        for (; sourceIndex < sources.length; sourceIndex++) {
+          const source = sources[sourceIndex];
+          fileIndex = 0;
+          phase = "source_download";
           const payloads = await resolveUploadPayload(source);
           if (targetPath && payloads.length !== 1)
             throw new ToolInputError(
               "INVALID_UPLOAD_INPUT",
               "targetPath requires exactly one image, not a ZIP",
             );
-          for (const payload of payloads) {
+          for (; fileIndex < payloads.length; fileIndex++) {
+            const payload = payloads[fileIndex];
+            phase = "upload_authorization";
             const signed = await client.createSignedUpload({
               projectId,
               filename: `${randomUUID()}-${payload.filename}`,
@@ -509,6 +521,8 @@ export function registerAssetTools(
                 ? { fileType: "screenshot-overwrite-stage" as const }
                 : {}),
             });
+            pendingUpload = { path: signed.path, filename: signed.filename };
+            phase = "upload";
             await client.uploadBinary(
               signed.uploadUrl,
               payload.buffer,
@@ -520,6 +534,7 @@ export function registerAssetTools(
                 sourcePath: signed.path,
                 targetPath,
               };
+            phase = "overwrite";
             const stored = overwrite
               ? await client.requestJson<{
                   path: string;
@@ -540,7 +555,11 @@ export function registerAssetTools(
                 })
               : signed;
             pendingOverwrite = undefined;
+            pendingUpload = undefined;
             uploads.push({
+              sourceIndex,
+              fileIndex,
+              sourceFilename: payload.filename,
               filename: stored.filename,
               path: stored.path,
               subfolder: stored.subfolder,
@@ -549,18 +568,26 @@ export function registerAssetTools(
                 ? { revision: stored.revision, backupPath: stored.backupPath }
                 : {}),
             });
-            if (folderId) {
-              await client.requestJson("/api/assets/folders", {
-                method: "POST",
-                body: {
-                  projectId,
-                  action: "move",
-                  folderId,
-                  paths: [stored.path],
-                },
-              });
-              uploads[uploads.length - 1].folderAssigned = true;
-            }
+          }
+        }
+        if (folderId) {
+          phase = "folder_assignment";
+          // The API supports moving multiple paths in one mutation. Avoid one
+          // account-wide rate-limit slot per screenshot in a batch.
+          for (let offset = 0; offset < uploads.length; offset += 50) {
+            // Match the folder API's 50-path limit and retain completed chunks
+            // if a later assignment fails.
+            const chunk = uploads.slice(offset, offset + 50);
+            await client.requestJson("/api/assets/folders", {
+              method: "POST",
+              body: {
+                projectId,
+                action: "move",
+                folderId,
+                paths: chunk.map((upload) => upload.path),
+              },
+            });
+            for (const upload of chunk) upload.folderAssigned = true;
           }
         }
         return ok(
@@ -577,6 +604,18 @@ export function registerAssetTools(
             uploads,
             folderId,
             pendingOverwrite,
+            pendingUpload,
+            recovery: {
+              phase,
+              sourceIndex,
+              fileIndex,
+              nextStep:
+                phase === "folder_assignment"
+                  ? "All files were uploaded. Use move_assets with the listed unassigned paths; do not upload them again."
+                  : pendingUpload || pendingOverwrite
+                    ? "Check the pending path or overwrite operation before retrying: the write may have completed. Do not repeat successful uploads."
+                    : "Retry only the failed source and remaining sources. For a directory source, skip the completed files listed by sourceIndex/fileIndex. Do not repeat successful uploads. Refresh expired source URLs or use base64 data if a source download timed out.",
+            },
             complete: false,
             ...(error instanceof AppLaunchFlowApiError &&
             error.body?.code === "AMBIGUOUS_FILENAME"
