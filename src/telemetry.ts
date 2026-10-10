@@ -25,6 +25,7 @@ const ERROR_CATEGORIES = new Set([
   "validation",
   "unauthorized",
   "forbidden",
+  "payment_required",
   "not_found",
   "conflict",
   "rate_limited",
@@ -55,6 +56,8 @@ export function errorCategory(error: unknown): string {
       return "validation";
     case 401:
       return "unauthorized";
+    case 402:
+      return "payment_required";
     case 403:
       return "forbidden";
     case 404:

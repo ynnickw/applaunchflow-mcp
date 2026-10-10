@@ -63,6 +63,7 @@ export async function captureMcpTool(args: {
       hosted_file_path_unsupported: "validation",
       unauthorized: "permission",
       forbidden: "permission",
+      payment_required: "api_4xx",
       not_found: "api_4xx",
       conflict: "api_4xx",
       rate_limited: "rate_limited",

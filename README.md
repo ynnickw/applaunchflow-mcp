@@ -298,3 +298,18 @@ a fixed client deadline can still end the call. After an uncertain generation,
 inspect project/catalog state before retrying. For rendering, reuse the original
 idempotency key and poll `get_release_render` until the job reaches a terminal
 status; acceptance alone does not prove the package succeeded.
+
+### Interrupted screenshot uploads
+
+`upload_screenshots` reports each completed file with zero-based `sourceIndex`
+and `fileIndex`, its original `sourceFilename`, stored `path`, and
+`folderAssigned`. Folder assignment runs after uploads in chunks of up to 50
+paths, rather than consuming one mutation per file.
+
+An incomplete batch includes `recovery.phase`, the failed source/file indices,
+and `recovery.nextStep`. Retry only the failed and remaining sources. If only
+folder assignment failed, use `move_assets` on unassigned paths without
+uploading again. A `pendingUpload` or `pendingOverwrite` means a write's outcome
+needs checking before retrying. No signed upload URLs or source URLs are
+returned in recovery diagnostics. Quota exhaustion (HTTP 402) is classified as
+`payment_required` / `api_4xx` in tool telemetry.
