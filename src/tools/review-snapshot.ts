@@ -6,7 +6,7 @@ import { fail, ok } from "./utils.js";
 export function registerReviewSnapshotTools(server: McpServer, client: AppLaunchFlowClient) {
   server.registerTool("store_review_snapshot", {
     title: "Send Rendered Preview for Review",
-    description: "App-only: temporarily store the PNG rendered by the edit-result widget after the user clicks Review. Does not render on the server or modify any design or library asset.",
+    description: "App-only: temporarily store the PNG rendered by the edit-result widget for automatic review or a manual Review retry. Does not render on the server or modify any design or library asset.",
     inputSchema: z.object({ projectId: z.string().uuid(), png: z.string().max(4_000_000) }).strict(),
     _meta: { ui: { visibility: ["app"] }, "openai/widgetAccessible": true, "openai/visibility": "private" },
   }, async ({ projectId, png }) => {
