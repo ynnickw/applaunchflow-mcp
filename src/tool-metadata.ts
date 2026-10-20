@@ -203,7 +203,11 @@ export function installToolMetadataPolicy(
           ...((config.annotations || {}) as ToolAnnotations),
           ...annotations,
         },
-        outputSchema: config.outputSchema || GENERIC_OUTPUT_SCHEMA,
+        // Image-only tools must not advertise JSON output: structured-output
+        // clients can otherwise unwrap that JSON and discard sibling PNG bytes.
+        ...(name === "view_review_snapshot"
+          ? {}
+          : { outputSchema: config.outputSchema || GENERIC_OUTPUT_SCHEMA }),
         _meta: {
           ...existingMeta,
           ...(options.hosted

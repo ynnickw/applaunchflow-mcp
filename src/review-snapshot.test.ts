@@ -27,11 +27,13 @@ test("review snapshots expose an app-only upload and return image content to the
     const upload = tools.find((tool) => tool.name === "store_review_snapshot")!;
     assert.deepEqual((upload._meta?.ui as { visibility: string[] }).visibility, ["app"]);
     assert.equal(tools.find((tool) => tool.name === "view_review_snapshot")?.annotations?.readOnlyHint, true);
+    assert.equal(tools.find((tool) => tool.name === "view_review_snapshot")?.outputSchema, undefined);
     const stored = await client.callTool({ name: "store_review_snapshot", arguments: { projectId, png: "iVBORw0KGgo=" } });
     assert.equal(stored.isError, undefined);
     assert.doesNotMatch(JSON.stringify(stored), /iVBORw0KGgo/);
     const read = await client.callTool({ name: "view_review_snapshot", arguments: { projectId, snapshotId } });
     assert.deepEqual(read.content, [{ type: "image", data: "iVBORw0KGgo=", mimeType: "image/png" }]);
+    assert.equal(read.structuredContent, undefined, "JSON must not shadow the image in structured-output clients");
     denied = true;
     const failed = await client.callTool({ name: "view_review_snapshot", arguments: { projectId, snapshotId } });
     assert.equal(failed.isError, true);

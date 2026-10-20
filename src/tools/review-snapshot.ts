@@ -25,7 +25,8 @@ export function registerReviewSnapshotTools(server: McpServer, client: AppLaunch
     try {
       const data = await client.requestJson<{ png: string; mimeType: string }>("/api/mcp/review-snapshot", { method: "POST", body: { action: "read", projectId, snapshotId } });
       if (data.mimeType !== "image/png" || !data.png || data.png.length > 4_000_000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(data.png)) throw new Error("Invalid snapshot");
-      return { content: [{ type: "image" as const, data: data.png, mimeType: "image/png" }], structuredContent: { success: true, data: { projectId, snapshotId }, message: "Rendered edit image" } };
+      // Return the pixels as the result, not a competing JSON success envelope.
+      return { content: [{ type: "image" as const, data: data.png, mimeType: "image/png" }] };
     } catch {
       return fail(new Error("Snapshot unavailable or expired. Ask the user to click Review this result again."));
     }

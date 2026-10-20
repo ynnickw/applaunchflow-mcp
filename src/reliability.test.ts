@@ -518,6 +518,10 @@ test("hosted reliability regressions over real HTTP", async (t) => {
             "string",
           );
           for (const tool of tools) {
+            if (tool.name === "view_review_snapshot") {
+              assert.equal(tool.outputSchema, undefined);
+              continue;
+            }
             const outputSchema = tool.outputSchema as
               | {
                   properties?: { widgetDataJson?: unknown };
