@@ -110,6 +110,8 @@ export function registerLayoutTools(
   client: AppLaunchFlowClient,
 ): void {
   registerPickerResource(server, client, { name: "layout-result", uri: LAYOUT_RESULT_URI, assetFilename: "layout-result.html", assetPrefix: "layout-result", description: "Client-rendered saved screenshot or social graphics edit" });
+  // Existing conversations may still request the previous resource identity.
+  registerPickerResource(server, client, { name: "layout-result-v1", uri: "ui://applaunchflow/layout-result-v1.html", assetFilename: "layout-result.html", assetPrefix: "layout-result", description: "Client-rendered saved screenshot or social graphics edit" });
   const layoutReadReceipts = new Map<string, number>();
 
   function buildReadReceiptKey(args: {

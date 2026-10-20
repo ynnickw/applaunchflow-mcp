@@ -28,7 +28,9 @@ test("every widget has the same dedicated domain, separate from its asset origin
   try {
     const { resources } = await client.listResources();
     const widgets = resources.filter((resource) => resource.mimeType === MCP_APP_MIME_TYPE);
-    assert.equal(widgets.length, 6);
+    assert.equal(widgets.length, 7);
+    assert.ok(widgets.some((widget) => widget.uri.endsWith("layout-result-v2.html")));
+    assert.ok(widgets.some((widget) => widget.uri.endsWith("layout-result-v1.html")));
     for (const widget of widgets) {
       const result = await client.readResource({ uri: widget.uri });
       const content = result.contents[0];

@@ -48,7 +48,7 @@ test("social saves attach saved signed layouts privately, with failure isolated 
       assert.equal(
         (listed.tools.find((tool) => tool.name === name)?._meta?.ui as any)
           ?.resourceUri,
-        "ui://applaunchflow/layout-result-v1.html",
+        "ui://applaunchflow/layout-result-v2.html",
       );
     }
     await client.callTool({
