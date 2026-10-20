@@ -70,6 +70,8 @@ test("text-only hosted clients can read a layout and pass its receipt to a match
     const result = await handlers.transform_layout.handler(edit, {});
     assert.notEqual(result.isError, true);
     assert.equal(writes, 1);
+    assert.match(JSON.stringify(result.content), /inspect the returned image before giving a visual assessment/);
+    assert.doesNotMatch(JSON.stringify(result.content), /user can choose Review/);
     assert.equal(result._meta.layoutResult.revision, "saved-revision");
     assert.doesNotMatch(JSON.stringify(result.structuredContent), /preview-secret/);
     assert.doesNotMatch(JSON.stringify(result.content), /preview-secret/);

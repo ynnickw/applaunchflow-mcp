@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/server";
+import { RESULT_REVIEW_GUIDANCE } from "../result-review-guidance.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { ToolInputError } from "../telemetry.js";
@@ -382,7 +383,7 @@ export function registerLayoutTools(
               type: "text" as const,
               text: [
                 transformed.partialSuccess ? "Applied layout transform partially; inspect the reported errors." : "Applied layout transform.",
-                "The widget renders the saved revision client-side. No image has been sent to the model yet; the user can choose Review this result if the host supports image messages.",
+                RESULT_REVIEW_GUIDANCE,
                 `Editor URL (already open — do NOT run \`open\` again): ${editorUrl}`,
                 previewUrl ? `Preview URL: ${previewUrl}` : null,
                 "This transform consumed the current read receipt. Call get_layout again before the next direct edit.",

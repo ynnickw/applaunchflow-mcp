@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/server";
+import { RESULT_REVIEW_GUIDANCE } from "../result-review-guidance.js";
 import { ToolInputError } from "../telemetry.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
@@ -567,7 +568,7 @@ export function registerGraphicsTools(
           ...ok(
             { ...result, editorUrl },
             metadata
-              ? "Saved social graphics. The widget previews the saved formats; Review this result sends the selected format's rendered PNG for visual review."
+              ? `Saved social graphics. ${RESULT_REVIEW_GUIDANCE}`
               : "Saved social graphics. The preview is unavailable; open the editor without repeating the save.",
           ),
           ...(metadata ? { _meta: metadata } : {}),
@@ -665,7 +666,7 @@ export function registerGraphicsTools(
                 `Saved social graphics format ${args.format}.`,
                 `Editor URL: ${editorUrl}`,
                 metadata
-                  ? "The widget previews the saved format. Review this result sends its rendered PNG for visual review."
+                  ? RESULT_REVIEW_GUIDANCE
                   : "The preview is unavailable; open the editor without repeating the save.",
                 "This save consumed the current same-format read receipt. Call get_graphics_format again before the next direct edit.",
               ].join("\n"),

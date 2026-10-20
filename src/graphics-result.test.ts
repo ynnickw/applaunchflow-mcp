@@ -65,6 +65,8 @@ test("social saves attach saved signed layouts privately, with failure isolated 
       },
     });
     assert.equal(single.isError, undefined);
+    assert.match(JSON.stringify(single.content), /inspect the returned image before giving a visual assessment/);
+    assert.doesNotMatch(JSON.stringify(single.content), /Review this result sends/);
     assert.deepEqual(Object.keys((single._meta?.layoutResult as any).layouts), [
       "og",
     ]);
