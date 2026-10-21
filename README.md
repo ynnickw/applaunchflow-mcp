@@ -313,3 +313,8 @@ uploading again. A `pendingUpload` or `pendingOverwrite` means a write's outcome
 needs checking before retrying. No signed upload URLs or source URLs are
 returned in recovery diagnostics. Quota exhaustion (HTTP 402) is classified as
 `payment_required` / `api_4xx` in tool telemetry.
+
+
+### Independent phone-format layouts
+
+`get_layout` includes `format_layouts` for sizes edited separately from the main phone layout. Editing `mobile` intentionally preserves those independent designs. To edit Duo Open, read the language and variant first, then call `transform_layout` with `formatId: "ios-duo-inner"` and operations (omit `layouts`). To return that size to the main design, call the same tool with `formatId`, `resetFormat: true`, no operations, and the fresh read receipt. `save_layout` also accepts the complete `formatLayouts` map: omit it to preserve existing overrides; `{}` resets all overrides. `list_export_formats` includes `ios.phone.duo-inner` and `ios.phone.duo-outer`; preset exports use the same saved format as the editor. Store-validated Fastlane exports retain the ten-image iOS limit.

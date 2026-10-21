@@ -20,6 +20,8 @@ export type FormatId =
   | "ios.phone.6.5"
   | "ios.phone.6.3"
   | "ios.phone.6.1"
+  | "ios.phone.duo-inner"
+  | "ios.phone.duo-outer"
   | "ios.tablet.13"
   | "ios.tablet.12.9"
   | "ios.tablet.11"

@@ -334,6 +334,8 @@ export const TRANSFORM_SCHEMA_RESOURCE = {
     screens: "array of screen indexes or 'all' — preferred way to target screens by index",
   },
   notes: [
+    "Phone sizes edited separately live in get_layout.format_layouts. Use formatId (ios-6.5, ios-6.3, ios-6.1, ios-duo-inner, ios-duo-outer, android-play-high) instead of layouts to transform one format. Main/mobile edits preserve independent formats.",
+    "To reset one phone format, use formatId with resetFormat:true and no operations after a fresh get_layout. save_layout accepts the full formatLayouts map; omit it to preserve formats, or {} to reset all.",
     "Default to layouts: ['mobile']. Only include tablet/desktop if the user explicitly asks.",
     "Use get_layout first whenever the edit changes composition or should closely match the current styling.",
     "add_node expects changes.node or changes to contain a full node payload with an id.",
