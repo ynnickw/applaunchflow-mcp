@@ -13,6 +13,8 @@ import {
   verifyHostedReadReceipt,
 } from "./utils.js";
 
+const phoneFormatIds = ["ios-6.5", "ios-6.3", "ios-6.1", "ios-duo-inner", "ios-duo-outer", "android-play-high"] as const;
+
 const transformOperationSchema = z
   .object({
     type: z
@@ -128,6 +130,7 @@ export function registerLayoutTools(
     generationId: string;
     language?: string;
     variantId?: string;
+    formatId?: string;
   }): string {
     const params = new URLSearchParams({
       projectId: args.generationId,
@@ -142,6 +145,7 @@ export function registerLayoutTools(
       params.set("language", args.language);
     }
 
+    if (args.formatId) params.set("format", args.formatId);
     return `${client.credentials.baseUrl}/editor?${params.toString()}`;
   }
 
@@ -169,7 +173,7 @@ export function registerLayoutTools(
     {
       title: "Get Layout",
       description:
-        "Get layout JSON for the current translation before editing or reviewing a variant. " +
+        "Get layout JSON for the current translation before editing or reviewing a variant. Includes independent phone designs in format_layouts; they do not follow main/mobile edits. Use transform_layout with formatId to edit one, or resetFormat:true to follow main again. " +
         "This is mandatory before every direct transform_layout call. " +
         "Returns the editor URL as a reference link — do NOT auto-open it. The user already has the editor open from the initial generation. " +
         "The returned JSON follows the layout schema documented in the resource applaunchflow://schema/layout — read it to learn which fields exist and their valid ranges, not just which ones happen to be set here.",
@@ -267,11 +271,13 @@ export function registerLayoutTools(
       title: "Save Layout",
       description:
         "Persist a full translation layout payload. Whole-layout replace per device size — prefer transform_layout for targeted edits. " +
+        "formatLayouts is the complete independent phone-format map: omit it to preserve existing formats, pass {} to reset all, or pass the map from get_layout with explicit changes. Main edits do not overwrite independent formats. " +
         "Each layout must be a complete, valid Layout object; see the resource applaunchflow://schema/layout for every field and valid value range.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         language: z.string(),
         variantId: z.string().uuid().optional(),
+        formatLayouts: z.partialRecord(z.enum(phoneFormatIds), z.record(z.string(), z.any())).optional().describe("Complete phone-format override map. Keys include ios-duo-inner and ios-duo-outer. Omit to preserve; {} resets all formats to follow main."),
         mobileLayout: z
           .record(z.string(), z.any())
           .describe(
@@ -316,13 +322,15 @@ export function registerLayoutTools(
         "4. Dot-notation is supported for deep updates without replacing the whole object. Example: {'richContent.attrs.defaultFontSize': 96} updates only the font size inside richContent.attrs, preserving all other fields. Always use dot-notation for nested property changes. " +
         "5. For add_node, changes MUST include an 'id' field. " +
         "6. To add new screens, first add empty screen containers, then populate them in a SECOND call using selector 'screenId:<id>'. " +
-        "7. Default to layouts:['mobile']. Only include tablet/desktop if the user asks. " +
+        "7. Default to layouts:['mobile']. Use formatId to edit a separate phone size such as ios-duo-inner; do not combine formatId with layouts. resetFormat:true with formatId and no operations makes that size follow main again. " +
         "8. FONT SIZE: The rendered font size is controlled ONLY by 'richContent.attrs.defaultFontSize' (pixel value). To change font size, use dot-notation: {'richContent.attrs.defaultFontSize': 80}. Do NOT use 'fontSizeScale' — that property is for promo videos only and has NO effect on screenshot rendering. " +
         "SCHEMA REFERENCE: read the resource applaunchflow://schema/transforms for the full operation and selector reference, and applaunchflow://schema/layout for every node type's fields and valid value ranges. Read them before any non-trivial edit rather than guessing field names.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         language: z.string(),
         variantId: z.string().uuid().optional(),
+        formatId: z.enum(phoneFormatIds).optional().describe("Edit this phone format instead of mobile/tablet/desktop. Never combine with layouts. Existing independent formats do not follow later mobile edits."),
+        resetFormat: z.boolean().optional().describe("With formatId and no operations, remove that format override so it follows the main layout again. Requires a fresh get_layout read receipt."),
         atomic: z.boolean().optional(),
         layouts: z
           .array(z.enum(["mobile", "tablet", "desktop"]))
@@ -330,7 +338,7 @@ export function registerLayoutTools(
           .describe(
             "Which layout sizes to transform. Default to ['mobile'] unless the user explicitly asks for tablet or desktop.",
           ),
-        operations: z.array(transformOperationSchema).min(1),
+        operations: z.array(transformOperationSchema).default([]),
         readReceipt: z
           .string()
           .optional()
@@ -372,8 +380,11 @@ export function registerLayoutTools(
           generationId: args.generationId,
           language: args.language,
           variantId: args.variantId,
+          formatId: args.formatId,
         });
-        const previewUrl = buildVariantPreviewUrl({
+        // The generic variant preview is the main canvas. The edit-result
+        // widget above and the format-specific editor URL show this format.
+        const previewUrl = args.formatId ? null : buildVariantPreviewUrl({
           language: args.language,
           variantId: args.variantId,
         });

@@ -29,7 +29,7 @@ export function registerReleaseTools(
     {
       title: "Render Screenshots",
       description:
-        "Render the saved translations of the active screenshot variant (or a specified existing variant). Use list_export_formats for sizes. Set resolutions['android.phone'] to {preset:'preview'} for 1290x2796 or {preset:'play-high'} for 2160x3840 (default). Any requested format can use exact custom {width,height} (320-8192 pixels); custom sizes may not satisfy store requirements. Presets follow layout orientation. One resolution per format per request. Update captures and copy through the normal asset and layout tools first. Reuse idempotencyKey for retries; never replace it after an uncertain outcome.",
+        "Render the saved translations of the active screenshot variant (or a specified existing variant). Use list_export_formats for sizes, including ios.phone.duo-inner and ios.phone.duo-outer. Presets use their independent format layout when present; use transform_layout with formatId to edit or reset it. Validated iOS packages allow at most 10 screens. Set resolutions['android.phone'] to {preset:'preview'} for 1290x2796 or {preset:'play-high'} for 2160x3840 (default). Any requested format can use exact custom {width,height} (320-8192 pixels); custom sizes may not satisfy store requirements. Presets follow layout orientation. One resolution per format per request. Update captures and copy through the normal asset and layout tools first. Reuse idempotencyKey for retries; never replace it after an uncertain outcome.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
