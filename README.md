@@ -318,3 +318,13 @@ returned in recovery diagnostics. Quota exhaustion (HTTP 402) is classified as
 ### Independent phone-format layouts
 
 `get_layout` includes `format_layouts` for sizes edited separately from the main phone layout. Editing `mobile` intentionally preserves those independent designs. To edit Duo Open, read the language and variant first, then call `transform_layout` with `formatId: "ios-duo-inner"` and operations (omit `layouts`). To return that size to the main design, call the same tool with `formatId`, `resetFormat: true`, no operations, and the fresh read receipt. `save_layout` also accepts the complete `formatLayouts` map: omit it to preserve existing overrides; `{}` resets all overrides. `list_export_formats` includes `ios.phone.duo-inner` and `ios.phone.duo-outer`; preset exports use the same saved format as the editor. Store-validated Fastlane exports retain the ten-image iOS limit.
+# App Store creative editing
+
+Product Page Header (`app_store_header`, 3840×1646) and Search Results Creative
+(`app_store_search`, 1920×1280) use the same graphics tools as social designs.
+Prepare/browse/apply styles, then read with `get_graphics_format` and save the
+complete edited layout with `save_graphics_format`, passing the fresh read receipt.
+Text, images, logos, device frames, backgrounds and positions remain editable;
+the save returns the existing result-preview widget. Other formats are preserved.
+Header preparation accepts 1–7 screenshots; other formats require 3–7.
+These tools edit designs inside AppLaunchFlow, not published App Store listings.

@@ -75,18 +75,21 @@ export function registerGraphicsTools(
         generationId: z.string().uuid(),
         selectedScreenshotPaths: z
           .array(z.string().min(1))
-          .min(3)
+          .min(1)
           .max(7)
           .refine((paths) => new Set(paths).size === paths.length, {
             message: "Screenshot paths must be unique",
           })
           .describe(
-            "3-7 unique project-relative paths from list_source_screenshots, in the desired story order.",
+            "1-7 unique project-relative paths for app_store_header; 3-7 for other formats. Use paths from list_source_screenshots, in story order.",
           ),
         primaryFormat: z
           .enum(SOCIAL_FORMATS)
           .optional()
           .describe("Format to preview first. Defaults to og."),
+      }).refine(args => args.selectedScreenshotPaths.length >= (args.primaryFormat === "app_store_header" ? 1 : 3), {
+        message: "Select at least 3 screenshots, or at least 1 for app_store_header.",
+        path: ["selectedScreenshotPaths"],
       }),
       _meta: pickerToolMeta(SOCIAL_GRAPHICS_PICKER_URI),
     },
@@ -454,7 +457,7 @@ export function registerGraphicsTools(
     {
       title: "Get One Social Graphics Format",
       description:
-        "Fetch exactly one social graphics layout for a project. " +
+        "Fetch exactly one social or App Store creative layout for a project, including app_store_header (3840x1646) and app_store_search (1920x1280). " +
         "Use this before direct edits so the next save_graphics_format call works from the current state of that same format. " +
         "If the user did not request a specific format, use the variant's primary format from an earlier get_graphics response or inspect the editor URL. " +
         "The returned layout is the same Layout shape screenshots use — one screen, canvas sized to the format. Read the resource applaunchflow://schema/layout for every node type's fields and valid ranges.",
@@ -585,7 +588,7 @@ export function registerGraphicsTools(
       title: "Save One Social Graphics Format",
       _meta: pickerToolMeta(LAYOUT_RESULT_URI),
       description:
-        "Persist exactly one social graphics format after reading the latest same-format layout with get_graphics_format. " +
+        "Persist exactly one social or App Store creative format after reading the latest same-format layout with get_graphics_format. Supports full layout editing of text, images, logos, devices, backgrounds and positioning, including app_store_header and app_store_search. Preserve unrequested fields and the format's canvas dimensions. This edits AppLaunchFlow designs, not a live store listing. " +
         "ENFORCED: each call requires a fresh get_graphics_format for the same generationId/variantId/format immediately beforehand. " +
         "Read the current layouts, mutate only the requested format in memory, then save that single layout here.",
       inputSchema: z.object({

@@ -2,7 +2,8 @@ export const LAYOUT_SCHEMA_RESOURCE = {
   appliesTo:
     "Both App Store screenshots and social graphics use this exact Layout shape. " +
     "Screenshots: one layout per device size (mobile, tablet, desktop), with one screen per store screenshot. " +
-    "Social graphics: one layout per format (og, twitter, instagram_post, instagram_story, linkedin, facebook), " +
+    "Social and store graphics: one layout per format (including og, x_post, instagram_post, instagram_story, linkedin_banner, app_store_header and app_store_search), " +
+    "App Store Product Page Header uses app_store_header at 3840x1646; Search Results Creative uses app_store_search at 1920x1280. Edit these through get_graphics_format then save_graphics_format, not screenshot transform_layout. " +
     "each with exactly ONE screen and canvasWidth/canvasHeight set to that format's pixel dimensions. " +
     "Everything below applies identically to both; the tools differ (transform_layout / save_layout for screenshots, " +
     "save_graphics_format / save_graphics for social graphics), not the JSON.",
