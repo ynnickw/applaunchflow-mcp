@@ -8,6 +8,7 @@ import {
   registerPickerResource,
 } from "../ui/picker-resource.js";
 import { projectListItemSchema } from "../contracts/index.js";
+import { ToolInputError } from "../telemetry.js";
 
 export const PROJECT_LIST_URI = pickerUri("project-list");
 
@@ -75,6 +76,109 @@ function safeHttpsUrl(value: unknown): string | undefined {
   }
 }
 
+/**
+ * Hub edit URLs are dashboard-relative ("/editor?projectId=..."). Resolve them
+ * against the connector's dashboard; never follow a relative URL off-origin.
+ */
+export function dashboardUrl(
+  value: unknown,
+  baseUrl: string | undefined,
+): string | undefined {
+  if (typeof value !== "string" || !value) return undefined;
+  if (!baseUrl) return safeHttpsUrl(value);
+  try {
+    const base = new URL(baseUrl);
+    const url = new URL(value, base);
+    if (url.origin === base.origin) return url.href;
+  } catch {
+    return undefined;
+  }
+  return safeHttpsUrl(value);
+}
+
+type StoreProvider = "app_store" | "google_play";
+
+/** Same precedence as the dashboard's derivePrimaryStoreProvider. */
+function linkedStore(metadata: Record<string, any>) {
+  const appleAppId =
+    typeof metadata.appleAppId === "string" ||
+    typeof metadata.appleAppId === "number"
+      ? String(metadata.appleAppId)
+      : undefined;
+  const googlePlayPackageName =
+    typeof metadata.googlePlayPackageName === "string"
+      ? metadata.googlePlayPackageName
+      : undefined;
+  const explicit = metadata.primaryStoreProvider;
+  const primaryStoreProvider: StoreProvider | undefined =
+    explicit === "google_play" || explicit === "gplay"
+      ? "google_play"
+      : explicit === "app_store"
+        ? "app_store"
+        : googlePlayPackageName && !appleAppId
+          ? "google_play"
+          : appleAppId
+            ? "app_store"
+            : undefined;
+  return { appleAppId, googlePlayPackageName, primaryStoreProvider };
+}
+
+/** Apple app id from a numeric id or an apps.apple.com URL ("/id123"). */
+export function parseAppStoreId(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (/^\d{5,15}$/.test(trimmed)) return trimmed;
+  try {
+    const url = new URL(trimmed);
+    if (!/(^|\.)apple\.com$/.test(url.hostname)) return undefined;
+    return /\/id(\d{5,15})(?:[/?#]|$)/.exec(url.pathname + "/")?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
+async function importAppStoreApp(
+  client: AppLaunchFlowClient,
+  appStore: string,
+  country?: string,
+): Promise<
+  | {
+      storeAppId: string;
+      name: string;
+      category?: string;
+      description?: string;
+      iconUrl?: string;
+      storeUrl?: string;
+    }
+  | undefined
+> {
+  const id = parseAppStoreId(appStore);
+  if (!id) {
+    throw new ToolInputError(
+      "INVALID_TOOL_INPUT",
+      "appStore must be a numeric Apple app id or an apps.apple.com URL containing /id<digits>.",
+    );
+  }
+  const result = await client.lookupAppStore(id, (country || "us").toLowerCase());
+  const app = asArray(result?.results).find(
+    (entry) => isRecord(entry) && String(entry.storeAppId) === id,
+  );
+  if (!app || typeof app.name !== "string") {
+    throw new ToolInputError(
+      "INVALID_TOOL_INPUT",
+      `No App Store app ${id} in the ${(country || "us").toUpperCase()} storefront. Check the id or pass country.`,
+    );
+  }
+  return {
+    storeAppId: id,
+    name: app.name,
+    category: typeof app.category === "string" ? app.category : undefined,
+    description:
+      typeof app.description === "string" ? app.description : undefined,
+    iconUrl: safeHttpsUrl(app.iconUrl),
+    storeUrl: safeHttpsUrl(app.storeUrl),
+  };
+}
+
 export function toProjectSummary(value: unknown): Record<string, unknown> {
   const project = isRecord(value) ? value : {};
   const metadata = isRecord(project.metadata) ? project.metadata : {};
@@ -109,6 +213,8 @@ export function toProjectSummary(value: unknown): Record<string, unknown> {
       typeof metadata.detectedLanguage === "string"
         ? metadata.detectedLanguage
         : undefined,
+    // Linked store app (keywords, store import, QR codes use these).
+    ...linkedStore(metadata),
   });
 }
 
@@ -144,7 +250,10 @@ function toVariantSummary(value: unknown): Record<string, unknown> {
   });
 }
 
-function toContentSummary(value: unknown): Record<string, unknown> {
+function toContentSummary(
+  value: unknown,
+  baseUrl?: string,
+): Record<string, unknown> {
   const content = isRecord(value) ? value : {};
   const variants = asArray(content.variants).map(toVariantSummary);
   const activeVariant = isRecord(content.activeVariant)
@@ -155,7 +264,7 @@ function toContentSummary(value: unknown): Record<string, unknown> {
     type: typeof content.type === "string" ? content.type : undefined,
     variants,
     activeVariant,
-    editUrl: safeHttpsUrl(content.editUrl),
+    editUrl: dashboardUrl(content.editUrl, baseUrl),
     activeLabel:
       typeof content.activeLabel === "string" ? content.activeLabel : undefined,
     variantCount:
@@ -176,20 +285,41 @@ function toContentSummary(value: unknown): Record<string, unknown> {
   });
 }
 
-export function toSafeProjectState(value: unknown): Record<string, unknown> {
+export function toSafeProjectState(
+  value: unknown,
+  baseUrl?: string,
+): Record<string, unknown> {
   const state = isRecord(value) ? value : {};
   const assets = isRecord(state.assets) ? state.assets : {};
   const content = isRecord(state.content) ? state.content : {};
   const progress = isRecord(state.progress) ? state.progress : {};
 
   const safeContent = Object.fromEntries(
-    ["screenshots", "socialGraphics", "promoVideo", "mockups", "website"]
+    [
+      "screenshots",
+      "socialGraphics",
+      "promoVideo",
+      "mockups",
+      "asoCopy",
+      "appIcon",
+      "website",
+    ]
       .filter((key) => isRecord(content[key]))
-      .map((key) => [key, toContentSummary(content[key])]),
+      .map((key) => [key, toContentSummary(content[key], baseUrl)]),
   );
+  const project = toProjectSummary(state.project);
 
   return {
-    project: toProjectSummary(state.project),
+    project:
+      baseUrl && typeof project.id === "string"
+        ? {
+            ...project,
+            hubUrl: new URL(
+              `/app/${encodeURIComponent(project.id)}`,
+              baseUrl,
+            ).href,
+          }
+        : project,
     assets: {
       screenshotCounts: {
         mobile: asArray(assets.mobileScreenshots).length,
@@ -270,7 +400,8 @@ export function registerProjectTools(
     "get_project",
     {
       title: "Get Project",
-      description: "Get the full hub state for a project",
+      description:
+        "Get a project's hub state: app name/platform/category, the linked store app (appleAppId, googlePlayPackageName, primaryStoreProvider; absent when no store app is linked), source screenshot counts, and per content type (screenshots, socialGraphics, promoVideo, mockups, asoCopy, appIcon, website) the variants, active variant and an absolute editUrl. hubUrl opens the project overview. projectId is the same id that design tools call generationId.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
       }),
@@ -278,7 +409,10 @@ export function registerProjectTools(
     async ({ projectId }) => {
       try {
         return ok(
-          toSafeProjectState(await client.getProject(projectId)),
+          toSafeProjectState(
+            await client.getProject(projectId),
+            client.credentials.baseUrl,
+          ),
           "Fetched project",
         );
       } catch (error) {
@@ -292,10 +426,34 @@ export function registerProjectTools(
     {
       title: "Create Project",
       description:
-        "Create a new AppLaunchFlow project. Only app name and platform are required. " +
-        "Autofill category and description from context when possible — do not ask the user for these unless genuinely ambiguous.",
+        "Create a new AppLaunchFlow project. Provide appName (platform defaults to iOS), or appStore to import a published App Store app: name, category, description and icon are filled from the listing and the project is linked to that app (keyword tracking, store links). " +
+        "Autofill category and description from context when possible; do not ask the user for these unless genuinely ambiguous. Returns the project id (used as projectId, and as generationId by design tools) and hubUrl.",
       inputSchema: z.object({
-        appName: z.string().trim().min(1).max(120).describe("The app name."),
+        appName: z
+          .string()
+          .trim()
+          .min(1)
+          .max(120)
+          .optional()
+          .describe(
+            "The app name. Required unless appStore is given (then it overrides the store name).",
+          ),
+        appStore: z
+          .string()
+          .trim()
+          .min(1)
+          .max(500)
+          .optional()
+          .describe(
+            "Import from the App Store: numeric Apple app id (e.g. 284882215) or an apps.apple.com URL.",
+          ),
+        country: z
+          .string()
+          .regex(/^[A-Za-z]{2}$/)
+          .optional()
+          .describe(
+            "Storefront for the App Store import (ISO country, default us).",
+          ),
         platform: z
           .enum(["ios", "android", "both"])
           .optional()
@@ -332,32 +490,73 @@ export function registerProjectTools(
     },
     async (args) => {
       try {
+        const imported = args.appStore
+          ? await importAppStoreApp(client, args.appStore, args.country)
+          : undefined;
+        const appName = args.appName || imported?.name;
+        if (!appName) {
+          throw new ToolInputError(
+            "INVALID_TOOL_INPUT",
+            "Provide appName, or appStore to import the app from the App Store.",
+          );
+        }
         const platform = args.platform || "ios";
 
         const metadata = stripUndefined({
           ...(args.metadata || {}),
-          appName: args.appName,
+          appName,
           platform,
-          category: args.category,
-          appDescription: args.appDescription,
+          category: args.category || imported?.category || undefined,
+          appDescription:
+            args.appDescription ||
+            imported?.description?.slice(0, 4000) ||
+            undefined,
           defaultDeviceType: args.defaultDeviceType || "phone",
           logoPath: args.logoPath,
+          ...(imported
+            ? {
+                appleAppId: imported.storeAppId,
+                primaryStoreProvider: "app_store",
+                logoUrl: args.logoPath ? undefined : imported.iconUrl || undefined,
+              }
+            : {}),
         });
 
         const requestBody = stripUndefined({
-          name: args.appName,
+          name: appName,
           platform,
           metadata,
         });
 
         const created = await client.createProject(requestBody);
+        const project = toProjectSummary(created.project);
 
         return ok(
           {
-            project: toProjectSummary(created.project),
+            project:
+              typeof project.id === "string"
+                ? {
+                    ...project,
+                    hubUrl: new URL(
+                      `/app/${encodeURIComponent(project.id)}`,
+                      client.credentials.baseUrl,
+                    ).href,
+                  }
+                : project,
+            ...(imported
+              ? {
+                  importedFrom: {
+                    appleAppId: imported.storeAppId,
+                    name: imported.name,
+                    storeUrl: imported.storeUrl || undefined,
+                  },
+                }
+              : {}),
             nextRecommendedStep: "upload_screenshots",
           },
-          "Created project",
+          imported
+            ? `Created project from App Store app ${imported.name}`
+            : "Created project",
         );
       } catch (error) {
         return fail(error);

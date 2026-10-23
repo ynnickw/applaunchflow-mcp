@@ -13,6 +13,7 @@ import { upstreamSignal } from "../request-context.js";
 import { ToolInputError } from "../telemetry.js";
 import { fail, ok, safeFail } from "./utils.js";
 import { assetSummary } from "./asset-summary.js";
+import { mediaDurationSeconds } from "../media-duration.js";
 
 import {
   assetListSchema,
@@ -320,6 +321,43 @@ async function resolveUploadPayload(
   ];
 }
 
+/**
+ * Check an uploaded mockup recording against the cloud-render profile and
+ * have the server delete it when unsuitable. null when the dashboard predates
+ * the inspection endpoint.
+ */
+async function inspectMockupRecording(
+  client: AppLaunchFlowClient,
+  projectId: string,
+  path: string,
+): Promise<{
+  exportSafe: boolean;
+  issues: string[];
+  removed?: boolean;
+  ffmpegCommand?: string;
+  durationSeconds?: number;
+  width?: number;
+  height?: number;
+  fps?: number | null;
+} | null> {
+  try {
+    return await client.inspectMockupMedia({
+      generationId: projectId,
+      path,
+      removeIfUnsuitable: true,
+    });
+  } catch (error) {
+    if (error instanceof AppLaunchFlowApiError && error.status === 404)
+      return null;
+    if (error instanceof AppLaunchFlowApiError && error.status < 500)
+      throw new ToolInputError(
+        "INVALID_UPLOAD_INPUT",
+        `Uploaded ${path}, but it could not be read as a video recording: ${error.message}`,
+      );
+    throw error;
+  }
+}
+
 export function registerAssetTools(
   server: McpServer,
   client: AppLaunchFlowClient,
@@ -339,7 +377,7 @@ export function registerAssetTools(
     {
       title: "List Assets",
       description:
-        "Browse an existing project's uploaded screenshots (all devices/platforms), illustrations, app icons, backgrounds, panoramas, recordings, music and clips (audio/video/images), and font files in an embedded asset list. Listing is read-only. The user can explicitly upload files using the widget's Upload button; opening the list does not upload, select or apply anything. Inspect existing assets before asking the user to upload again. Signed preview links are private widget data; use returned relative paths in editing tools. At most 100 newest files per folder; truncated indicates more exist.",
+        "Browse an existing project's uploaded screenshots (all devices/platforms), illustrations, app icons, backgrounds, panoramas, recordings, music and clips (audio/video/images), and font files in an embedded asset list. Listing is read-only. The user can explicitly upload files using the widget's Upload button; opening the list does not upload, select or apply anything. Inspect existing assets before asking the user to upload again. Signed preview links are private widget data; use returned relative paths in editing tools. At most 100 newest files per folder; truncated indicates more exist. For just the app screenshots used as generation input use list_source_screenshots; for screenshot paths by device/platform use list_screenshots.",
       inputSchema: z.object({ projectId: z.string().uuid() }),
       _meta: {
         ...pickerToolMeta(ASSET_LIST_URI),
@@ -702,11 +740,12 @@ export function registerAssetTools(
     {
       title: "Upload Asset",
       description:
-        "Upload a project asset: illustration, logo, panorama, background, font file, mockup media (image/video), or promo media (image/video/audio). Maximum 25 MB per file. Use an HTTPS URL or base64 data with a filename including its extension; local paths are also available to the npm/stdio connector. Upload stores a file only: it does not replace the project's app icon, apply a design, or register a font family in the editor. " +
-        "Returns the stored path which can then be used in transform_layout operations " +
-        "(e.g. set panoramaBackground.imageUrl or illustration imageUrl to the returned path). " +
+        "Upload a project asset: illustration, logo, panorama, background, font file, mockup media (image/video recording, or audio for the mockup soundtrack: state.audio.storagePath), or promo media (image/video/audio). Maximum 25 MB per file. Use an HTTPS URL or base64 data with a filename including its extension; local paths are also available to the npm/stdio connector. Upload stores a file only: it does not replace the project's app icon or apply a design. " +
+        "Returns the stored project-relative path. Put it in the field the renderer signs: illustration/logo node path (add_node {id, path, position, zIndex, ...}); a screen's backgroundImage.storagePath; panoramaBackground.storagePath; or a screenshot node's path (images from upload_screenshots). " +
+        "Font uploads are registered as a project font family by default (registerFont) so texts can use it immediately; list_fonts shows the family name. " +
         "For illustrations: list_illustrations first to show existing options, then upload only if the user wants a custom image. " +
-        "For panoramas: use an HTTPS URL or base64-encoded image.",
+        "For panoramas: use an HTTPS URL or base64-encoded image. " +
+        "Video/audio uploads also return durationSeconds when it can be read from the file (MP4/MOV/M4V/M4A, WAV, MP3); WebM/OGG return no duration.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         fileType: z
@@ -720,14 +759,29 @@ export function registerAssetTools(
             "promo-media",
           ])
           .describe(
-            "Use mockup-media for screen recordings, promo-media for video/audio footage, font for TTF/OTF/WOFF/WOFF2, or an image category.",
+            "Use mockup-media for mockup screens/recordings and mockup soundtracks, promo-media for promo video/audio footage, font for TTF/OTF/WOFF/WOFF2, or an image category. Mockup recordings are checked on upload (H.264, ≤1080 px short side, keyframe every ≤2 s, ≤60 fps) and rejected with an ffmpeg command when unsuitable.",
           ),
         source: exposedUploadSourceSchema.describe(
           "The file source — provide an HTTPS URL or base64 data, or a local file path for npm/stdio, with an appropriate filename.",
         ),
+        registerFont: z
+          .boolean()
+          .optional()
+          .describe(
+            "Font uploads only (default true): add the file to the project's custom fonts (metadata.customFonts) like the editor's font upload. Family, weight and style come from the filename (e.g. Inter-BoldItalic.ttf).",
+          ),
+        fontFamily: z
+          .string()
+          .trim()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe(
+            "Font uploads only: family name to register instead of the one derived from the filename. Upload each weight file with the same fontFamily.",
+          ),
       }),
     },
-    async ({ projectId, fileType, source }) => {
+    async ({ projectId, fileType, source, registerFont, fontFamily }) => {
       try {
         const payloads = await resolveUploadPayload(source);
         const payload = payloads[0];
@@ -742,8 +796,7 @@ export function registerAssetTools(
             ? /^(font\/|application\/(x-font-|font-))/.test(mime)
             : mime.startsWith("image/") ||
               ((fileType === "mockup-media" || fileType === "promo-media") &&
-                mime.startsWith("video/")) ||
-              (fileType === "promo-media" && mime.startsWith("audio/"));
+                (mime.startsWith("video/") || mime.startsWith("audio/")));
         if (!allowed)
           throw new ToolInputError(
             "INVALID_UPLOAD_INPUT",
@@ -760,13 +813,69 @@ export function registerAssetTools(
           payload.buffer,
           payload.contentType,
         );
+        const registered =
+          fileType === "font" && registerFont !== false
+            ? await client.registerCustomFont({
+                projectId,
+                path: signed.path,
+                ...(fontFamily ? { name: fontFamily } : {}),
+              })
+            : null;
+        // Durations let agents time promo/mockup scenes to the real clip.
+        const durationSeconds =
+          mime.startsWith("video/") || mime.startsWith("audio/")
+            ? mediaDurationSeconds(payload.buffer, mime)
+            : undefined;
+        const uploaded = {
+          filename: signed.filename,
+          path: signed.path,
+          subfolder: signed.subfolder,
+          ...(durationSeconds !== undefined ? { durationSeconds } : {}),
+          ...(registered
+            ? { fontFamily: registered.family, font: registered.font }
+            : {}),
+        };
+        if (fileType === "mockup-media" && mime.startsWith("video/")) {
+          let inspection: Awaited<ReturnType<typeof inspectMockupRecording>>;
+          try {
+            inspection = await inspectMockupRecording(
+              client,
+              projectId,
+              signed.path,
+            );
+          } catch (error) {
+            if (error instanceof ToolInputError) return fail(error);
+            throw error;
+          }
+          if (inspection && !inspection.exportSafe)
+            return fail(
+              new ToolInputError(
+                "INVALID_UPLOAD_INPUT",
+                [
+                  `This recording isn't suitable for mockup rendering and was ${inspection.removed ? "removed" : "not used"}: ${inspection.issues.join(" ")}`,
+                  "The editor re-encodes recordings to H.264, 30 fps, a keyframe every 2 s, ≤1080 px short side, ≤30 MB; the server cannot re-encode.",
+                  `Re-encode it and upload again, e.g.: ${inspection.ffmpegCommand}`,
+                  "Or ask the user to upload it in the mockup editor, which converts it automatically.",
+                ].join("\n"),
+              ),
+            );
+          if (inspection)
+            return ok(
+              {
+                ...uploaded,
+                durationSeconds: inspection.durationSeconds,
+                width: inspection.width,
+                height: inspection.height,
+                fps: inspection.fps,
+              },
+              `Uploaded ${fileType} recording (${inspection.durationSeconds}s, ${inspection.width}×${inspection.height})`,
+            );
+        }
         return ok(
-          {
-            filename: signed.filename,
-            path: signed.path,
-            subfolder: signed.subfolder,
-          },
-          `Uploaded ${fileType} asset`,
+          uploaded,
+          registered
+            ? `Uploaded and registered font family "${registered.family}"`
+            : `Uploaded ${fileType} asset`,
         );
       } catch (error) {
         return safeFail(

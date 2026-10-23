@@ -88,7 +88,11 @@ test("safe project state removes internal records and signed asset URLs", () => 
     hasLogo: true,
     qrCodeCount: 1,
   });
-  assert.deepEqual(Object.keys(state.content as object), ["screenshots"]);
+  assert.deepEqual(Object.keys(state.content as object), [
+    "screenshots",
+    "asoCopy",
+    "appIcon",
+  ]);
 
   const serialized = JSON.stringify(state);
   for (const forbidden of [

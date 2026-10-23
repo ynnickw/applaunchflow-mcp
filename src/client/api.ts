@@ -33,6 +33,8 @@ export class AppLaunchFlowApiError extends Error {
   body: any;
   retryAfter?: number;
   requestId?: string;
+  /** Dashboard origin that rejected the request (for recovery links). */
+  baseUrl?: string;
 
   constructor(message: string, status: number, body: any) {
     super(message);
@@ -126,6 +128,7 @@ export class AppLaunchFlowClient {
       const retry = response.headers.get("retry-after");
       error.retryAfter = retry ? Number(retry) : undefined;
       error.requestId = response.headers.get("x-request-id") ?? undefined;
+      error.baseUrl = this.credentials.baseUrl;
       throw error;
     }
 
@@ -303,6 +306,82 @@ export class AppLaunchFlowClient {
     });
   }
 
+  /** Lambda-rendered screen images of a saved screenshot variant. */
+  previewScreenshots(body: Record<string, unknown>) {
+    return this.requestJson<{
+      projectId: string;
+      variantId: string;
+      language: string;
+      platform: string;
+      device: string;
+      size: string;
+      renderedWidth: number;
+      renderedHeight: number;
+      screenCount: number;
+      renderMs: number;
+      images: Array<{
+        screenIndex: number;
+        width: number;
+        height: number;
+        mimeType: string;
+        url: string;
+        expiresAt: string;
+      }>;
+    }>("/api/v1/screenshots/preview", {
+      method: "POST",
+      body,
+      timeoutMs: 290_000,
+    });
+  }
+
+  listFonts(query: { projectId: string; query?: string; limit?: number }) {
+    return this.requestJson<any>("/api/v1/fonts", { query });
+  }
+
+  registerCustomFont(body: {
+    projectId: string;
+    path: string;
+    name?: string;
+    weight?: string;
+    style?: "normal" | "italic";
+  }) {
+    return this.requestJson<any>("/api/v1/fonts", { method: "POST", body });
+  }
+
+  bulkApplyScreenshots(body: Record<string, unknown>) {
+    return this.requestJson<any>("/api/screenshots/bulk-apply", {
+      method: "POST",
+      body,
+      timeoutMs: 120_000,
+    });
+  }
+
+  syncLayoutTranslations(body: Record<string, unknown>) {
+    return this.requestJson<any>("/api/v1/translations/sync", {
+      method: "POST",
+      body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
+    });
+  }
+
+  searchStockPhotos(
+    provider: "pexels" | "unsplash",
+    query: Record<string, string | number | undefined>,
+  ) {
+    return this.requestJson<any>(`/api/${provider}/search`, { query });
+  }
+
+  importStockPhoto(
+    provider: "pexels" | "unsplash",
+    body: Record<string, unknown>,
+  ) {
+    return this.requestJson<any>(`/api/${provider}/import`, {
+      method: "POST",
+      body,
+      timeoutMs: 60_000,
+    });
+  }
+
   listTemplates() {
     return this.requestJson<{ templates: any[] }>("/api/mcp/templates");
   }
@@ -323,10 +402,53 @@ export class AppLaunchFlowClient {
     );
   }
 
-  getPromoVideo(generationId: string, variantId?: string) {
+  getPromoVideo(generationId: string, variantId?: string, language?: string) {
     return this.requestJson<any>("/api/promovideo/load", {
-      query: { generationId, variantId },
+      query: { generationId, variantId, language },
     });
+  }
+
+  translatePromoVideo(body: {
+    generationId: string;
+    variantId?: string;
+    targetLanguages: string[];
+  }) {
+    return this.requestJson<any>("/api/promovideo/translate", {
+      method: "POST",
+      body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
+    });
+  }
+
+  previewPromoVideo(body: Record<string, unknown>) {
+    return this.requestJson<{
+      mimeType: string;
+      png: string;
+      [key: string]: unknown;
+    }>("/api/promovideo/preview", {
+      method: "POST",
+      body,
+      // The still waits for a Lambda render (cold start, fonts, 3D models).
+      timeoutMs: 3 * 60_000,
+    });
+  }
+
+  exportPromoVideo(body: Record<string, unknown>, idempotencyKey: string) {
+    return this.requestJson<any>("/api/promovideo/export", {
+      method: "POST",
+      body,
+      headers: { "Idempotency-Key": idempotencyKey },
+      timeoutMs: 2 * 60_000,
+    });
+  }
+
+  getExport(exportId: string) {
+    return this.requestJson<any>(`/api/exports/${encodeURIComponent(exportId)}`);
+  }
+
+  /** Resolve an authenticated download path to a short-lived file URL. */
+  getDownloadLink(path: string) {
+    return this.requestJson<{ url: string; expiresAt?: string }>(path);
   }
 
   generatePromoVideo(body: Record<string, unknown>) {
@@ -371,10 +493,97 @@ export class AppLaunchFlowClient {
     });
   }
 
-  listMockupMedia(projectId: string) {
+  listMockupMedia(projectId: string, options: { includeMetadata?: boolean } = {}) {
     return this.requestJson<any>("/api/mockup-media/list", {
-      query: { projectId },
+      query: {
+        projectId,
+        includeMetadata: options.includeMetadata ? "true" : undefined,
+      },
+      timeoutMs: options.includeMetadata ? 90_000 : undefined,
     });
+  }
+
+  inspectMockupMedia(body: {
+    generationId: string;
+    path: string;
+    removeIfUnsuitable?: boolean;
+  }) {
+    return this.requestJson<any>("/api/mockup-media/inspect", {
+      method: "POST",
+      body,
+    });
+  }
+
+  getMockupPresets() {
+    return this.requestJson<any>("/api/mockups/presets");
+  }
+
+  previewMockupAnimation(body: {
+    generationId: string;
+    variantId?: string;
+    times?: number[];
+    scale?: number;
+  }) {
+    return this.requestJson<any>("/api/mockups/preview", {
+      method: "POST",
+      body,
+      timeoutMs: 150_000,
+    });
+  }
+
+  generateMockupMotion(body: {
+    generationId: string;
+    prompt: string;
+    deviceKind: "phone" | "tablet" | "laptop";
+  }) {
+    return this.requestJson<any>("/api/mockups/generate-motion", {
+      method: "POST",
+      body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
+    });
+  }
+
+  exportMockupAnimation(
+    body: {
+      projectId: string;
+      variantId?: string;
+      options: { format: "mp4" | "webm"; quality: "720p" | "1080p"; fps: 30 | 60 };
+    },
+    idempotencyKey?: string,
+  ) {
+    return this.requestJson<{ status: string; exportJobId: string }>(
+      "/api/mockups/export",
+      {
+        method: "POST",
+        body,
+        headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
+        timeoutMs: 120_000,
+      },
+    );
+  }
+
+  /** Video export job status (promo or mockup). */
+  getExportJob(exportJobId: string) {
+    return this.requestJson<{
+      export: {
+        id: string;
+        contentType: string;
+        status: string;
+        progress: number | null;
+        errorMessage: string | null;
+        fileName: string | null;
+        fileSize: number | null;
+        expiresAt: string | null;
+      };
+      downloadUrl?: string;
+    }>(`/api/exports/${encodeURIComponent(exportJobId)}`, {
+      timeoutMs: 60_000,
+    });
+  }
+
+  /** Resolve an export-history download link to a short-lived file URL. */
+  getExportDownload(downloadPath: string) {
+    return this.requestJson<{ url: string; expiresAt: string }>(downloadPath);
   }
 
   getMockupThemeColors(generationId: string) {
@@ -430,16 +639,79 @@ export class AppLaunchFlowClient {
     });
   }
 
-  getGraphics(projectId: string, variantId?: string) {
+  getGraphics(projectId: string, variantId?: string, language?: string) {
     return this.requestJson<any>("/api/graphics", {
-      query: { projectId, variantId },
+      query: { projectId, variantId, language },
     });
   }
 
-  getGraphicsFormat(projectId: string, format: string, variantId?: string) {
+  getGraphicsFormat(
+    projectId: string,
+    format: string,
+    variantId?: string,
+    language?: string,
+  ) {
     return this.requestJson<any>("/api/graphics", {
-      query: { projectId, variantId, format },
+      query: { projectId, variantId, format, language },
     });
+  }
+
+  translateGraphics(body: {
+    generationId: string;
+    variantId?: string;
+    targetLanguages: string[];
+  }) {
+    return this.requestJson<any>("/api/graphics/translate", {
+      method: "POST",
+      body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
+    });
+  }
+
+  listGraphicsTranslations(projectId: string, variantId?: string) {
+    return this.requestJson<{
+      variantId: string | null;
+      sourceLanguage: string;
+      availableLanguages: string[];
+    }>("/api/graphics/translations", { query: { projectId, variantId } });
+  }
+
+  transformGraphics(body: Record<string, unknown>) {
+    return this.requestJson<any>("/api/graphics/transform", {
+      method: "POST",
+      body,
+    });
+  }
+
+  updateGraphicsSettings(body: Record<string, unknown>) {
+    return this.requestJson<any>("/api/graphics/settings", {
+      method: "POST",
+      body,
+    });
+  }
+
+  renderGraphics(mode: "preview" | "export", body: Record<string, unknown>) {
+    return this.requestJson<any>(`/api/graphics/${mode}`, {
+      method: "POST",
+      body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
+    });
+  }
+
+  /** Download a short-lived artifact URL returned by a render (S3 presigned). */
+  async fetchArtifactBytes(url: string, maxBytes = 4_000_000): Promise<Buffer> {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.hostname !== "localhost")
+      throw new Error("Artifact URLs must use https");
+    const response = await fetch(parsed, {
+      redirect: "error",
+      signal: upstreamSignal(DEFAULT_API_TIMEOUT_MS),
+    });
+    if (!response.ok)
+      throw new Error(`Artifact download failed with status ${response.status}`);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length > maxBytes) throw new Error("Artifact too large to inline");
+    return bytes;
   }
 
   generateGraphics(body: Record<string, unknown>) {
@@ -561,6 +833,73 @@ export class AppLaunchFlowClient {
       added: number;
       staleCount: number;
     }>("/api/keywords", { method: "POST", body });
+  }
+
+  addKeywordsForProject(body: {
+    projectId: string;
+    keywords: string[];
+    appId?: string;
+    country?: string;
+    lang?: string;
+    countries?: Array<{ country: string; lang: string }>;
+    storeProvider?: "app_store" | "google_play";
+  }) {
+    return this.requestJson<{
+      ok: true;
+      added: number;
+      staleCount: number;
+      storeProvider?: "app_store" | "google_play";
+      appId?: string | null;
+    }>("/api/keywords", { method: "POST", body });
+  }
+
+  removeKeywords(ids: string[]) {
+    return this.requestJson<{ ok: true; removed?: number }>("/api/keywords", {
+      method: "DELETE",
+      body: ids.length === 1 ? { id: ids[0] } : { ids },
+    });
+  }
+
+  replaceKeywordCompetitors(body: {
+    projectId: string;
+    appIds: string[];
+    storeProvider: "app_store" | "google_play";
+  }) {
+    return this.requestJson<any>("/api/keywords/competitors", {
+      method: "PUT",
+      body,
+    });
+  }
+
+  suggestKeywords(body: {
+    projectId: string;
+    storeProvider?: "app_store" | "google_play";
+  }) {
+    return this.requestJson<{ candidates: Array<{ keyword: string }> }>(
+      "/api/keywords/suggest",
+      { method: "POST", body, timeoutMs: LONG_RUNNING_API_TIMEOUT_MS },
+    );
+  }
+
+  suggestKeywordCompetitors(query: {
+    projectId: string;
+    storeProvider?: "app_store" | "google_play";
+  }) {
+    return this.requestJson<any>("/api/keywords/competitors/suggested", {
+      query,
+    });
+  }
+
+  getApiUsage() {
+    return this.requestJson<{
+      pro: boolean;
+      unlimited: boolean;
+      limit: number;
+      used: number;
+      remaining: number | null;
+      periodStart: string;
+      resetsAt: string;
+    }>("/api/v1/account/usage");
   }
 
   /** List files in a project's asset subfolder (panorama, illustrations, backgrounds, etc.) */

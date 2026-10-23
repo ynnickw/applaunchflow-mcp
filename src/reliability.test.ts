@@ -518,7 +518,9 @@ test("hosted reliability regressions over real HTTP", async (t) => {
             "string",
           );
           for (const tool of tools) {
-            if (tool.name === "view_review_snapshot") {
+            if (
+              ["view_review_snapshot", "preview_mockup_animation", "preview_screenshots", "preview_promo_video"].includes(tool.name)
+            ) {
               assert.equal(tool.outputSchema, undefined);
               continue;
             }

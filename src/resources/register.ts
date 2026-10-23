@@ -8,7 +8,7 @@ import {
   isTemplatePreviewDeviceType,
 } from "../template-previews.js";
 import {
-  PROJECT_CREATION_WIZARD_RESOURCE,
+  PROJECT_CREATION_RESOURCE,
   SUPPORTED_DEVICES,
   TRANSFORM_SCHEMA_RESOURCE,
   WORKFLOW_GUIDE_RESOURCE,
@@ -163,11 +163,12 @@ export function registerResources(
     "project-creation-wizard",
     "applaunchflow://wizard/project-creation",
     {
-      title: "Project Creation Wizard",
-      description: "The exact guided flow used by the UI create-project wizard",
+      title: "Project Creation",
+      description:
+        "How to create a project with create_project (App Store import or name + platform) and what to do next.",
       mimeType: "application/json",
     },
-    async (uri) => asJsonResource(uri.href, PROJECT_CREATION_WIZARD_RESOURCE),
+    async (uri) => asJsonResource(uri.href, PROJECT_CREATION_RESOURCE),
   );
 
   server.registerResource(
@@ -176,7 +177,7 @@ export function registerResources(
     {
       title: "Workflow Guide",
       description:
-        "Preferred MCP workflows for generating and editing projects",
+        "Preferred MCP workflows for every area: project setup, screenshots, social graphics, promo videos, mockups, localization, export, assets, store listing text, keywords and variants.",
       mimeType: "application/json",
     },
     async (uri) => asJsonResource(uri.href, WORKFLOW_GUIDE_RESOURCE),
@@ -187,7 +188,8 @@ export function registerResources(
     "applaunchflow://devices",
     {
       title: "Supported Devices",
-      description: "Device frame identifiers and dimensions",
+      description:
+        "Default device frame ids and aspect ratios. Full device registries and 3D models: get_editing_reference.",
       mimeType: "application/json",
     },
     async (uri) => asJsonResource(uri.href, SUPPORTED_DEVICES),

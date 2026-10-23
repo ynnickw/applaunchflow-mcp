@@ -7,6 +7,7 @@ import type {
 import { AppLaunchFlowApiError } from "../client/api.js";
 import { requestErrorCategory } from "../request-context.js";
 import { ToolInputError } from "../telemetry.js";
+import { limitRecovery } from "./limit-recovery.js";
 
 /**
  * Bypass the SDK's `elicitation.url` capability gate by calling the underlying
@@ -280,6 +281,7 @@ function formatValidationIssue(issue: ValidationIssue): string {
 export function fail(error: unknown) {
   const issues = extractValidationIssues(error);
   const category = requestErrorCategory(error);
+  const recovery = limitRecovery(error);
 
   const normalized =
     error instanceof AppLaunchFlowApiError
@@ -293,6 +295,7 @@ export function fail(error: unknown) {
           status: error.status,
           details: error.body,
           ...(issues ? { issues } : {}),
+          ...(recovery ? { recovery } : {}),
         }
       : {
           code:
@@ -316,7 +319,9 @@ export function fail(error: unknown) {
         "Issues:",
         ...issues.map(formatValidationIssue),
       ].join("\n")
-    : normalized.message;
+    : recovery
+      ? `${normalized.message}\n${recovery.guidance}`
+      : normalized.message;
 
   return {
     isError: true,

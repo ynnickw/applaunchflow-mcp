@@ -4,7 +4,9 @@ export class ToolInputError extends Error {
     public readonly code:
       | "READ_BEFORE_EDIT_REQUIRED"
       | "HOSTED_FILE_PATH_UNSUPPORTED"
-      | "INVALID_UPLOAD_INPUT",
+      | "INVALID_UPLOAD_INPUT"
+      | "INVALID_TOOL_INPUT"
+      | "CONFIRMATION_REQUIRED",
     message: string,
   ) {
     super(message);
@@ -40,7 +42,12 @@ export function errorCategory(error: unknown): string {
     ERROR_CATEGORIES.has(value.category)
   )
     return value.category;
-  if (value.code === "INVALID_UPLOAD_INPUT" || value.name === "ZodError")
+  if (
+    value.code === "INVALID_UPLOAD_INPUT" ||
+    value.code === "INVALID_TOOL_INPUT" ||
+    value.code === "CONFIRMATION_REQUIRED" ||
+    value.name === "ZodError"
+  )
     return "validation";
   if (value.code === "READ_BEFORE_EDIT_REQUIRED")
     return "read_before_edit_required";
