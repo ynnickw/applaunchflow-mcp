@@ -37,3 +37,8 @@ jobs:
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: node scripts/release-consistency.mjs --base "$BASE_SHA" --head "$GITHUB_SHA"
+
+      - name: Require editor reference preflight for releases
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/release-preflight.mjs --verify --base "$BASE_SHA"

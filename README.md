@@ -18,6 +18,8 @@ Use the [CI and Fastlane example](examples/README.md). Update captures and local
 
 **Release ordering:** 0.7.0 requires the dashboard v1 API and validating bundler to be enabled before this MCP/SDK release is published or deployed.
 
+**Release ordering:** 0.8.0 requires dashboard PR #282 (new v1 routes for previews, exports, translation and validation) and the Remotion site redeployed from that commit before this release is published or deployed.
+
 ## Connect
 
 ### Cursor marketplace plugin
@@ -220,10 +222,62 @@ For social graphics:
 
 1. `list_source_screenshots`
 2. `prepare_social_graphics_styles` with 3-7 ordered paths
-3. `browse_social_templates` with the returned `templateIds`, `generationId`, and `catalogKey`
-4. `apply_social_graphics_style` with the returned `catalogKey`
+3. The picker opens in the result. The user chooses a template and palette there;
+   the choice creates a variant with every format and opens the graphics editor.
+
+`browse_social_templates` only reopens a prepared catalog, and
+`apply_social_graphics_style` is for an API client or user that supplies a
+template id directly. Agents do not call it after preparing styles.
 
 The screenshot result includes phone, tablet, and desktop. The social result includes every supported social, store-listing, and mobile-ad format. New screenshot and social-graphics variants always go through their visual pickers so the user explicitly chooses the template and palette.
+
+## Scope, plans and limits
+
+`get_capabilities` lists, per area, the tools this server exposes and the
+editor URL, plus everything that only the dashboard can do (store publishing,
+store connections, custom product pages, A/B tests, reviews, app icon, website,
+export history, collaborators, QR codes, API keys, billing) with a deep link for
+each. Pass `projectId` for project links. `get_plan_usage` reports the monthly
+API export allowance and, with `projectId`, keyword and competitor limits.
+
+Plan and quota rejections (`VARIANT_LIMIT_REACHED`, `PROJECT_LIMIT_REACHED`,
+`keyword_limit`, `competitor_limit`, translation gating, `api_export_quota_exhausted`,
+`api_pro_required`) return `error.recovery` with `retryable: false`, guidance
+and an `upgradeUrl`. Only HTTP 429 is marked retryable.
+
+Other tools in this area:
+
+- Store listing text: `get_store_listing`, `generate_store_listing`,
+  `update_store_listing` (merges only the fields passed, enforces store
+  character limits), `translate_store_listing`.
+- Keywords: `add_keywords` resolves the store and app from the project's linked
+  app; `remove_keywords`, `suggest_keywords`, `add_keyword_competitors`,
+  `remove_keyword_competitors`, `suggest_keyword_competitors`.
+- Variants: `create_variant` makes an empty variant and never activates it;
+  `duplicate_variant` copies content and returns an editor URL;
+  `set_active_variant` refuses empty variants; `delete_variant` needs
+  `confirm: true`.
+- `create_project` accepts `appStore` (Apple id or apps.apple.com URL) to import
+  name, category, description and icon and link the app.
+- Tools that take `generationId` also accept `projectId`; both are the project id.
+
+## Releasing
+
+1. Resync the editor reference against the dashboard commit being released and
+   review the diff:
+   `APPLAUNCHFLOW_DASHBOARD_PATH=../applaunchflow npm run sync:editor-reference`
+2. Bump the version in every manifest (see `scripts/release-consistency.mjs`).
+3. `APPLAUNCHFLOW_DASHBOARD_PATH=../applaunchflow npm run release:preflight`
+   checks the reference against that dashboard and writes
+   `editor-reference.lock.json` for the new version. It refuses when the
+   reference is stale.
+4. `npm test`, commit (including the lock file) and merge.
+
+CI and the npm publish workflow run `release-preflight.mjs --verify`, which
+refuses a version increase without a lock written for exactly that version and
+reference content. The dashboard repo runs the opposite check
+(`npm run check:mcp-editor-reference` there), so a dashboard contract change is
+flagged before the MCP is resynced.
 
 ## Development
 

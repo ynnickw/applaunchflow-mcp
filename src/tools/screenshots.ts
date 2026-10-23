@@ -11,11 +11,15 @@ import {
   SCREENSHOT_PICKER_URI,
 } from "../ui/screenshot-picker.js";
 import { pickerToolMeta } from "../ui/picker-resource.js";
+import { registerScreenshotExtraTools } from "./screenshot-extras.js";
+import { registerStockPhotoTools } from "./stock-photos.js";
 
 export function registerScreenshotTools(
   server: McpServer,
   client: AppLaunchFlowClient,
 ): void {
+  registerScreenshotExtraTools(server, client);
+  registerStockPhotoTools(server, client);
   server.registerTool(
     "prepare_screenshot_styles",
     {
@@ -204,7 +208,8 @@ export function registerScreenshotTools(
     {
       title: "List Template Source Screenshots",
       description:
-        "List all real source screenshots available to screenshot and social-graphics style generation, including project-relative path, signed preview URL, platform, and phone/tablet/desktop device type. No sample fallback is added. Use the returned paths to choose 3-7 inputs for prepare_screenshot_styles or prepare_social_graphics_styles.",
+        "List the project's real uploaded app screenshots (the captures used as input for AI generation) with project-relative path, signed preview URL, platform and phone/tablet/desktop device type, across all devices and platforms. No sample fallback is added. Use the returned paths to choose 3-7 inputs for prepare_screenshot_styles or prepare_social_graphics_styles. " +
+        "Compare: list_screenshots = paths only, filtered by one device type/platform (may return sample screenshots when none are uploaded, flagged isSample); list_assets = every uploaded file (screenshots, illustrations, logos, backgrounds, media, fonts) as a browsable list.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
       }),
@@ -236,7 +241,8 @@ export function registerScreenshotTools(
     "list_screenshots",
     {
       title: "List Screenshots",
-      description: "List uploaded screenshot paths for a project",
+      description:
+        "List uploaded screenshot paths (project-relative) for one device type (mobile/tablet/desktop) and platform (ios/android). Returns sample screenshots flagged isSample when the project has none. Use the paths with view_screenshot or in layout screenshot nodes. For generation inputs with preview URLs and device types use list_source_screenshots; for every uploaded file type use list_assets.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         deviceType: z.enum(["mobile", "tablet", "desktop"]).optional(),

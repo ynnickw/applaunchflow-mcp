@@ -7,7 +7,7 @@ export function registerPrompts(server: McpServer): void {
     {
       title: "Create Project Wizard",
       description:
-        "Guide the user through quick project creation: ask app name + platform, then create immediately.",
+        "Guide the user through quick project creation: import from the App Store or ask app name + platform, then create immediately.",
       argsSchema: z.object({
         userGoal: z
           .string()
@@ -26,7 +26,8 @@ export function registerPrompts(server: McpServer): void {
             text: [
               "Create an AppLaunchFlow project quickly.",
               "If no project is selected yet, the first branching question is whether the user wants to create a new app or edit an existing one.",
-              "Ask for the app name and platform (iOS or Android) using AskUserQuestion.",
+              "If the app is already on the App Store, pass its id or apps.apple.com URL as appStore: name, category, description and icon are imported.",
+              "Otherwise ask for the app name and platform (iOS or Android) in one short question, unless both are already known. Default platform to iOS.",
               "Autofill category and description from context — do not ask the user for these.",
               "Call create_project immediately after getting the name and platform.",
               "After creation, recommend uploading screenshots as the next step.",

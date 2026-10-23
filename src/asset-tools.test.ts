@@ -215,6 +215,8 @@ test("list_assets isolates account data, strips private preview URLs from model 
 
 test("upload_asset supports image/media/font categories and rejects wrong media before creating a signed upload", async (t) => {
   const requests: Array<{ url: string; body?: Record<string, string> }> = [];
+  const inspections: Array<Record<string, unknown>> = [];
+  const fontRegistrations: Array<Record<string, string>> = [];
   t.mock.method(
     globalThis,
     "fetch",
@@ -231,6 +233,26 @@ test("upload_asset supports image/media/font categories and rejects wrong media 
           fullPath: `${projectId}/${body.fileType}/file`,
         });
       }
+      if (url === `${origin}/api/v1/mockup-media/inspect`) {
+        const body = JSON.parse(String(init?.body));
+        inspections.push(body);
+        return Response.json({
+          path: body.path,
+          kind: "video",
+          exportSafe: true,
+          issues: [],
+          durationSeconds: 4,
+          width: 720,
+          height: 1560,
+          fps: 30,
+        });
+      }
+      if (url === `${origin}/api/v1/fonts`) {
+        // Font uploads register the family like the editor's font upload.
+        const body = JSON.parse(String(init?.body));
+        fontRegistrations.push(body);
+        return Response.json({ family: "Brand", font: { name: "Brand", path: body.path } });
+      }
       assert.equal(url, "https://upload.test/signed");
       assert.equal(init?.method, "PUT");
       requests.push({ url });
@@ -245,6 +267,7 @@ test("upload_asset supports image/media/font categories and rejects wrong media 
       ["background", "background.webp", "image/webp"],
       ["panorama", "panorama.jpg", "image/jpeg"],
       ["mockup-media", "recording.mp4", "video/mp4"],
+      ["mockup-media", "soundtrack.mp3", "audio/mpeg"],
       ["promo-media", "music.mp3", "audio/mpeg"],
       ["font", "brand.woff2", "font/woff2"],
     ]) {
@@ -263,6 +286,15 @@ test("upload_asset supports image/media/font categories and rejects wrong media 
       assert.equal(requests.at(-2)?.body?.contentType, contentType);
       assert.equal(requests.at(-2)?.body?.fileType, fileType);
     }
+    // Only the mockup recording is checked against the cloud-render profile.
+    assert.deepEqual(inspections, [
+      {
+        generationId: projectId,
+        path: "mockup-media/file",
+        removeIfUnsuitable: true,
+      },
+    ]);
+    assert.deepEqual(fontRegistrations, [{ projectId, path: "font/file" }]);
     const before = requests.length;
     const rejected = await client.callTool({
       name: "upload_asset",
@@ -470,6 +502,59 @@ test("upload failures preserve safe categories without exposing signed URLs or A
         );
       }
     }
+  } finally {
+    await close();
+  }
+});
+
+test("upload_asset rejects mockup recordings the cloud renderer can't use, with the fix", async (t) => {
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === `${origin}/api/v1/assets/upload/signed-url`)
+        return Response.json({
+          uploadUrl: "https://upload.test/signed",
+          path: "mockups/123-clip.mov",
+          filename: "123-clip.mov",
+          subfolder: "mockups",
+        });
+      if (url === "https://upload.test/signed")
+        return new Response(null, { status: 200 });
+      if (url === `${origin}/api/v1/mockup-media/inspect`) {
+        assert.equal(JSON.parse(String(init?.body)).removeIfUnsuitable, true);
+        return Response.json({
+          data: {
+            path: "mockups/123-clip.mov",
+            kind: "video",
+            exportSafe: false,
+            removed: true,
+            issues: ["Codec hevc cannot be decoded by the cloud renderer; use H.264 (avc)."],
+            ffmpegCommand: "ffmpeg -i input.mov -c:v libx264 output.mp4",
+          },
+          meta: { requestId: "r" },
+        });
+      }
+      throw new Error(`unexpected ${url}`);
+    },
+  );
+  const { client, close } = await connect();
+  try {
+    const result = await client.callTool({
+      name: "upload_asset",
+      arguments: {
+        projectId,
+        fileType: "mockup-media",
+        source: { filename: "clip.mov", base64: "YWJj" },
+      },
+    });
+    assert.equal(result.isError, true);
+    const text = JSON.stringify(result.content);
+    assert.match(text, /was removed/);
+    assert.match(text, /hevc/);
+    assert.match(text, /libx264/);
+    assert.equal(toolErrorCategory(result), "validation");
   } finally {
     await close();
   }

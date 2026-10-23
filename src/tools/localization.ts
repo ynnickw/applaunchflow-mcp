@@ -3,47 +3,16 @@ import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { fail, ok } from "./utils.js";
 
-const SUPPORTED_LANGUAGE_CODES = [
-  "en",
-  "en-GB",
-  "en-AU",
-  "en-CA",
-  "es",
-  "es-MX",
-  "fr",
-  "fr-CA",
-  "de",
-  "it",
-  "pt",
-  "pt-BR",
-  "ja",
-  "ko",
-  "zh-CN",
-  "zh-TW",
-  "nl",
-  "ru",
-  "ar",
-  "tr",
-  "pl",
-  "sv",
-  "no",
-  "da",
-  "fi",
-  "cs",
-  "hi",
-  "hu",
-  "ro",
-  "uk",
-  "el",
-  "he",
-  "id",
-  "ms",
-  "th",
-  "vi",
-  "fil",
-  "hr",
-  "sk",
-  "ca",
+/**
+ * Mirrors the dashboard's languageCodeSchema (src/shared/validation/schemas.ts,
+ * SUPPORTED_LANGUAGES in src/shared/config/languages.ts): 51 codes.
+ */
+export const SUPPORTED_LANGUAGE_CODES = [
+  "en", "en-GB", "en-AU", "en-CA", "es", "es-MX", "fr", "fr-CA", "de", "it",
+  "pt", "pt-BR", "ja", "ko", "zh-CN", "zh-TW", "nl", "ru", "ar", "tr",
+  "pl", "sv", "no", "da", "fi", "cs", "hi", "hu", "ro", "uk",
+  "el", "he", "id", "ms", "th", "vi", "fil", "hr", "sk", "ca",
+  "bn", "gu", "kn", "ml", "mr", "or", "pa", "sl", "ta", "te", "ur",
 ] as const;
 
 export function registerLocalizationTools(
@@ -59,7 +28,9 @@ export function registerLocalizationTools(
         "This is the PREFERRED way to localize screenshots — do NOT manually edit text nodes for translation. " +
         "The backend translates all text in the layout while preserving positioning, styling, and screenshots. " +
         "Requires a source screenshot layout to already exist — created by the personalized gallery or apply_screenshot_style. " +
-        "Pass the source variantId when available to translate that exact variant; if omitted, the active variant is used.",
+        "Pass the source variantId when available to translate that exact variant; if omitted, the active variant is used. " +
+        "Re-running it for a language that already exists RE-SYNCS that translation from the source layout: its design (positions, styles, colors, devices) is replaced by the source's, unchanged text reuses the previous translation and per-language screenshots are kept; manual per-language design edits are lost. " +
+        "To copy only the design without translating, use sync_layout; to put language-specific screenshots in, use apply_locale_screenshots.",
       inputSchema: z.object({
         generationId: z
           .string()
@@ -76,7 +47,7 @@ export function registerLocalizationTools(
           .array(z.enum(SUPPORTED_LANGUAGE_CODES))
           .min(1)
           .describe(
-            "Array of target language codes (e.g. ['en', 'ja', 'de']). Use el for Greek (el-GR), he for Hebrew (iw-IL), and fil for Filipino. The source language is auto-detected and excluded.",
+            "Array of target language codes (e.g. ['en', 'ja', 'de']). Use el for Greek (el-GR), he for Hebrew (iw-IL), fil for Filipino, or for Odia, pa for Punjabi. The source language is auto-detected and excluded.",
           ),
         layouts: z
           .array(z.enum(["mobile", "tablet", "desktop"]))

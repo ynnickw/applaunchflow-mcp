@@ -15,7 +15,7 @@ import {
 
 const phoneFormatIds = ["ios-6.5", "ios-6.3", "ios-6.1", "ios-duo-inner", "ios-duo-outer", "android-play-high"] as const;
 
-const transformOperationSchema = z
+export const transformOperationSchema = z
   .object({
     type: z
       .enum([
@@ -24,17 +24,23 @@ const transformOperationSchema = z
         "add_node",
         "reorder",
         "replace_color",
+        "bring_to_front",
+        "send_to_back",
       ])
       .describe(
-        "Operation type. replace_color is a find-and-replace for colors across the layout — use it for bulk color changes instead of updating each text node individually. " +
+        "Operation type. update_node merges changes into every matched node (null removes a field). " +
+          "replace_color is a find-and-replace for colors across the layout — use it for bulk color changes instead of updating each text node individually. " +
           "Example: {type:'replace_color', target:{nodeType:'screen'}, changes:{find:'#F6EFE9', replace:'#7C3AED'}} replaces that color everywhere (text marks, icon colors, backgrounds). " +
-          "Use screens:'all' to replace across all screens, or screens:[6] for a single screen.",
+          "Use screens:'all' to replace across all screens, or screens:[6] for a single screen. " +
+          "reorder takes changes.order (node ids back-to-front) and permutes the zIndex values those nodes already have. " +
+          "bring_to_front / send_to_back move the matched node(s) above / below every other element on their screen (all node types share one zIndex order per screen).",
       ),
     target: z.object({
       nodeType: z
         .string()
         .describe(
-          "REQUIRED. The node type to target: 'screen', 'text', 'screenshot', 'illustration', 'pill', 'badge', 'blob', 'rating', 'logo', 'emoji', 'header', 'panoramaBackground', 'backgroundImage'.",
+          "REQUIRED. The node type to target: 'layout' (layout-level fields: backgroundColor, backgroundGradient, colorRefs, orientation, screenshotGap, phoneFormatImagesOnly, layerGroups, themeColors {role: hex} recoloring linked elements like the editor's Theme panel, themePaletteMode 'v1'|'v2'), " +
+            "'screen', 'text', 'screenshot', 'illustration', 'magnifier', 'pill', 'badge', 'blob', 'rating', 'logo', 'emoji', 'header', 'panoramaBackground', 'backgroundImage'.",
         ),
       nodeId: z
         .string()
@@ -55,7 +61,18 @@ const transformOperationSchema = z
           "Optional. Target specific screens by index array (e.g. [0, 1, 2]) or 'all' for every screen. If omitted, targets all screens.",
         ),
     }),
-    changes: z.record(z.string(), z.any()),
+    changes: z
+      .record(z.string(), z.any())
+      .describe(
+        "Fields to set (dot-notation allowed). A null value REMOVES that field: {backgroundGradient:null}, {model3D:null} (back to the 2D frame), {shadow:null}, {iosPath:null}. " +
+          "Asset fields: screenshot.path, illustration.path / logo.path, screen backgroundImage.storagePath, panoramaBackground.storagePath — relative project paths from upload_asset / list_assets.",
+      ),
+    platform: z
+      .enum(["ios", "android"])
+      .optional()
+      .describe(
+        "Screenshot path changes only. Omit to replace the image on BOTH platforms (clears iosPath/androidPath overrides, like the editor's Replace). Set to store changes.path as that platform's override only.",
+      ),
   })
   .superRefine((operation, ctx) => {
     // Require nodeType for all operations except replace_color
@@ -175,7 +192,7 @@ export function registerLayoutTools(
       description:
         "Get layout JSON for the current translation before editing or reviewing a variant. Includes independent phone designs in format_layouts; they do not follow main/mobile edits. Use transform_layout with formatId to edit one, or resetFormat:true to follow main again. " +
         "This is mandatory before every direct transform_layout call. " +
-        "Returns the editor URL as a reference link — do NOT auto-open it. The user already has the editor open from the initial generation. " +
+        "Returns the editor URL as a reference link; it is not opened automatically. Share it when the user wants to review the result. " +
         "The returned JSON follows the layout schema documented in the resource applaunchflow://schema/layout — read it to learn which fields exist and their valid ranges, not just which ones happen to be set here.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
@@ -322,8 +339,15 @@ export function registerLayoutTools(
         "4. Dot-notation is supported for deep updates without replacing the whole object. Example: {'richContent.attrs.defaultFontSize': 96} updates only the font size inside richContent.attrs, preserving all other fields. Always use dot-notation for nested property changes. " +
         "5. For add_node, changes MUST include an 'id' field. " +
         "6. To add new screens, first add empty screen containers, then populate them in a SECOND call using selector 'screenId:<id>'. " +
-        "7. Default to layouts:['mobile']. Use formatId to edit a separate phone size such as ios-duo-inner; do not combine formatId with layouts. resetFormat:true with formatId and no operations makes that size follow main again. " +
+        "7. layouts defaults to ['mobile'] (phone only); list 'tablet'/'desktop' explicitly to change them too. Use formatId to edit a separate phone size such as ios-duo-inner; do not combine formatId with layouts. resetFormat:true with formatId and no operations makes that size follow main again. " +
         "8. FONT SIZE: The rendered font size is controlled ONLY by 'richContent.attrs.defaultFontSize' (pixel value). To change font size, use dot-notation: {'richContent.attrs.defaultFontSize': 80}. Do NOT use 'fontSizeScale' — that property is for promo videos only and has NO effect on screenshot rendering. " +
+        "9. UNSET: a null value removes a field ({model3D:null} returns to the 2D frame, {backgroundGradient:null}, {shadow:null}). " +
+        "10. THEME: target {nodeType:'layout'} with changes {themeColors:{primary:'#...'}} recolors every linked element and re-derives dependent roles like the editor; {themePaletteMode:'v2'} switches the generated palette; orientation, backgroundColor, backgroundGradient, screenshotGap are also layout-level. " +
+        "11. SCREENSHOT IMAGE: setting a screenshot's path replaces the image on both platforms (iosPath/androidPath overrides win over path and are cleared); pass platform:'ios'|'android' to change one platform only. phoneId is the 2D frame and follows the project platform at render (iphone17 / googlepixel); choose another device with model3D {modelId, finish, rotationX, rotationY, rotationZ}. " +
+        "12. STACKING: zIndex is one order per screen across ALL node types; use bring_to_front / send_to_back, or reorder (which keeps the collection's zIndex values). " +
+        "13. COORDINATES are per screen in canvas pixels: a text's position.x is the LEFT edge of its box (width wide, aligned inside it) and position.y its top; a screenshot's position is the device CENTRE and ScreenshotNode.scale its size factor. " +
+        "VALIDATION: unknown font families (see list_fonts), invalid 3D modelId/finish, magnifier.screenshotId not on the same screen, and asset paths that do not exist in the project are rejected with the reason; nothing is saved. " +
+        "Check the result visually with preview_screenshots. " +
         "SCHEMA REFERENCE: read the resource applaunchflow://schema/transforms for the full operation and selector reference, and applaunchflow://schema/layout for every node type's fields and valid value ranges. Read them before any non-trivial edit rather than guessing field names.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
@@ -336,7 +360,7 @@ export function registerLayoutTools(
           .array(z.enum(["mobile", "tablet", "desktop"]))
           .optional()
           .describe(
-            "Which layout sizes to transform. Default to ['mobile'] unless the user explicitly asks for tablet or desktop.",
+            "Which layout sizes to transform. Defaults to ['mobile']; include 'tablet' / 'desktop' only when the user asks for them.",
           ),
         operations: z.array(transformOperationSchema).default([]),
         readReceipt: z
@@ -372,7 +396,17 @@ export function registerLayoutTools(
         }
 
         const { readReceipt: _readReceipt, ...transformArgs } = args;
-        const response = await client.transformLayout({ ...transformArgs, includeResultPreview: true });
+        // The documented default is phone only; send it explicitly so older
+        // servers that defaulted to every device size behave the same.
+        const layouts =
+          transformArgs.formatId || transformArgs.layouts?.length
+            ? transformArgs.layouts
+            : ["mobile" as const];
+        const response = await client.transformLayout({
+          ...transformArgs,
+          ...(layouts ? { layouts } : {}),
+          includeResultPreview: true,
+        });
         const { layoutResult, ...transformed } = response;
         layoutReadReceipts.delete(receiptKey);
 
@@ -399,7 +433,11 @@ export function registerLayoutTools(
                 RESULT_REVIEW_GUIDANCE,
                 `Editor URL (already open — do NOT run \`open\` again): ${editorUrl}`,
                 previewUrl ? `Preview URL: ${previewUrl}` : null,
+                Array.isArray(transformed.warnings) && transformed.warnings.length
+                  ? `Warnings: ${transformed.warnings.join(" ")}`
+                  : null,
                 "This transform consumed the current read receipt. Call get_layout again before the next direct edit.",
+                "To see the rendered result, call preview_screenshots for this variant and language.",
               ]
                 .filter(Boolean)
                 .join("\n"),
