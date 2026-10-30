@@ -2,10 +2,13 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
 import release from "./picker-release.generated.json" with { type: "json" };
+import { versionWidgetResourceUri } from "./widget-metadata.js";
 
 export type PickerName = keyof typeof release.pickers;
 export function pickerUri(name: PickerName): string {
-  return `ui://applaunchflow/${name}-${release.pickers[name].digest}.html`;
+  return versionWidgetResourceUri(
+    `ui://applaunchflow/${name}-${release.pickers[name].digest}.html`,
+  );
 }
 type Bundle = { script: string; style: string };
 const bundles = new Map<PickerName, Promise<Bundle>>();

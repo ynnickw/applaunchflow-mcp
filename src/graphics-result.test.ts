@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createAppLaunchFlowServer } from "./index.js";
+import { LAYOUT_RESULT_URI } from "./ui/layout-result.js";
 
 test("social saves attach saved signed layouts privately, with failure isolated from save", async (t) => {
   const projectId = "00000000-0000-4000-8000-000000000001";
@@ -48,7 +49,7 @@ test("social saves attach saved signed layouts privately, with failure isolated 
       assert.equal(
         (listed.tools.find((tool) => tool.name === name)?._meta?.ui as any)
           ?.resourceUri,
-        "ui://applaunchflow/layout-result-v2.html",
+        LAYOUT_RESULT_URI,
       );
     }
     await client.callTool({
@@ -65,8 +66,14 @@ test("social saves attach saved signed layouts privately, with failure isolated 
       },
     });
     assert.equal(single.isError, undefined);
-    assert.match(JSON.stringify(single.content), /inspect the returned image before giving a visual assessment/);
-    assert.doesNotMatch(JSON.stringify(single.content), /Review this result sends/);
+    assert.match(
+      JSON.stringify(single.content),
+      /inspect the returned image before giving a visual assessment/,
+    );
+    assert.doesNotMatch(
+      JSON.stringify(single.content),
+      /Review this result sends/,
+    );
     assert.deepEqual(Object.keys((single._meta?.layoutResult as any).layouts), [
       "og",
     ]);

@@ -81,7 +81,7 @@ export function registerVariantTools(
     {
       title: "List Variants",
       description:
-        "List the variants of one content type in a project, newest first, with the active one. has_content=false marks an empty variant (created but never designed); ready marks variants the user flagged as ready. The active variant is what the hub shows and what render_screenshots exports by default.",
+        "Lists variants for one project content type, newest first, including active, ready and has_content status. Read-only.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         contentType: contentTypeEnum,
@@ -104,9 +104,7 @@ export function registerVariantTools(
     {
       title: "Create Empty Variant",
       description:
-        "Create an EMPTY variant: a blank, named slot with no design. It does not generate or copy anything and counts against the plan's variant limit. " +
-        "For a new AI-generated design use prepare_screenshot_styles, prepare_social_graphics_styles, generate_promo_video or create_mockup_animation instead (each creates its own variant). To try changes without touching the current design, use duplicate_variant. " +
-        "An empty variant is only useful when you will fill it yourself (e.g. save_layout / save_graphics / update_promo_video / update_mockup_animation with its variantId). It is never made active: activate it with set_active_variant after it has content.",
+        "Creates an empty, named, inactive content-type variant. Does not generate or copy a design and counts against the plan's variant limit.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         contentType: contentTypeEnum,
@@ -174,7 +172,7 @@ export function registerVariantTools(
     {
       title: "Duplicate Variant",
       description:
-        "Copy an existing variant with all of its content (layouts and translations, graphics formats, promo config or mockup state) into a new inactive variant labelled '<label> (Copy)'. Use it to try changes without touching the original. Counts against the plan's variant limit. Returns the copy and its editorUrl.",
+        "Copies a variant's saved content and translations into a new inactive variant with a copy label. Preserves the original and counts against the plan's variant limit. Returns the copy and editor link.",
       inputSchema: z.object({
         variantId: z.string().uuid(),
       }),
@@ -207,7 +205,7 @@ export function registerVariantTools(
     {
       title: "Set Active Variant",
       description:
-        "Make an existing variant the active one for its content type. The active variant is what the project hub shows, what editors open by default and what render_screenshots exports when no variantId is given. Refuses empty variants (has_content=false in list_variants).",
+        "Sets the project's active variant for the specified content type. Does not delete or rewrite the other variants.",
       inputSchema: z.object({
         projectId: projectIdField,
         contentType: contentTypeEnum,
@@ -266,7 +264,7 @@ export function registerVariantTools(
     {
       title: "Delete Variant",
       description:
-        "Permanently delete one variant and all of its content (layouts, translations, graphics, promo config or mockup state). Cannot be undone. Only call when the user explicitly asked to delete this specific variant; never to free a plan slot on your own. If it was active, the newest remaining variant becomes active (returned as promotedVariant).",
+        "Permanently deletes the specified variant and all of its content and translations. Cannot be undone. Deleting the active variant promotes the newest remaining variant, which is returned as promotedVariant.",
       inputSchema: z.object({
         projectId: projectIdField,
         contentType: contentTypeEnum,

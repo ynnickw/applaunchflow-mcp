@@ -158,7 +158,10 @@ async function importAppStoreApp(
       "appStore must be a numeric Apple app id or an apps.apple.com URL containing /id<digits>.",
     );
   }
-  const result = await client.lookupAppStore(id, (country || "us").toLowerCase());
+  const result = await client.lookupAppStore(
+    id,
+    (country || "us").toLowerCase(),
+  );
   const app = asArray(result?.results).find(
     (entry) => isRecord(entry) && String(entry.storeAppId) === id,
   );
@@ -314,10 +317,8 @@ export function toSafeProjectState(
       baseUrl && typeof project.id === "string"
         ? {
             ...project,
-            hubUrl: new URL(
-              `/app/${encodeURIComponent(project.id)}`,
-              baseUrl,
-            ).href,
+            hubUrl: new URL(`/app/${encodeURIComponent(project.id)}`, baseUrl)
+              .href,
           }
         : project,
     assets: {
@@ -368,7 +369,7 @@ export function registerProjectTools(
     {
       title: "List Projects",
       description:
-        "List existing AppLaunchFlow projects for the authenticated user and show a simple project list with icons. Use this before asking for screenshots or a new upload. When the user has named a project, continue with that matching project; only ask them to select if the choice is ambiguous. Clicking Use project sends the chosen project ID to the chat, without creating a variant.",
+        "Lists the authenticated user's existing AppLaunchFlow projects and returns an embedded project list with icons. Choosing a project supplies its ID to the chat without creating or changing a design.",
       _meta: {
         ...pickerToolMeta(PROJECT_LIST_URI),
         "openai/widgetAccessible": true,
@@ -401,7 +402,7 @@ export function registerProjectTools(
     {
       title: "Get Project",
       description:
-        "Get a project's hub state: app name/platform/category, the linked store app (appleAppId, googlePlayPackageName, primaryStoreProvider; absent when no store app is linked), source screenshot counts, and per content type (screenshots, socialGraphics, promoVideo, mockups, asoCopy, appIcon, website) the variants, active variant and an absolute editUrl. hubUrl opens the project overview. projectId is the same id that design tools call generationId.",
+        "Returns a project's app metadata, linked store-app identifiers, source screenshot counts, content-type variants, active variants and dashboard/editor links. projectId and generationId identify the same project. Read-only.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
       }),
@@ -426,8 +427,7 @@ export function registerProjectTools(
     {
       title: "Create Project",
       description:
-        "Create a new AppLaunchFlow project. Provide appName (platform defaults to iOS), or appStore to import a published App Store app: name, category, description and icon are filled from the listing and the project is linked to that app (keyword tracking, store links). " +
-        "Autofill category and description from context when possible; do not ask the user for these unless genuinely ambiguous. Returns the project id (used as projectId, and as generationId by design tools) and hubUrl.",
+        "Creates a project from an app name or imports metadata and the icon from a published Apple App Store listing. Platform defaults to iOS. Returns the project ID and hub URL. Does not generate a design or publish to a store.",
       inputSchema: z.object({
         appName: z
           .string()
@@ -517,7 +517,9 @@ export function registerProjectTools(
             ? {
                 appleAppId: imported.storeAppId,
                 primaryStoreProvider: "app_store",
-                logoUrl: args.logoPath ? undefined : imported.iconUrl || undefined,
+                logoUrl: args.logoPath
+                  ? undefined
+                  : imported.iconUrl || undefined,
               }
             : {}),
         });
@@ -568,7 +570,8 @@ export function registerProjectTools(
     "delete_project",
     {
       title: "Delete Project",
-      description: "Delete a project",
+      description:
+        "Deletes the specified project. This is a destructive project operation.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
       }),

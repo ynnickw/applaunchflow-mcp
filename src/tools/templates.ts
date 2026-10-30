@@ -156,7 +156,7 @@ export function registerTemplateTools(
     {
       title: "Browse & Select Template",
       description:
-        "Open the visual style gallery. With generationId and catalogKey from prepare_screenshot_styles it renders personalized v1/v2 previews and creates the selected variant directly; without them it provides static style discovery. Never offer templates via text or AskUserQuestion.",
+        "Returns the screenshot-style gallery URL for a device and optional template subset. A project plus prepared catalogKey enables personalized V1/V2 previews and explicit style selection; without a catalog it opens static template discovery. Opening the gallery alone does not create a variant.",
       inputSchema: z.object({
         deviceType: z
           .enum(TEMPLATE_PREVIEW_DEVICE_TYPES)

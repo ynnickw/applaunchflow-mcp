@@ -5,8 +5,11 @@ import { buildPromoVideoDashboardUrl } from "../promo-video-urls.js";
 import { fail } from "../tools/utils.js";
 import { registerPickerResource } from "./picker-resource.js";
 
-export const PROMO_VIDEO_PICKER_URI =
-  "ui://applaunchflow/promo-video-picker-v20.html";
+import { versionWidgetResourceUri } from "./widget-metadata.js";
+
+export const PROMO_VIDEO_PICKER_URI = versionWidgetResourceUri(
+  "ui://applaunchflow/promo-video-picker-v20.html",
+);
 
 type PromoCandidate = {
   id: string;
@@ -123,7 +126,7 @@ export function registerPromoVideoPicker(
     {
       title: "Apply Promo Video Candidate",
       description:
-        "Create a promo-video variant from one of the three server-stored candidates. This is called by the inline picker after explicit user selection; arbitrary video config input is not accepted. If replaceVariantId is supplied, the previous variant is deleted after the new variant is saved; replacement requires explicit user approval.",
+        "Saves the specified prepared promo-video candidate as a variant and returns its editor link. When replaceVariantId is supplied, the prior variant is retired only after the new variant saves successfully.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         candidateKey: z.string().regex(/^[a-f0-9]{64}$/i),

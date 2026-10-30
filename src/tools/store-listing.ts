@@ -39,7 +39,9 @@ const listingFields = z
       .string()
       .max(LIMITS.keywords)
       .optional()
-      .describe("App Store keyword field: comma-separated, max 100 characters."),
+      .describe(
+        "App Store keyword field: comma-separated, max 100 characters.",
+      ),
     whatsNew: z
       .string()
       .max(LIMITS.whatsNew)
@@ -97,7 +99,12 @@ export function registerStoreListingTools(
 ): void {
   const editorUrl = (projectId: string, variantId?: string | null) =>
     variantId
-      ? variantEditorUrl(client.credentials.baseUrl, "asoCopy", projectId, variantId)
+      ? variantEditorUrl(
+          client.credentials.baseUrl,
+          "asoCopy",
+          projectId,
+          variantId,
+        )
       : new URL(
           `/asocopy?projectId=${encodeURIComponent(projectId)}`,
           client.credentials.baseUrl,
@@ -108,7 +115,7 @@ export function registerStoreListingTools(
     {
       title: "Get Store Listing Text",
       description:
-        "Read the project's App Store / Google Play listing text (ASO copy): promotionalText, shortDescription (iOS subtitle / Play short description), fullDescription, keywords, whatsNew, suggested category, AI insights, and translations keyed by language. Returns asoCopy:null when none was generated yet (use generate_store_listing). Reads the active listing variant unless variantId is given.",
+        "Returns saved App Store/Google Play listing copy, insights and translations for the active or specified listing variant. Returns asoCopy:null if none exists. Does not publish or modify store listings.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
@@ -132,7 +139,7 @@ export function registerStoreListingTools(
     {
       title: "Generate Store Listing Text",
       description:
-        "AI-write the store listing text (promotional text, subtitle/short description, full description, keywords, category) from the project's app details, optionally informed by competitor apps. Saves it as a NEW active listing variant (the previous one is kept unless replaceVariantId is given with the user's approval) and returns it with the editor URL. Takes up to a minute.",
+        "Generates store-listing text in a new ASO-copy variant using project context and requested options. Optional replaceVariantId retires a prior variant after successful replacement. Does not publish text to Apple or Google.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         competitorAppIds: z
@@ -156,7 +163,12 @@ export function registerStoreListingTools(
       }),
     },
     async (
-      { projectId, competitorAppIds, competitorStoreProvider, replaceVariantId },
+      {
+        projectId,
+        competitorAppIds,
+        competitorStoreProvider,
+        replaceVariantId,
+      },
       ctx,
     ) => {
       const stop = startProgressHeartbeat(ctx, "Writing store listing text");
@@ -191,7 +203,7 @@ export function registerStoreListingTools(
     {
       title: "Update Store Listing Text",
       description:
-        "Edit store listing text. Pass only the fields to change: fields edits the source language, translations edits existing languages ({ \"de\": { \"promotionalText\": \"...\" } }). Everything else (other fields, insights, other languages) is kept as saved. Enforces store character limits. Edits the active listing variant unless variantId is given. Editing the source text does not re-translate; call translate_store_listing for that.",
+        "Updates only supplied source-language fields and existing translations in a listing variant. Preserves other fields, insights and languages and enforces store character limits. Editing source text does not automatically translate it or publish it to a store.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
@@ -234,7 +246,10 @@ export function registerStoreListingTools(
         });
         const saved = await client.getAsoCopy(projectId, variantId);
         return ok(
-          { asoCopy: saved?.asoCopy, editorUrl: editorUrl(projectId, variantId) },
+          {
+            asoCopy: saved?.asoCopy,
+            editorUrl: editorUrl(projectId, variantId),
+          },
           "Updated store listing",
         );
       } catch (error) {
@@ -248,7 +263,7 @@ export function registerStoreListingTools(
     {
       title: "Translate Store Listing Text",
       description:
-        "AI-translate the store listing text into other languages (adds or refreshes translations; languages whose source text did not change are skipped). Each new language counts against the plan's translation limit. Language codes: en, en-GB, en-AU, en-CA, es, es-MX, fr, fr-CA, de, it, pt, pt-BR, ja, ko, zh-CN, zh-TW, nl, ru, ar, tr, pl, sv, no, da, fi, cs, hi, hu, ro, uk, el, he, id, ms, th, vi, fil, hr, sk, ca, bn, gu, kn, ml, mr, or, pa, sl, ta, te, ur.",
+        "Translates saved listing text into requested languages and refreshes existing translations whose source changed. Does not publish to Apple or Google. Subject to translation allowances.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z.string().uuid().optional(),

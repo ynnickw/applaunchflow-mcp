@@ -56,6 +56,8 @@ test("all registered tools expose submission safety metadata and output schemas"
       Object.keys(TOOL_ANNOTATIONS).sort(),
     );
 
+    const workflowDirective = /\b(?:always call|never call|do not call|askuserquestion|read before|do not ask|you must|you should)\b/i;
+    const otherToolReference = new RegExp(`\\b(?:${tools.map(tool => tool.name).join("|")})\\b`);
     for (const tool of tools) {
       assert.deepEqual(tool.annotations, { ...TOOL_ANNOTATIONS[tool.name], title: tool.title });
       if (
@@ -67,6 +69,8 @@ test("all registered tools expose submission safety metadata and output schemas"
       }
       assert.ok(tool.title, `${tool.name} must have a title`);
       assert.ok(tool.description, `${tool.name} must have a description`);
+      assert.doesNotMatch(tool.description!, workflowDirective, tool.name);
+      assert.doesNotMatch(tool.description!, otherToolReference, tool.name);
       assert.deepEqual(
         (
           tool._meta?.securitySchemes as Array<{ type: string }> | undefined

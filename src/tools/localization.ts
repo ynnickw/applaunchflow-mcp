@@ -8,11 +8,57 @@ import { fail, ok } from "./utils.js";
  * SUPPORTED_LANGUAGES in src/shared/config/languages.ts): 51 codes.
  */
 export const SUPPORTED_LANGUAGE_CODES = [
-  "en", "en-GB", "en-AU", "en-CA", "es", "es-MX", "fr", "fr-CA", "de", "it",
-  "pt", "pt-BR", "ja", "ko", "zh-CN", "zh-TW", "nl", "ru", "ar", "tr",
-  "pl", "sv", "no", "da", "fi", "cs", "hi", "hu", "ro", "uk",
-  "el", "he", "id", "ms", "th", "vi", "fil", "hr", "sk", "ca",
-  "bn", "gu", "kn", "ml", "mr", "or", "pa", "sl", "ta", "te", "ur",
+  "en",
+  "en-GB",
+  "en-AU",
+  "en-CA",
+  "es",
+  "es-MX",
+  "fr",
+  "fr-CA",
+  "de",
+  "it",
+  "pt",
+  "pt-BR",
+  "ja",
+  "ko",
+  "zh-CN",
+  "zh-TW",
+  "nl",
+  "ru",
+  "ar",
+  "tr",
+  "pl",
+  "sv",
+  "no",
+  "da",
+  "fi",
+  "cs",
+  "hi",
+  "hu",
+  "ro",
+  "uk",
+  "el",
+  "he",
+  "id",
+  "ms",
+  "th",
+  "vi",
+  "fil",
+  "hr",
+  "sk",
+  "ca",
+  "bn",
+  "gu",
+  "kn",
+  "ml",
+  "mr",
+  "or",
+  "pa",
+  "sl",
+  "ta",
+  "te",
+  "ur",
 ] as const;
 
 export function registerLocalizationTools(
@@ -24,13 +70,7 @@ export function registerLocalizationTools(
     {
       title: "Translate Layouts",
       description:
-        "Translate screenshot layouts into one or more target languages using AI. " +
-        "This is the PREFERRED way to localize screenshots — do NOT manually edit text nodes for translation. " +
-        "The backend translates all text in the layout while preserving positioning, styling, and screenshots. " +
-        "Requires a source screenshot layout to already exist — created by the personalized gallery or apply_screenshot_style. " +
-        "Pass the source variantId when available to translate that exact variant; if omitted, the active variant is used. " +
-        "Re-running it for a language that already exists RE-SYNCS that translation from the source layout: its design (positions, styles, colors, devices) is replaced by the source's, unchanged text reuses the previous translation and per-language screenshots are kept; manual per-language design edits are lost. " +
-        "To copy only the design without translating, use sync_layout; to put language-specific screenshots in, use apply_locale_screenshots.",
+        "Translates screenshot-layout text into requested languages while preserving composition and language-specific images. Requires an existing source layout. Re-running a target language re-syncs its design from the source and can replace manual target-language design tweaks. Subject to translation allowances.",
       inputSchema: z.object({
         generationId: z
           .string()
@@ -75,7 +115,7 @@ export function registerLocalizationTools(
     {
       title: "List Translations",
       description:
-        "List available translations for a project variant. Returns which languages have been translated.",
+        "Lists available screenshot-layout translations and source-language metadata for a project or variant. Read-only.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),

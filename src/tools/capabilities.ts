@@ -37,7 +37,9 @@ const AREAS: Area[] = [
       "create_variant makes an EMPTY variant; AI generation tools create their own variants.",
     ],
     editor: "/app/{project}",
-    dashboardOnly: ["Project settings (name, category, fonts, linked store app)"],
+    dashboardOnly: [
+      "Project settings (name, category, fonts, linked store app)",
+    ],
   },
   {
     id: "assets",
@@ -59,9 +61,7 @@ const AREAS: Area[] = [
       "move_assets",
       "set_asset_folder_locale",
     ],
-    notes: [
-      "Uploads store files only; they are applied by editing a design.",
-    ],
+    notes: ["Uploads store files only; they are applied by editing a design."],
     editor: "/app/{project}?section=assets",
   },
   {
@@ -88,7 +88,10 @@ const AREAS: Area[] = [
       "render_screenshots exports PNG packages for every store size (Unlimited plan, monthly API allowance).",
     ],
     editor: "/editor?projectId={project}",
-    dashboardOnly: ["Theme recolor and V1/V2 palette switching", "Undo history"],
+    dashboardOnly: [
+      "Theme recolor and V1/V2 palette switching",
+      "Undo history",
+    ],
   },
   {
     id: "socialGraphics",
@@ -308,7 +311,7 @@ export function registerCapabilityTools(
     {
       title: "Get Capabilities",
       description:
-        "What this MCP can and cannot do. Lists, per area (projects, assets, screenshots, social graphics, promo videos, mockups, store listing text, keywords, plan), the tools available and the editor URL, and lists features that exist only in the AppLaunchFlow dashboard (store publishing, store connections, custom product pages, A/B tests, reviews, app icon, website, export history, collaborators, QR codes, API keys, billing) with a dashboard link for each. Read-only; pass projectId for project-specific links.",
+        "Returns supported MCP feature areas and tools, dashboard/editor links and features available only in the dashboard. An optional project ID supplies project-specific links. Read-only.",
       inputSchema: z.object({
         projectId: z.string().uuid().optional(),
       }),
@@ -334,7 +337,7 @@ export function registerCapabilityTools(
     {
       title: "Get Plan Usage",
       description:
-        "The user's plan allowances relevant to MCP work: whether exports through the API/MCP are enabled (Unlimited plan), the monthly API export allowance (used, limit, remaining, resetsAt) and, with projectId, the keyword and competitor limits for that project's owner. Use it before large exports or keyword batches, or after a limit error. upgradeUrl is where the user changes plan.",
+        "Returns the account's API-export access, monthly export usage/limit/reset information and, with a project ID, its keyword and competitor limits. Includes a plan-management URL. Does not change the plan or purchase credits.",
       inputSchema: z.object({
         projectId: z.string().uuid().optional(),
       }),

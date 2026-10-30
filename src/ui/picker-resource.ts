@@ -1,13 +1,13 @@
-import type { McpServer } from "@modelcontextprotocol/server";
+import { ResourceTemplate, type McpServer } from "@modelcontextprotocol/server";
 import type { AppLaunchFlowClient } from "../client/api.js";
 
 import { loadPickerBundle, type PickerName } from "./picker-bundle.js";
-
-export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
-// OpenAI-specific sandbox identity, separate from the authenticated dashboard
-// asset origin. Other MCP Apps hosts must choose their own sandbox origin:
-// Claude rejects an ordinary URL in ui.domain (it expects a connector URL hash).
-export const MCP_WIDGET_DOMAIN = "https://mcp.applaunchflow.com";
+import {
+  MCP_APP_MIME_TYPE,
+  previousWidgetResourceUri,
+  widgetResourceMetadata,
+} from "./widget-metadata.js";
+export { MCP_APP_MIME_TYPE, MCP_WIDGET_DOMAIN } from "./widget-metadata.js";
 
 function rebaseInlineCssAssetUrls(css: string, origin: string): string {
   return css.replace(
@@ -92,95 +92,95 @@ export function registerPickerResource(
   },
 ) {
   const origin = new URL(client.credentials.baseUrl).origin;
-  const resourceDomains = [
-    origin,
-    // Production screenshot/icon URLs are signed on this Storage origin.
-    // Keep this exact (no wildcard): both MCP Apps and ChatGPT enforce it.
-    "https://ubvbpgodmmitzutgshzu.supabase.co",
-    "https://fonts.googleapis.com",
-    "https://fonts.gstatic.com",
-  ];
-  if (["localhost", "127.0.0.1"].includes(new URL(origin).hostname)) {
-    resourceDomains.push("http://127.0.0.1:54321");
-  }
-
-  const uri = options.uri;
-  server.registerResource(
-    options.name,
-    options.uri,
-    { mimeType: MCP_APP_MIME_TYPE },
-    async () => {
-      const getBundle = async () => {
-        if (options.bundle) return loadPickerBundle(options.bundle);
-        if (!options.assetFilename || !options.assetPrefix)
-          throw new Error("Missing picker asset descriptor");
-        const response = await fetch(
-          `${origin}/mcp-assets/${options.assetFilename}`,
-          {
-            signal: AbortSignal.timeout(30_000),
-            redirect: "error",
-          },
-        );
-        if (
-          !response.ok ||
-          !(response.headers.get("content-type") || "").includes("text/html")
-        ) {
-          throw new Error(
-            `${options.name} assets are unavailable. Build and deploy the dashboard MCP UI assets first.`,
-          );
-        }
-        const html = await response.text();
-        if (!html.includes(`/mcp-assets/${options.assetPrefix}-`)) {
-          throw new Error(`Invalid ${options.name} asset response`);
-        }
-        const scriptTag = html.match(
-          /<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/i,
-        );
-        if (!scriptTag) {
-          throw new Error(`Invalid ${options.name} script asset`);
-        }
-        const styleTag = html.match(
-          /<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["']([^"']+)["'][^>]*>/i,
-        );
-        const [script, style] = await Promise.all([
-          fetchPublicAsset(origin, scriptTag[1], "javascript"),
-          styleTag
-            ? fetchPublicAsset(origin, styleTag[1], "css")
-            : Promise.resolve(""),
-        ]);
-        return { script, style };
-      };
-      const { script, style } = await getBundle();
-      const text = composePickerHtml(
-        origin,
-        options.description,
-        script,
-        style,
+  const readResource = async (uri: URL) => {
+    const getBundle = async () => {
+      if (options.bundle) return loadPickerBundle(options.bundle);
+      if (!options.assetFilename || !options.assetPrefix)
+        throw new Error("Missing picker asset descriptor");
+      const response = await fetch(
+        `${origin}/mcp-assets/${options.assetFilename}`,
+        {
+          signal: AbortSignal.timeout(30_000),
+          redirect: "error",
+        },
       );
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: MCP_APP_MIME_TYPE,
-            text,
-            _meta: {
-              ui: {
-                prefersBorder: true,
-                csp: {
-                  resourceDomains,
-                  connectDomains: resourceDomains,
-                },
-              },
-              "openai/widgetDescription": options.description,
-              "openai/widgetDomain": MCP_WIDGET_DOMAIN,
-              "openai/widgetCSP": {
-                resource_domains: resourceDomains,
-                connect_domains: resourceDomains,
-              },
-            },
-          },
-        ],
-      };
-    },
-  );
+      if (
+        !response.ok ||
+        !(response.headers.get("content-type") || "").includes("text/html")
+      ) {
+        throw new Error(
+          `${options.name} assets are unavailable. Build and deploy the dashboard MCP UI assets first.`,
+        );
+      }
+      const html = await response.text();
+      if (!html.includes(`/mcp-assets/${options.assetPrefix}-`)) {
+        throw new Error(`Invalid ${options.name} asset response`);
+      }
+      const scriptTag = html.match(
+        /<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/i,
+      );
+      if (!scriptTag) {
+        throw new Error(`Invalid ${options.name} script asset`);
+      }
+      const styleTag = html.match(
+        /<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["']([^"']+)["'][^>]*>/i,
+      );
+      const [script, style] = await Promise.all([
+        fetchPublicAsset(origin, scriptTag[1], "javascript"),
+        styleTag
+          ? fetchPublicAsset(origin, styleTag[1], "css")
+          : Promise.resolve(""),
+      ]);
+      return { script, style };
+    };
+    const { script, style } = await getBundle();
+    const text = composePickerHtml(origin, options.description, script, style);
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: MCP_APP_MIME_TYPE,
+          text,
+          _meta: widgetResourceMetadata(origin, options.description),
+        },
+      ],
+    };
+  };
+  const previousUri = previousWidgetResourceUri(options.uri);
+  const uris = previousUri ? [options.uri, previousUri] : [options.uri];
+  for (const [index, uri] of uris.entries()) {
+    server.registerResource(
+      index === 0 ? options.name : `${options.name}-previous-uri`,
+      uri,
+      { mimeType: MCP_APP_MIME_TYPE },
+      readResource,
+    );
+  }
+  if (previousUri) {
+    // Existing clients can retain an older tools/list URI across a deployment.
+    // Only a known widget family plus a bounded version/digest is accepted;
+    // the requested string never selects a file, network URL or user data.
+    const bundled = previousUri.match(
+      /^(ui:\/\/applaunchflow\/(?:project-list|asset-list)-)[a-f0-9]{64}\.html$/,
+    );
+    const numbered = previousUri.match(
+      /^(ui:\/\/applaunchflow\/(?:screenshot-picker|social-graphics-picker|promo-video-picker|layout-result)-v)\d+\.html$/,
+    );
+    const prefix = bundled?.[1] || numbered?.[1];
+    if (prefix)
+      server.registerResource(
+        `${options.name}-compatible-version`,
+        new ResourceTemplate(`${prefix}{revision}.html`, { list: undefined }),
+        { mimeType: MCP_APP_MIME_TYPE },
+        async (uri, { revision }) => {
+          const valid =
+            typeof revision === "string" &&
+            (bundled
+              ? /^[a-f0-9]{64}(?:-ui-[a-f0-9]{16})?$/.test(revision)
+              : /^\d{1,4}(?:-ui-[a-f0-9]{16})?$/.test(revision));
+          if (!valid) throw new Error("Invalid AppLaunchFlow widget version");
+          return readResource(uri);
+        },
+      );
+  }
 }

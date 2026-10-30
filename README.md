@@ -329,6 +329,14 @@ they match without updating the connector artifacts. `npm test` checks artifact
 integrity and contract hashes without requiring another checkout or network.
 Existing screenshot, social and promo picker behavior is unchanged.
 
+Widget resource URIs include a fingerprint of their sandbox/CSP metadata as well
+as the bundle or UI version. A metadata-only fix therefore gets a new cache key,
+including in hosts that cache resource documents for an entire conversation.
+Generic MCP Apps metadata leaves sandbox identity to the host; the dedicated
+OpenAI domain is declared only through `openai/widgetDomain`. Known, well-formed
+older widget version/digest URIs still resolve to the current public UI payload,
+without changing account authorization or expanding CSP origins.
+
 
 ### Hosted MCP runtime metrics
 
