@@ -3,9 +3,11 @@ import type { AppLaunchFlowClient } from "../client/api.js";
 import { listPublicTemplateIds } from "../catalog.js";
 import { buildTemplateGalleryUrl } from "../template-previews.js";
 import { registerPickerResource } from "./picker-resource.js";
+import { versionWidgetResourceUri } from "./widget-metadata.js";
 
-export const SCREENSHOT_PICKER_URI =
-  "ui://applaunchflow/screenshot-picker-v17.html";
+export const SCREENSHOT_PICKER_URI = versionWidgetResourceUri(
+  "ui://applaunchflow/screenshot-picker-v17.html",
+);
 
 export async function createScreenshotPickerResult(
   client: AppLaunchFlowClient,

@@ -48,11 +48,7 @@ export function registerScreenshotExtraTools(
     "preview_screenshots",
     {
       title: "Preview Rendered Screenshots",
-      description:
-        "Render chosen screens of a saved screenshot variant with the real export renderer and return them as images you can look at. " +
-        "Use it after transform_layout / save_layout / translate_layouts to check legibility, overlap, cropping and colors before reporting a visual result. " +
-        "Renders the saved state (not unsaved edits) for one platform/device/size/language. Defaults: active variant, project source language, phone, the project's platform, the store's primary size (iOS 6.9\", Android play-high, iPad 13\"). " +
-        "displaySize also selects an independent phone format (6.5/6.3/6.1, duo-inner/duo-outer, play-high). Takes ~20-60 s (longer with 3D devices); request only the screens you need (max 10). Images are downscaled; this is not an export (use render_screenshots for store files).",
+      description: "Renders selected screens of a saved screenshot variant as inspection images using the export renderer. Supports one platform, device, size and language per request, including independent phone formats. At most ten screens. Images can be downscaled and are not store-delivery exports. Does not change saved designs.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z
@@ -144,10 +140,7 @@ export function registerScreenshotExtraTools(
     "list_fonts",
     {
       title: "List Fonts",
-      description:
-        "List the font families a screenshot or social layout can use: the editor's built-in fonts, the Google Fonts catalog (~770 families, loaded on demand) and the project's uploaded custom fonts, with available weights. " +
-        "Use an exact family name in richContent attrs.defaultFontFamily or a textStyle mark's fontFamily; unknown names are rejected by transform_layout/save_layout. " +
-        "To add a custom font, upload a TTF/OTF/WOFF/WOFF2 with upload_asset fileType 'font' (it is registered as a project font family automatically).",
+      description: "Lists built-in, Google and project-uploaded font families with their available weights. Layout validation accepts these exact family names in rich-text font fields. Read-only.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         query: z
@@ -174,10 +167,7 @@ export function registerScreenshotExtraTools(
     "apply_locale_screenshots",
     {
       title: "Apply Per-Language Screenshots",
-      description:
-        "Put language-specific screenshots into existing translations without retranslating: each language's images fill that translation's device frames in document order (a two-device screen takes two images); extra images are reported, unfilled frames keep their image. " +
-        "Sources (exactly one): localeFolders {language: folderId} from list_asset_folders / set_asset_folder_locale (images sorted by original filename), screenshotPathsByLanguage {language: [paths]}, or screenshotPaths (same images for every selected language). " +
-        "platform 'both' (default) sets the shared image and clears per-platform overrides; 'ios'/'android' sets only that platform's override. Use preview:true first to see the frame assignments without saving. Overwrites the images of the targeted translations.",
+      description: "Assigns language-specific screenshot assets to existing translated device frames. Sources are locale folders, per-language paths or a shared path list. Assignment follows document order; unfilled frames retain their images and excess sources are reported. Preview mode returns assignments without saving. Apply mode replaces only the targeted translation images.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z.string().uuid().describe("Screenshot variant to update."),
@@ -263,10 +253,7 @@ export function registerScreenshotExtraTools(
     "sync_layout",
     {
       title: "Sync Layout to Translations",
-      description:
-        "Copy the source-language design (positions, sizes, styles, colors, devices, new or removed elements) of a screenshot variant to every other language WITHOUT re-translating: each translation keeps its own text and its own screenshots. " +
-        "Use after design edits to the source language. fillMissingImages also fills empty frames from the source. translateChangedText:true additionally translates only text that changed in the source (uses AI). " +
-        "Overwrites the design of every non-source translation of the variant, including per-language design tweaks.",
+      description: "Copies a screenshot variant's source-language design to its other languages while retaining translated text and language-specific screenshots. Existing language-specific design tweaks are replaced. Optional missing-image fill and changed-text translation are supported.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         variantId: z.string().uuid().optional(),

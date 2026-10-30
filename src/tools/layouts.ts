@@ -3,7 +3,10 @@ import { RESULT_REVIEW_GUIDANCE } from "../result-review-guidance.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
 import { ToolInputError } from "../telemetry.js";
-import { pickerToolMeta, registerPickerResource } from "../ui/picker-resource.js";
+import {
+  pickerToolMeta,
+  registerPickerResource,
+} from "../ui/picker-resource.js";
 import { LAYOUT_RESULT_URI } from "../ui/layout-result.js";
 import {
   createHostedReadReceipt,
@@ -13,7 +16,14 @@ import {
   verifyHostedReadReceipt,
 } from "./utils.js";
 
-const phoneFormatIds = ["ios-6.5", "ios-6.3", "ios-6.1", "ios-duo-inner", "ios-duo-outer", "android-play-high"] as const;
+const phoneFormatIds = [
+  "ios-6.5",
+  "ios-6.3",
+  "ios-6.1",
+  "ios-duo-inner",
+  "ios-duo-outer",
+  "android-play-high",
+] as const;
 
 export const transformOperationSchema = z
   .object({
@@ -128,9 +138,21 @@ export function registerLayoutTools(
   server: McpServer,
   client: AppLaunchFlowClient,
 ): void {
-  registerPickerResource(server, client, { name: "layout-result", uri: LAYOUT_RESULT_URI, assetFilename: "layout-result.html", assetPrefix: "layout-result", description: "Client-rendered saved screenshot or social graphics edit" });
+  registerPickerResource(server, client, {
+    name: "layout-result",
+    uri: LAYOUT_RESULT_URI,
+    assetFilename: "layout-result.html",
+    assetPrefix: "layout-result",
+    description: "Client-rendered saved screenshot or social graphics edit",
+  });
   // Existing conversations may still request the previous resource identity.
-  registerPickerResource(server, client, { name: "layout-result-v1", uri: "ui://applaunchflow/layout-result-v1.html", assetFilename: "layout-result.html", assetPrefix: "layout-result", description: "Client-rendered saved screenshot or social graphics edit" });
+  registerPickerResource(server, client, {
+    name: "layout-result-v1",
+    uri: "ui://applaunchflow/layout-result-v1.html",
+    assetFilename: "layout-result.html",
+    assetPrefix: "layout-result",
+    description: "Client-rendered saved screenshot or social graphics edit",
+  });
   const layoutReadReceipts = new Map<string, number>();
 
   function buildReadReceiptKey(args: {
@@ -190,10 +212,7 @@ export function registerLayoutTools(
     {
       title: "Get Layout",
       description:
-        "Get layout JSON for the current translation before editing or reviewing a variant. Includes independent phone designs in format_layouts; they do not follow main/mobile edits. Use transform_layout with formatId to edit one, or resetFormat:true to follow main again. " +
-        "This is mandatory before every direct transform_layout call. " +
-        "Returns the editor URL as a reference link; it is not opened automatically. Share it when the user wants to review the result. " +
-        "The returned JSON follows the layout schema documented in the resource applaunchflow://schema/layout — read it to learn which fields exist and their valid ranges, not just which ones happen to be set here.",
+        "Returns saved screenshot layouts for one variant and language, including independent phone-format layouts, an editor link and a same-target editing read receipt. Main/mobile changes do not implicitly update independent phone formats. Read-only.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         language: z
@@ -287,14 +306,17 @@ export function registerLayoutTools(
     {
       title: "Save Layout",
       description:
-        "Persist a full translation layout payload. Whole-layout replace per device size — prefer transform_layout for targeted edits. " +
-        "formatLayouts is the complete independent phone-format map: omit it to preserve existing formats, pass {} to reset all, or pass the map from get_layout with explicit changes. Main edits do not overwrite independent formats. " +
-        "Each layout must be a complete, valid Layout object; see the resource applaunchflow://schema/layout for every field and valid value range.",
+        "Replaces complete saved screenshot layouts for the specified device sizes and language. Omitted formatLayouts preserves independent formats; an empty map resets them. Main layouts do not overwrite independent phone-format layouts. Invalid layouts are rejected before saving.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         language: z.string(),
         variantId: z.string().uuid().optional(),
-        formatLayouts: z.partialRecord(z.enum(phoneFormatIds), z.record(z.string(), z.any())).optional().describe("Complete phone-format override map. Keys include ios-duo-inner and ios-duo-outer. Omit to preserve; {} resets all formats to follow main."),
+        formatLayouts: z
+          .partialRecord(z.enum(phoneFormatIds), z.record(z.string(), z.any()))
+          .optional()
+          .describe(
+            "Complete phone-format override map. Keys include ios-duo-inner and ios-duo-outer. Omit to preserve; {} resets all formats to follow main.",
+          ),
         mobileLayout: z
           .record(z.string(), z.any())
           .describe(
@@ -329,32 +351,23 @@ export function registerLayoutTools(
       title: "Transform Layout",
       _meta: pickerToolMeta(LAYOUT_RESULT_URI),
       description:
-        "Apply transform operations to an existing layout. Primary editing tool for text, screenshots, colors, and structure changes. " +
-        "IMPORTANT: Always call get_layout FIRST to inspect the current layout state before using this tool. Never transform blindly. " +
-        "ENFORCED RULE: each transform_layout call requires a fresh get_layout call for the same generationId, language, and variantId immediately beforehand. " +
-        "RULES: " +
-        "1. nodeType is REQUIRED in every operation target. " +
-        "2. Omit nodeId to update ALL nodes of that type in the target screens. " +
-        "3. Use screens:'all' to target every screen at once. Do NOT send one operation per screen when the same change applies to all. " +
-        "4. Dot-notation is supported for deep updates without replacing the whole object. Example: {'richContent.attrs.defaultFontSize': 96} updates only the font size inside richContent.attrs, preserving all other fields. Always use dot-notation for nested property changes. " +
-        "5. For add_node, changes MUST include an 'id' field. " +
-        "6. To add new screens, first add empty screen containers, then populate them in a SECOND call using selector 'screenId:<id>'. " +
-        "7. layouts defaults to ['mobile'] (phone only); list 'tablet'/'desktop' explicitly to change them too. Use formatId to edit a separate phone size such as ios-duo-inner; do not combine formatId with layouts. resetFormat:true with formatId and no operations makes that size follow main again. " +
-        "8. FONT SIZE: The rendered font size is controlled ONLY by 'richContent.attrs.defaultFontSize' (pixel value). To change font size, use dot-notation: {'richContent.attrs.defaultFontSize': 80}. Do NOT use 'fontSizeScale' — that property is for promo videos only and has NO effect on screenshot rendering. " +
-        "9. UNSET: a null value removes a field ({model3D:null} returns to the 2D frame, {backgroundGradient:null}, {shadow:null}). " +
-        "10. THEME: target {nodeType:'layout'} with changes {themeColors:{primary:'#...'}} recolors every linked element and re-derives dependent roles like the editor; {themePaletteMode:'v2'} switches the generated palette; orientation, backgroundColor, backgroundGradient, screenshotGap are also layout-level. " +
-        "11. SCREENSHOT IMAGE: setting a screenshot's path replaces the image on both platforms (iosPath/androidPath overrides win over path and are cleared); pass platform:'ios'|'android' to change one platform only. phoneId is the 2D frame and follows the project platform at render (iphone17 / googlepixel); choose another device with model3D {modelId, finish, rotationX, rotationY, rotationZ}. " +
-        "12. STACKING: zIndex is one order per screen across ALL node types; use bring_to_front / send_to_back, or reorder (which keeps the collection's zIndex values). " +
-        "13. COORDINATES are per screen in canvas pixels: a text's position.x is the LEFT edge of its box (width wide, aligned inside it) and position.y its top; a screenshot's position is the device CENTRE and ScreenshotNode.scale its size factor. " +
-        "VALIDATION: unknown font families (see list_fonts), invalid 3D modelId/finish, magnifier.screenshotId not on the same screen, and asset paths that do not exist in the project are rejected with the reason; nothing is saved. " +
-        "Check the result visually with preview_screenshots. " +
-        "SCHEMA REFERENCE: read the resource applaunchflow://schema/transforms for the full operation and selector reference, and applaunchflow://schema/layout for every node type's fields and valid value ranges. Read them before any non-trivial edit rather than guessing field names.",
+        "Applies scoped operations to saved screenshot layouts. Hosted edits require a fresh same-target read receipt. Every target requires nodeType; missing nodeId matches all nodes of that type within the selected screens. Dot-notation preserves sibling fields; null removes a field. Defaults to mobile only. Independent formatId edits and resetFormat are supported. Layout, font, device and asset validation occurs before saving.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         language: z.string(),
         variantId: z.string().uuid().optional(),
-        formatId: z.enum(phoneFormatIds).optional().describe("Edit this phone format instead of mobile/tablet/desktop. Never combine with layouts. Existing independent formats do not follow later mobile edits."),
-        resetFormat: z.boolean().optional().describe("With formatId and no operations, remove that format override so it follows the main layout again. Requires a fresh get_layout read receipt."),
+        formatId: z
+          .enum(phoneFormatIds)
+          .optional()
+          .describe(
+            "Edit this phone format instead of mobile/tablet/desktop. Never combine with layouts. Existing independent formats do not follow later mobile edits.",
+          ),
+        resetFormat: z
+          .boolean()
+          .optional()
+          .describe(
+            "With formatId and no operations, remove that format override so it follows the main layout again. Requires a fresh get_layout read receipt.",
+          ),
         atomic: z.boolean().optional(),
         layouts: z
           .array(z.enum(["mobile", "tablet", "desktop"]))
@@ -418,22 +431,29 @@ export function registerLayoutTools(
         });
         // The generic variant preview is the main canvas. The edit-result
         // widget above and the format-specific editor URL show this format.
-        const previewUrl = args.formatId ? null : buildVariantPreviewUrl({
-          language: args.language,
-          variantId: args.variantId,
-        });
+        const previewUrl = args.formatId
+          ? null
+          : buildVariantPreviewUrl({
+              language: args.language,
+              variantId: args.variantId,
+            });
 
         return {
-          ...(layoutResult ? { _meta: { layoutResult: { ...layoutResult, editorUrl } } } : {}),
+          ...(layoutResult
+            ? { _meta: { layoutResult: { ...layoutResult, editorUrl } } }
+            : {}),
           content: [
             {
               type: "text" as const,
               text: [
-                transformed.partialSuccess ? "Applied layout transform partially; inspect the reported errors." : "Applied layout transform.",
+                transformed.partialSuccess
+                  ? "Applied layout transform partially; inspect the reported errors."
+                  : "Applied layout transform.",
                 RESULT_REVIEW_GUIDANCE,
                 `Editor URL (already open — do NOT run \`open\` again): ${editorUrl}`,
                 previewUrl ? `Preview URL: ${previewUrl}` : null,
-                Array.isArray(transformed.warnings) && transformed.warnings.length
+                Array.isArray(transformed.warnings) &&
+                transformed.warnings.length
                   ? `Warnings: ${transformed.warnings.join(" ")}`
                   : null,
                 "This transform consumed the current read receipt. Call get_layout again before the next direct edit.",

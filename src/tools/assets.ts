@@ -377,7 +377,7 @@ export function registerAssetTools(
     {
       title: "List Assets",
       description:
-        "Browse an existing project's uploaded screenshots (all devices/platforms), illustrations, app icons, backgrounds, panoramas, recordings, music and clips (audio/video/images), and font files in an embedded asset list. Listing is read-only. The user can explicitly upload files using the widget's Upload button; opening the list does not upload, select or apply anything. Inspect existing assets before asking the user to upload again. Signed preview links are private widget data; use returned relative paths in editing tools. At most 100 newest files per folder; truncated indicates more exist. For just the app screenshots used as generation input use list_source_screenshots; for screenshot paths by device/platform use list_screenshots.",
+        "Returns an embedded library of a project's screenshots, illustrations, icons, backgrounds, panoramas, recordings, music, clips and fonts. Listing is read-only; Upload is an explicit widget action. Results contain relative storage paths; signed preview links remain private widget data. Each folder is limited to its newest 100 files and reports truncation.",
       inputSchema: z.object({ projectId: z.string().uuid() }),
       _meta: {
         ...pickerToolMeta(ASSET_LIST_URI),
@@ -410,7 +410,7 @@ export function registerAssetTools(
     {
       title: "Prepare Asset Upload",
       description:
-        "App-only: authorize one explicitly selected file upload to the user's project. Does not upload bytes, replace existing files, apply designs or change the project icon. The upload permission is private widget metadata; never include it in a chat message.",
+        "App-only: authorizes one explicitly selected file upload to the project and returns its upload permission as private widget metadata. Does not transfer file bytes, replace files, apply a design or change the project icon.",
       inputSchema: assetUploadRequestSchema,
       _meta: {
         ui: { visibility: ["app"] },
@@ -453,7 +453,7 @@ export function registerAssetTools(
     {
       title: "Upload Screenshots",
       description:
-        "Upload screenshot images for screenshot generation workflows. Hosted connectors must use HTTPS URLs or base64 data; local file paths are available only to the npm/stdio connector. If a batch is incomplete, follow its recovery guidance and do not re-upload completed files.",
+        "Uploads screenshot images to a project from HTTPS URLs or base64 data; local files are supported only by the npm/stdio transport. Results identify completed and failed files. Overwrite mode changes the bytes at existing paths and can affect saved designs that reference those paths.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         deviceType: z.enum(["mobile", "tablet", "desktop", "watch"]),
@@ -687,9 +687,7 @@ export function registerAssetTools(
     {
       title: "List Illustrations",
       description:
-        "List available illustrations. Use 'shared' source to browse the shared library (icons, stickers, etc.). " +
-        "Use 'project' source to list illustrations uploaded to a specific project. " +
-        "When the user wants to add an illustration, list available options FIRST so they can pick one or choose to upload.",
+        "Lists shared-library illustrations or illustrations uploaded to a specified project. Read-only.",
       inputSchema: z.object({
         source: z
           .enum(["shared", "project"])
@@ -740,12 +738,7 @@ export function registerAssetTools(
     {
       title: "Upload Asset",
       description:
-        "Upload a project asset: illustration, logo, panorama, background, font file, mockup media (image/video recording, or audio for the mockup soundtrack: state.audio.storagePath), or promo media (image/video/audio). Maximum 25 MB per file. Use an HTTPS URL or base64 data with a filename including its extension; local paths are also available to the npm/stdio connector. Upload stores a file only: it does not replace the project's app icon or apply a design. " +
-        "Returns the stored project-relative path. Put it in the field the renderer signs: illustration/logo node path (add_node {id, path, position, zIndex, ...}); a screen's backgroundImage.storagePath; panoramaBackground.storagePath; or a screenshot node's path (images from upload_screenshots). " +
-        "Font uploads are registered as a project font family by default (registerFont) so texts can use it immediately; list_fonts shows the family name. " +
-        "For illustrations: list_illustrations first to show existing options, then upload only if the user wants a custom image. " +
-        "For panoramas: use an HTTPS URL or base64-encoded image. " +
-        "Video/audio uploads also return durationSeconds when it can be read from the file (MP4/MOV/M4V/M4A, WAV, MP3); WebM/OGG return no duration.",
+        "Uploads one illustration, logo, background, panorama, font, recording, image, video or audio asset. Maximum 25 MB per file. HTTPS URLs and base64 data are supported; local paths are npm/stdio-only. Returns a project-relative storage path and available media metadata. Font registration is enabled by default. Upload alone does not apply an asset to a design or change the project icon.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         fileType: z

@@ -7,8 +7,11 @@ import {
 } from "../social-template-previews.js";
 import { registerPickerResource } from "./picker-resource.js";
 
-export const SOCIAL_GRAPHICS_PICKER_URI =
-  "ui://applaunchflow/social-graphics-picker-v17.html";
+import { versionWidgetResourceUri } from "./widget-metadata.js";
+
+export const SOCIAL_GRAPHICS_PICKER_URI = versionWidgetResourceUri(
+  "ui://applaunchflow/social-graphics-picker-v17.html",
+);
 
 export async function createSocialGraphicsPickerResult(
   client: AppLaunchFlowClient,

@@ -1,8 +1,11 @@
 import { createHash } from "node:crypto";
+import { versionWidgetResourceUri } from "./widget-metadata.js";
 
 // Hosts cache resource documents by URI. Advance this when the result UI
 // contract changes so new saves cannot reuse an obsolete thumbnail bundle.
-export const LAYOUT_RESULT_URI = "ui://applaunchflow/layout-result-v2.html";
+export const LAYOUT_RESULT_URI = versionWidgetResourceUri(
+  "ui://applaunchflow/layout-result-v2.html",
+);
 
 /** Only the private widget metadata receives the signed saved-layout URLs. */
 export function graphicsResultMetadata(

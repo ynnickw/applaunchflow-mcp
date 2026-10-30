@@ -17,7 +17,7 @@ export function registerAssetManagementTools(
     {
       title: "List Asset Folders",
       description:
-        "List device/platform-scoped screenshot folders, their explicit locales and memberships. Shared by the dashboard and MCP. Does not modify anything.",
+        "Lists screenshot folders with explicit device, platform and optional locale bindings. Folder names do not imply language. Read-only.",
       inputSchema: z.object({
         projectId,
         offset: z.number().int().min(0).max(100000).optional(),
@@ -59,7 +59,7 @@ export function registerAssetManagementTools(
       tool: "replace_asset",
       action: "replace",
       description:
-        "Replace an asset with an already uploaded file in the same category/device/platform. Explicitly updates all saved-design references and preserves folder membership, then permanently deletes the old file from storage. No restore. Upload the new file first. On partial failure both files are retained until cleanup succeeds; inspect the result and retry the same paths.",
+        "Globally replaces an asset, updates its saved-design references and permanently deletes the old storage object. The replacement affects every referenced design and cannot be undone.",
       schema: {
         projectId,
         path: z.string().min(1).max(1024),
@@ -70,14 +70,14 @@ export function registerAssetManagementTools(
       tool: "delete_assets",
       action: "delete",
       description:
-        "Permanently delete explicitly selected unused assets from storage. Files referenced by any saved design are blocked. There is no restore.",
+        "Permanently removes the specified asset records and storage objects. Saved-design references block deletion. This action cannot be undone.",
       schema: { projectId, paths },
     },
     {
       tool: "create_asset_folder",
       action: "create_folder",
       description:
-        "Create a screenshot folder within the specified device and platform. Optionally bind it to an explicit locale. Supply a new UUID folderId and reuse it for retries. Storage paths do not change.",
+        "Creates a screenshot folder for an explicit device and platform, optionally bound to a locale. A caller-supplied UUID folderId makes retries reuse the same folder. Storage paths and saved designs are unchanged.",
       schema: {
         projectId,
         folderId,
@@ -95,7 +95,7 @@ export function registerAssetManagementTools(
       tool: "set_asset_folder_locale",
       action: "set_locale",
       description:
-        "Bind a screenshot folder to an explicit language code, or pass null to clear the binding. Folder names do not determine language.",
+        "Sets a screenshot folder's explicit language code, or clears its locale binding with null. Does not infer language from the folder name or alter saved designs.",
       schema: {
         projectId,
         folderId,
@@ -109,21 +109,21 @@ export function registerAssetManagementTools(
       tool: "rename_asset_folder",
       action: "rename_folder",
       description:
-        "Rename an existing logical asset folder. Does not rename or modify files.",
+        "Renames a screenshot folder. Its ID, locale binding, asset storage paths and saved designs are unchanged.",
       schema: { projectId, folderId, name },
     },
     {
       tool: "delete_asset_folder",
       action: "delete_folder",
       description:
-        "Remove an explicitly selected folder. Its files become ungrouped; no files are deleted.",
+        "Deletes a screenshot folder and ungroups its files. Does not delete asset files, storage objects or saved-design references.",
       schema: { projectId, folderId },
     },
     {
       tool: "move_assets",
       action: "move",
       description:
-        "Move screenshot assets into a folder with the same device and platform, or pass null to ungroup them. Never changes storage paths or saved designs.",
+        "Groups screenshot assets in a folder with the same device and platform, or ungroups them when folderId is null. Storage paths and saved designs are unchanged.",
       schema: { projectId, paths, folderId: folderId.nullable() },
     },
   ];

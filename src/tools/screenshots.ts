@@ -25,12 +25,7 @@ export function registerScreenshotTools(
     {
       title: "Prepare Personalized Screenshot Styles",
       description:
-        "Generate or reuse the project's personalized screenshot-style catalog before the user chooses a style. " +
-        "This prepares every screenshot template for phone, tablet, and desktop in one AI call and returns a catalogKey. " +
-        "This tool itself displays the interactive picker in MCP Apps-compatible clients; do not call another tool after it. " +
-        "The picker shows real v1/v2 renders and creates a variant only after the user explicitly confirms a style. " +
-        "Repeating this with the same app context and screenshot paths is a cache hit and does not regenerate AI content. " +
-        "Clients without UI support receive the exact full-gallery URL.",
+        "Generates or reuses personalized screenshot-layout candidates for every phone, tablet and desktop template. Returns a catalogKey and an embedded V1/V2 picker, or a gallery URL in clients without UI support. Matching app context and source paths reuse cached candidates. No variant is created until a style is explicitly selected.",
       inputSchema: z.object({
         generationId: z.string().uuid().describe("Project/generation UUID."),
         selectedScreenshotPaths: z
@@ -125,8 +120,7 @@ export function registerScreenshotTools(
       },
       title: "Apply Personalized Screenshot Style",
       description:
-        "Create a new screenshot variant from a previously prepared personalized style catalog without another AI generation. " +
-        "Fallback for applying a template id supplied directly in chat or by an API client. The normal prepare_screenshot_styles flow now lets the user compare v1/v2 and create the variant directly in the browser. The new variant includes phone, tablet, and desktop layouts and opens in the editor.",
+        "Creates a new screenshot variant from a prepared personalized catalog and the specified template/palette selection. Reuses cached candidate layouts without another generation and returns the editor link. Existing variants are preserved.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         catalogKey: z.string().min(1).max(128),
@@ -208,8 +202,7 @@ export function registerScreenshotTools(
     {
       title: "List Template Source Screenshots",
       description:
-        "List the project's real uploaded app screenshots (the captures used as input for AI generation) with project-relative path, signed preview URL, platform and phone/tablet/desktop device type, across all devices and platforms. No sample fallback is added. Use the returned paths to choose 3-7 inputs for prepare_screenshot_styles or prepare_social_graphics_styles. " +
-        "Compare: list_screenshots = paths only, filtered by one device type/platform (may return sample screenshots when none are uploaded, flagged isSample); list_assets = every uploaded file (screenshots, illustrations, logos, backgrounds, media, fonts) as a browsable list.",
+        "Lists real uploaded app screenshots across device types and platforms, with project-relative paths and preview metadata suitable as generation inputs. Does not add sample screenshots. Read-only.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
       }),
@@ -242,7 +235,7 @@ export function registerScreenshotTools(
     {
       title: "List Screenshots",
       description:
-        "List uploaded screenshot paths (project-relative) for one device type (mobile/tablet/desktop) and platform (ios/android). Returns sample screenshots flagged isSample when the project has none. Use the paths with view_screenshot or in layout screenshot nodes. For generation inputs with preview URLs and device types use list_source_screenshots; for every uploaded file type use list_assets.",
+        "Lists project-relative screenshot paths for one device type and platform. Empty projects can return sample screenshots explicitly marked isSample. Read-only.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         deviceType: z.enum(["mobile", "tablet", "desktop"]).optional(),
@@ -266,9 +259,7 @@ export function registerScreenshotTools(
     {
       title: "View Screenshot",
       description:
-        "Fetch a screenshot image and return it for visual analysis. " +
-        "Use this to inspect screenshots — extract colors, read UI text, understand layout context, or identify visual elements. " +
-        "Pass projectId and the relative path from list_screenshots or get_layout (e.g. 'mobile/ios/1234-image.PNG').",
+        "Returns the image pixels of a project screenshot identified by its project-relative path. Read-only.",
       inputSchema: z.object({
         projectId: z.string().uuid().describe("The project UUID."),
         path: z

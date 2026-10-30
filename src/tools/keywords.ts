@@ -95,8 +95,7 @@ export function registerKeywordTools(
     {
       title: "List Tracked Keywords",
       description:
-        "Fetch the keywords tracked for a project in one store: rows with current rank, 7d/30d deltas, difficulty/traffic estimates, sparkline and competitor positions, plus a summary (tracked count, ranked count, average position, top-10 share), the plan's keyword limit, and trackedKeywords (every keyword × country row across all stores, with the row id used by remove_keywords and get_keyword_history). " +
-        "Use this as the first read for any keyword conversation.",
+        "Returns tracked keywords, ranks, changes, difficulty/traffic estimates, sparkline data, competitor positions, summary metrics and plan limits. trackedKeywords includes row IDs across stores and countries. Read-only.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         storeProvider: storeProviderSchema,
@@ -119,7 +118,7 @@ export function registerKeywordTools(
     {
       title: "List Keyword Competitors",
       description:
-        "List the competitor apps configured for keyword tracking in one store (appId, name, developer, icon) plus the plan's competitor limit. These are the apps shown next to the user's app in the keyword monitor's competitor columns.",
+        "Lists the competitor apps currently tracked for a project and store, including available limit metadata. Read-only.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         storeProvider: storeProviderSchema,
@@ -142,9 +141,7 @@ export function registerKeywordTools(
     {
       title: "Add Tracked Keywords",
       description:
-        "Track keywords for a project, in one or more storefronts. The store and app resolve on the server from the project's linked app (get_project: primaryStoreProvider, appleAppId / googlePlayPackageName); pass storeProvider only to track in the other store. " +
-        "If the project has no linked store app, keywords are still tracked and show search results, but the user's own rank stays empty until an app is linked in the dashboard keyword page (or the project was created with create_project appStore). " +
-        "Each keyword × country counts against the plan's keyword limit; a batch over the limit is rejected as a whole (error keyword_limit, nothing added). Rankings appear after the background scrape (usually within minutes).",
+        "Adds keyword tracking for the requested stores/countries. Store and app identity resolve from project metadata unless overridden. Each keyword-country pair counts against the keyword limit; an oversized batch is rejected in full. Projects without a linked app can track terms but have no own-app rank. Rankings arrive asynchronously.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         keywords: z
@@ -229,7 +226,7 @@ export function registerKeywordTools(
     {
       title: "Remove Tracked Keywords",
       description:
-        "Stop tracking keywords and delete their rank history. Only call when the user asked to remove these keywords. Select by trackedKeywordIds (row ids from list_keywords trackedKeywords) and/or by keyword text; keyword text matches every store and country unless storeProvider/countries narrow it. All-or-nothing: unknown ids are reported and nothing is deleted.",
+        "Removes selected tracked keywords and permanently deletes their rank history. Selection supports row IDs or text with optional store/country scope. Unscoped text matches every store and country. Unknown IDs reject the batch without deleting anything.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         keywords: z.array(z.string().min(1)).max(100).optional(),
@@ -245,7 +242,13 @@ export function registerKeywordTools(
           .describe("Only remove keyword text in these countries."),
       }),
     },
-    async ({ projectId, keywords, trackedKeywordIds, storeProvider, countries }) => {
+    async ({
+      projectId,
+      keywords,
+      trackedKeywordIds,
+      storeProvider,
+      countries,
+    }) => {
       try {
         if (!keywords?.length && !trackedKeywordIds?.length) {
           throw new ToolInputError(
@@ -292,7 +295,7 @@ export function registerKeywordTools(
     {
       title: "Suggest Keywords",
       description:
-        "AI keyword ideas for the project (from its name, category and description), excluding keywords already tracked in that store. Suggestions are not tracked until you call add_keywords with the ones the user wants.",
+        "Returns AI-assisted keyword ideas based on project metadata, excluding terms already tracked in the selected store. Does not start tracking suggestions.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         storeProvider: storeProviderSchema,
@@ -315,7 +318,7 @@ export function registerKeywordTools(
     {
       title: "Suggest Keyword Competitors",
       description:
-        "Suggest competitor apps for one store: apps that rank high for many of the project's tracked keywords, plus apps found by searching the app's own name, each with a reason. Empty when nothing is tracked yet. Add the chosen ones with add_keyword_competitors.",
+        "Returns candidate competitor apps for a project and selected store. Does not add competitors to tracking.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         storeProvider: storeProviderSchema,
@@ -338,7 +341,7 @@ export function registerKeywordTools(
     {
       title: "Add Keyword Competitors",
       description:
-        "Add competitor apps to the project's keyword tracking in one store, keeping existing ones. appIds are Apple numeric ids for app_store or package names for google_play (from suggest_keyword_competitors or the store). Rejected as a whole (competitor_limit) if the plan's competitor limit would be exceeded.",
+        "Adds the specified competitor apps to a project's keyword tracking for one store, subject to plan limits. Repeated additions of the same app are idempotent.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         appIds: z.array(z.string().min(1).max(255)).min(1).max(50),
@@ -376,7 +379,7 @@ export function registerKeywordTools(
     {
       title: "Remove Keyword Competitors",
       description:
-        "Remove competitor apps from the project's keyword tracking in one store. Only call when the user asked to remove them. Unknown appIds are reported and nothing changes.",
+        "Removes specified competitor apps from a project's tracking in one store. Unknown app IDs are reported without changing tracking.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         appIds: z.array(z.string().min(1).max(255)).min(1).max(50),
@@ -421,8 +424,7 @@ export function registerKeywordTools(
     {
       title: "Get Keyword History",
       description:
-        "Fetch the rank time series for a single tracked keyword. Returns up to 30 days on Free and up to 365 days on Unlimited. " +
-        "Pass appId to compute the history for a competitor app instead of the user's own app; defaults to the tracked keyword's owner app.",
+        "Returns rank history for one tracked keyword, optionally for a specified competitor app. Available history is limited by plan: up to thirty days on Free and up to 365 days on Unlimited. Read-only.",
       inputSchema: z.object({
         trackedKeywordId: z
           .string()

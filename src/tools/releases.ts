@@ -13,7 +13,7 @@ export function registerReleaseTools(
     {
       title: "List Export Formats",
       description:
-        "List supported store dimensions and locales for validated Fastlane packages.",
+        "Lists screenshot export formats, device families, platforms, authored dimensions and available resolution presets. Read-only.",
       inputSchema: z.object({}),
     },
     async () => {
@@ -29,7 +29,7 @@ export function registerReleaseTools(
     {
       title: "Render Screenshots",
       description:
-        "Render the saved translations of the active screenshot variant (or a specified existing variant). Use list_export_formats for sizes, including ios.phone.duo-inner and ios.phone.duo-outer. Presets use their independent format layout when present; use transform_layout with formatId to edit or reset it. Validated iOS packages allow at most 10 screens. Set resolutions['android.phone'] to {preset:'preview'} for 1290x2796 or {preset:'play-high'} for 2160x3840 (default). Any requested format can use exact custom {width,height} (320-8192 pixels); custom sizes may not satisfy store requirements. Presets follow layout orientation. One resolution per format per request. Update captures and copy through the normal asset and layout tools first. Reuse idempotencyKey for retries; never replace it after an uncertain outcome.",
+        "Starts a render of saved screenshot translations for the active or specified variant. Supports preset or custom dimensions, independent phone-format layouts and at most ten screens per validated iOS package. Uses export allowance. Repeated requests with the same idempotencyKey reuse the original request.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
@@ -71,7 +71,7 @@ export function registerReleaseTools(
     {
       title: "Get Release Render",
       description:
-        "Poll a render. Only succeeded renders provide a validated manifest and short-lived package download URL. Failed or indeterminate jobs must not be retried with a new key automatically.",
+        "Returns the status, progress and available download artifacts of an existing screenshot render job. Read-only.",
       inputSchema: z.object({ renderId: z.string().uuid() }),
     },
     async ({ renderId }) => {

@@ -53,15 +53,16 @@ export function registerStockPhotoTools(
     {
       title: "Search Stock Photos",
       description:
-        "Search free Pexels or Unsplash photos for backgrounds (screenshot/social panoramas, per-screen backgrounds, mockup animation backgrounds) — the same libraries as the editor's background picker. " +
-        "Returns preview URLs to judge results and an importInput per photo; pass a chosen photo's importInput to import_stock_photo. Nothing is stored until import.",
+        "Searches Pexels or Unsplash for existing photos and returns preview metadata and import inputs. Does not upload a photo or modify a design.",
       inputSchema: z.object({
         provider: providerSchema.default("pexels"),
         query: z.string().trim().min(1).max(200),
         orientation: z
           .enum(["landscape", "portrait", "square"])
           .optional()
-          .describe("portrait suits a single phone screen; landscape a panorama across screens."),
+          .describe(
+            "portrait suits a single phone screen; landscape a panorama across screens.",
+          ),
         page: z.number().int().min(1).optional(),
         perPage: z.number().int().min(1).max(30).optional(),
       }),
@@ -110,15 +111,15 @@ export function registerStockPhotoTools(
     {
       title: "Import Stock Photo",
       description:
-        "Copy a Pexels/Unsplash photo into the project's storage and return its project path plus photographer attribution, exactly like choosing it in the editor's background picker. " +
-        "Pass importInput from search_stock_photos unchanged. Does not change any design by itself. " +
-        STOCK_PHOTO_USAGE,
+        "Imports a selected Pexels or Unsplash photo into project storage and returns its relative path and photographer attribution. Does not apply the image to a design. Attribution is part of the imported asset metadata.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         provider: providerSchema,
         importInput: z
           .record(z.string(), z.unknown())
-          .describe("The importInput object of one search_stock_photos result."),
+          .describe(
+            "The importInput object of one search_stock_photos result.",
+          ),
       }),
     },
     async ({ projectId, provider, importInput: input }) => {
