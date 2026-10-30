@@ -1,6 +1,6 @@
 {
   "name": "applaunchflow",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Official AppLaunchFlow API client and hosted OAuth MCP connector.",
   "license": "MIT",
   "repository": {
@@ -29,10 +29,10 @@
     "check:pickers": "node scripts/picker-release.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/client": "^2.0.0",
-    "@modelcontextprotocol/node": "^2.0.0",
-    "@modelcontextprotocol/server": "^2.0.0",
-    "zod": "^4.6.5"
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@modelcontextprotocol/node": "^2.1.2",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",

@@ -89,6 +89,9 @@ export function toolErrorCategory(result: unknown): string {
 }
 
 export function protocolErrorCategory(error: unknown): string {
+  const value = record(error);
+  if (value.name === "RequestBodyTooLargeError" && value.status === 413)
+    return "request_body_too_large";
   const message = error instanceof Error ? error.message : "";
   if (/unsupported protocol version/i.test(message))
     return "unsupported_protocol_version";

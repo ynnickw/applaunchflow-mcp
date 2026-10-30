@@ -57,7 +57,7 @@ test("all registered tools expose submission safety metadata and output schemas"
     );
 
     for (const tool of tools) {
-      assert.deepEqual(tool.annotations, TOOL_ANNOTATIONS[tool.name]);
+      assert.deepEqual(tool.annotations, { ...TOOL_ANNOTATIONS[tool.name], title: tool.title });
       if (
         ["view_review_snapshot", "preview_mockup_animation", "preview_screenshots", "preview_promo_video"].includes(tool.name)
       ) {

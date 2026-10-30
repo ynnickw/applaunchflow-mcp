@@ -316,10 +316,12 @@ export function installToolMetadataPolicy(
       name,
       {
         ...config,
+        title: typeof config.title === "string" ? config.title : name.replaceAll("_", " "),
         ...(alias.aliased ? { inputSchema: alias.schema } : {}),
         annotations: {
           ...((config.annotations || {}) as ToolAnnotations),
           ...annotations,
+          title: typeof config.title === "string" ? config.title : name.replaceAll("_", " "),
         },
         // Image-only tools must not advertise JSON output: structured-output
         // clients can otherwise unwrap that JSON and discard sibling PNG bytes.

@@ -6,7 +6,7 @@ import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createAppLaunchFlowServer } from "./index.js";
 import { MCP_APP_MIME_TYPE, MCP_WIDGET_DOMAIN } from "./ui/picker-resource.js";
 
-test("every widget has the same dedicated domain, separate from its asset origin", async () => {
+test("every widget keeps OpenAI's dedicated domain without overriding other hosts' sandbox identity", async () => {
   const api = createServer((request, response) => {
     assert.equal(request.headers.authorization, undefined);
     const path = request.url || "";
@@ -34,10 +34,10 @@ test("every widget has the same dedicated domain, separate from its asset origin
     for (const widget of widgets) {
       const result = await client.readResource({ uri: widget.uri });
       const content = result.contents[0];
-      const ui = content._meta?.ui as { domain: string; csp: { resourceDomains: string[] } };
-      assert.equal(ui.domain, MCP_WIDGET_DOMAIN, widget.name);
-      assert.equal(content._meta?.["openai/widgetDomain"], ui.domain);
-      assert.notEqual(ui.domain, baseUrl);
+      const ui = content._meta?.ui as { domain?: string; csp: { resourceDomains: string[] } };
+      assert.equal(ui.domain, undefined, widget.name);
+      assert.equal(content._meta?.["openai/widgetDomain"], MCP_WIDGET_DOMAIN);
+      assert.notEqual(MCP_WIDGET_DOMAIN, baseUrl);
       assert.ok(ui.csp.resourceDomains.includes(baseUrl));
       assert.ok("text" in content && content.text.includes(`<base href="${baseUrl}/">`));
     }

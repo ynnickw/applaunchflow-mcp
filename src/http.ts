@@ -31,6 +31,9 @@ import {
 import { mcpClientName, requireMcpAnalyticsConfig } from "./mcp-analytics.js";
 
 const DEFAULT_PORT = 8787;
+// Accommodate one supported 25 MiB asset encoded as base64, plus JSON overhead,
+// without restoring the unbounded request buffering of older SDK releases.
+export const MAX_MCP_BODY_BYTES = 36 * 1024 * 1024;
 const INTROSPECTION_TIMEOUT_MS = 10_000;
 const DEFAULT_DASHBOARD_URL = "https://dashboard.applaunchflow.com";
 const SERVICE_VERSION = (
@@ -332,6 +335,7 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
       ),
     {
       legacy: "stateless",
+      maxRequestBodySize: MAX_MCP_BODY_BYTES,
       onerror: (error) => {
         const category = protocolErrorCategory(error);
         if (!diagnostics.errorCategory || category !== "transport_error") {
@@ -341,6 +345,7 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
     },
   );
   const nodeHandler = toNodeHandler(handler, {
+    maxRequestBodySize: MAX_MCP_BODY_BYTES,
     onerror: (error) => {
       const category = protocolErrorCategory(error);
       if (!diagnostics.errorCategory || category !== "transport_error") {
@@ -351,7 +356,9 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
 
   await runWithRequestTelemetry(requestId, async () => {
     try {
-      const webRequest = await toWebRequest(request);
+      const webRequest = await toWebRequest(request, undefined, {
+        maxRequestBodySize: MAX_MCP_BODY_BYTES,
+      });
       let parsedBody: unknown;
       try {
         parsedBody = await webRequest.json();
@@ -383,6 +390,19 @@ async function handleMcp(request: IncomingMessage, response: ServerResponse) {
       );
     } catch (error) {
       diagnostics.errorCategory = protocolErrorCategory(error);
+      if (diagnostics.errorCategory === "request_body_too_large") {
+        if (!response.headersSent) {
+          json(response, 413, {
+            jsonrpc: "2.0",
+            error: {
+              code: -32600,
+              message: "Request body exceeds 36 MiB. Send fewer files per request or use HTTPS source URLs for larger assets.",
+            },
+            id: null,
+          });
+        }
+        return;
+      }
       console.error(
         JSON.stringify({
           event: "mcp_transport_error",
