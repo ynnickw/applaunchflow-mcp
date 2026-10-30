@@ -88,7 +88,7 @@ Input schema:
 
 ## get_mockup_animation
 
-Fetch the current mockup animation state (MockupProjectState shape) for a project. Omit variantId to read the active mockup variant; the response's variantId is the one to pass to update_mockup_animation, preview_mockup_animation and export_mockup_animation. Required before update_mockup_animation so edits operate on fresh state. Read get_editing_reference(feature: mockups) for all supported configuration fields.
+Fetch the current mockup animation state (MockupProjectState shape) for a project. Omit variantId to read the active mockup variant; the response's variantId is the one to provide to update_mockup_animation, preview_mockup_animation and export_mockup_animation. Required before update_mockup_animation so edits operate on fresh state. Read get_editing_reference(feature: mockups) for all supported configuration fields.
 
 Input schema:
 
@@ -97,7 +97,7 @@ Input schema:
   "type": "object",
   "properties": {
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -154,7 +154,7 @@ Input schema:
       "type": "boolean"
     },
     "readReceipt": {
-      "description": "Hosted connector only: pass the readReceipt returned by the immediately preceding get_mockup_animation call.",
+      "description": "Hosted connector only: provide the readReceipt returned by the immediately preceding get_mockup_animation call.",
       "type": "string"
     }
   },

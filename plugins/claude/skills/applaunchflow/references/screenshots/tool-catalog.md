@@ -15,7 +15,7 @@ Input schema:
   "type": "object",
   "properties": {
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead. Project/generation UUID.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead. Project/generation UUID.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -88,13 +88,13 @@ Input schema:
       "type": "string"
     },
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead. Project UUID from prepare_screenshot_styles. Pass together with catalogKey to show the real personalized previews.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead. Project UUID from prepare_screenshot_styles. Provide together with catalogKey to show the real personalized previews.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
     },
     "catalogKey": {
-      "description": "Catalog key from prepare_screenshot_styles. Pass together with generationId.",
+      "description": "Catalog key from prepare_screenshot_styles. Provide together with generationId.",
       "type": "string",
       "minLength": 1,
       "maxLength": 128
@@ -121,7 +121,7 @@ Input schema:
   "type": "object",
   "properties": {
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -178,7 +178,7 @@ Input schema:
   "type": "object",
   "properties": {
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -209,7 +209,7 @@ Input schema:
 
 ## save_layout
 
-Persist a full translation layout payload. Whole-layout replace per device size — prefer transform_layout for targeted edits. formatLayouts is the complete independent phone-format map: omit it to preserve existing formats, pass {} to reset all, or pass the map from get_layout with explicit changes. Main edits do not overwrite independent formats. Each layout must be a complete, valid Layout object; see the resource applaunchflow://schema/layout for every field and valid value range.
+Persist a full translation layout payload. Whole-layout replace per device size — prefer transform_layout for targeted edits. formatLayouts is the complete independent phone-format map: omit it to preserve existing formats, provide {} to reset all, or provide the map from get_layout with explicit changes. Main edits do not overwrite independent formats. Each layout must be a complete, valid Layout object; see the resource applaunchflow://schema/layout for every field and valid value range.
 
 Input schema:
 
@@ -218,7 +218,7 @@ Input schema:
   "type": "object",
   "properties": {
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -302,7 +302,7 @@ Input schema:
 
 ## transform_layout
 
-Apply transform operations to an existing layout. Primary editing tool for text, screenshots, colors, and structure changes. IMPORTANT: Always call get_layout FIRST to inspect the current layout state before using this tool. Never transform blindly. ENFORCED RULE: each transform_layout call requires a fresh get_layout call for the same generationId, language, and variantId immediately beforehand. RULES: 1. nodeType is REQUIRED in every operation target. 2. Omit nodeId to update ALL nodes of that type in the target screens. 3. Use screens:'all' to target every screen at once. Do NOT send one operation per screen when the same change applies to all. 4. Dot-notation is supported for deep updates without replacing the whole object. Example: {'richContent.attrs.defaultFontSize': 96} updates only the font size inside richContent.attrs, preserving all other fields. Always use dot-notation for nested property changes. 5. For add_node, changes MUST include an 'id' field. 6. To add new screens, first add empty screen containers, then populate them in a SECOND call using selector 'screenId:<id>'. 7. layouts defaults to ['mobile'] (phone only); list 'tablet'/'desktop' explicitly to change them too. Use formatId to edit a separate phone size such as ios-duo-inner; do not combine formatId with layouts. resetFormat:true with formatId and no operations makes that size follow main again. 8. FONT SIZE: The rendered font size is controlled ONLY by 'richContent.attrs.defaultFontSize' (pixel value). To change font size, use dot-notation: {'richContent.attrs.defaultFontSize': 80}. Do NOT use 'fontSizeScale' — that property is for promo videos only and has NO effect on screenshot rendering. 9. UNSET: a null value removes a field ({model3D:null} returns to the 2D frame, {backgroundGradient:null}, {shadow:null}). 10. THEME: target {nodeType:'layout'} with changes {themeColors:{primary:'#...'}} recolors every linked element and re-derives dependent roles like the editor; {themePaletteMode:'v2'} switches the generated palette; orientation, backgroundColor, backgroundGradient, screenshotGap are also layout-level. 11. SCREENSHOT IMAGE: setting a screenshot's path replaces the image on both platforms (iosPath/androidPath overrides win over path and are cleared); pass platform:'ios'|'android' to change one platform only. phoneId is the 2D frame and follows the project platform at render (iphone17 / googlepixel); choose another device with model3D {modelId, finish, rotationX, rotationY, rotationZ}. 12. STACKING: zIndex is one order per screen across ALL node types; use bring_to_front / send_to_back, or reorder (which keeps the collection's zIndex values). 13. COORDINATES are per screen in canvas pixels: a text's position.x is the LEFT edge of its box (width wide, aligned inside it) and position.y its top; a screenshot's position is the device CENTRE and ScreenshotNode.scale its size factor. VALIDATION: unknown font families (see list_fonts), invalid 3D modelId/finish, magnifier.screenshotId not on the same screen, and asset paths that do not exist in the project are rejected with the reason; nothing is saved. Check the result visually with preview_screenshots. SCHEMA REFERENCE: read the resource applaunchflow://schema/transforms for the full operation and selector reference, and applaunchflow://schema/layout for every node type's fields and valid value ranges. Read them before any non-trivial edit rather than guessing field names.
+Apply transform operations to an existing layout. Primary editing tool for text, screenshots, colors, and structure changes. IMPORTANT: Always call get_layout FIRST to inspect the current layout state before using this tool. Never transform blindly. ENFORCED RULE: each transform_layout call requires a fresh get_layout call for the same generationId, language, and variantId immediately beforehand. RULES: 1. nodeType is REQUIRED in every operation target. 2. Omit nodeId to update ALL nodes of that type in the target screens. 3. Use screens:'all' to target every screen at once. Do NOT send one operation per screen when the same change applies to all. 4. Dot-notation is supported for deep updates without replacing the whole object. Example: {'richContent.attrs.defaultFontSize': 96} updates only the font size inside richContent.attrs, preserving all other fields. Always use dot-notation for nested property changes. 5. For add_node, changes MUST include an 'id' field. 6. To add new screens, first add empty screen containers, then populate them in a SECOND call using selector 'screenId:<id>'. 7. layouts defaults to ['mobile'] (phone only); list 'tablet'/'desktop' explicitly to change them too. Use formatId to edit a separate phone size such as ios-duo-inner; do not combine formatId with layouts. resetFormat:true with formatId and no operations makes that size follow main again. 8. FONT SIZE: The rendered font size is controlled ONLY by 'richContent.attrs.defaultFontSize' (pixel value). To change font size, use dot-notation: {'richContent.attrs.defaultFontSize': 80}. Do NOT use 'fontSizeScale' — that property is for promo videos only and has NO effect on screenshot rendering. 9. UNSET: a null value removes a field ({model3D:null} returns to the 2D frame, {backgroundGradient:null}, {shadow:null}). 10. THEME: target {nodeType:'layout'} with changes {themeColors:{primary:'#...'}} recolors every linked element and re-derives dependent roles like the editor; {themePaletteMode:'v2'} switches the generated palette; orientation, backgroundColor, backgroundGradient, screenshotGap are also layout-level. 11. SCREENSHOT IMAGE: setting a screenshot's path replaces the image on both platforms (iosPath/androidPath overrides win over path and are cleared); provide platform:'ios'|'android' to change one platform only. phoneId is the 2D frame and follows the project platform at render (iphone17 / googlepixel); choose another device with model3D {modelId, finish, rotationX, rotationY, rotationZ}. 12. STACKING: zIndex is one order per screen across ALL node types; use bring_to_front / send_to_back, or reorder (which keeps the collection's zIndex values). 13. COORDINATES are per screen in canvas pixels: a text's position.x is the LEFT edge of its box (width wide, aligned inside it) and position.y its top; a screenshot's position is the device CENTRE and ScreenshotNode.scale its size factor. VALIDATION: unknown font families (see list_fonts), invalid 3D modelId/finish, magnifier.screenshotId not on the same screen, and asset paths that do not exist in the project are rejected with the reason; nothing is saved. Check the result visually with preview_screenshots. SCHEMA REFERENCE: read the resource applaunchflow://schema/transforms for the full operation and selector reference, and applaunchflow://schema/layout for every node type's fields and valid value ranges. Read them before any non-trivial edit rather than guessing field names.
 
 Input schema:
 
@@ -311,7 +311,7 @@ Input schema:
   "type": "object",
   "properties": {
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -434,7 +434,7 @@ Input schema:
       }
     },
     "readReceipt": {
-      "description": "Hosted connector only: pass the readReceipt returned by the immediately preceding get_layout call.",
+      "description": "Hosted connector only: provide the readReceipt returned by the immediately preceding get_layout call.",
       "type": "string"
     },
     "projectId": {
@@ -453,7 +453,7 @@ Input schema:
 
 ## translate_layouts
 
-Translate screenshot layouts into one or more target languages using AI. This is the PREFERRED way to localize screenshots — do NOT manually edit text nodes for translation. The backend translates all text in the layout while preserving positioning, styling, and screenshots. Requires a source screenshot layout to already exist — created by the personalized gallery or apply_screenshot_style. Pass the source variantId when available to translate that exact variant; if omitted, the active variant is used. Re-running it for a language that already exists RE-SYNCS that translation from the source layout: its design (positions, styles, colors, devices) is replaced by the source's, unchanged text reuses the previous translation and per-language screenshots are kept; manual per-language design edits are lost. To copy only the design without translating, use sync_layout; to put language-specific screenshots in, use apply_locale_screenshots.
+Translate screenshot layouts into one or more target languages using AI. This is the PREFERRED way to localize screenshots — do NOT manually edit text nodes for translation. The backend translates all text in the layout while preserving positioning, styling, and screenshots. Requires a source screenshot layout to already exist — created by the personalized gallery or apply_screenshot_style. Provide the source variantId when available to translate that exact variant; if omitted, the active variant is used. Re-running it for a language that already exists RE-SYNCS that translation from the source layout: its design (positions, styles, colors, devices) is replaced by the source's, unchanged text reuses the previous translation and per-language screenshots are kept; manual per-language design edits are lost. To copy only the design without translating, use sync_layout; to put language-specific screenshots in, use apply_locale_screenshots.
 
 Input schema:
 
@@ -462,7 +462,7 @@ Input schema:
   "type": "object",
   "properties": {
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead. The project/generation UUID.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead. The project/generation UUID.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -571,7 +571,7 @@ Input schema:
   "type": "object",
   "properties": {
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -695,7 +695,7 @@ Input schema:
   "type": "object",
   "properties": {
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"

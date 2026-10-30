@@ -37,7 +37,7 @@ Input schema:
 
 ## add_keywords
 
-Track keywords for a project, in one or more storefronts. The store and app resolve on the server from the project's linked app (get_project: primaryStoreProvider, appleAppId / googlePlayPackageName); pass storeProvider only to track in the other store. If the project has no linked store app, keywords are still tracked and show search results, but the user's own rank stays empty until an app is linked in the dashboard keyword page (or the project was created with create_project appStore). Each keyword × country counts against the plan's keyword limit; a batch over the limit is rejected as a whole (error keyword_limit, nothing added). Rankings appear after the background scrape (usually within minutes).
+Track keywords for a project, in one or more storefronts. The store and app resolve on the server from the project's linked app (get_project: primaryStoreProvider, appleAppId / googlePlayPackageName); provide storeProvider only to track in the other store. If the project has no linked store app, keywords are still tracked and show search results, but the user's own rank stays empty until an app is linked in the dashboard keyword page (or the project was created with create_project appStore). Each keyword × country counts against the plan's keyword limit; a batch over the limit is rejected as a whole (error keyword_limit, nothing added). Rankings appear after the background scrape (usually within minutes).
 
 Input schema:
 
@@ -211,7 +211,7 @@ Input schema:
 
 ## get_keyword_history
 
-Fetch the rank time series for a single tracked keyword. Returns up to 30 days on Free and up to 365 days on Unlimited. Pass appId to compute the history for a competitor app instead of the user's own app; defaults to the tracked keyword's owner app.
+Fetch the rank time series for a single tracked keyword. Returns up to 30 days on Free and up to 365 days on Unlimited. Provide appId to compute the history for a competitor app instead of the user's own app; defaults to the tracked keyword's owner app.
 
 Input schema:
 

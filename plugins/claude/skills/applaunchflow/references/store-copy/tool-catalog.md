@@ -81,7 +81,7 @@ Input schema:
 
 ## update_store_listing
 
-Edit store listing text. Pass only the fields to change: fields edits the source language, translations edits existing languages ({ "de": { "promotionalText": "..." } }). Everything else (other fields, insights, other languages) is kept as saved. Enforces store character limits. Edits the active listing variant unless variantId is given. Editing the source text does not re-translate; call translate_store_listing for that.
+Edit store listing text. Provide only the fields to change: fields edits the source language, translations edits existing languages ({ "de": { "promotionalText": "..." } }). Everything else (other fields, insights, other languages) is kept as saved. Enforces store character limits. Edits the active listing variant unless variantId is given. Editing the source text does not re-translate; call translate_store_listing for that.
 
 Input schema:
 

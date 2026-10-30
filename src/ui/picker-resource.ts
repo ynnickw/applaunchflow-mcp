@@ -4,8 +4,9 @@ import type { AppLaunchFlowClient } from "../client/api.js";
 import { loadPickerBundle, type PickerName } from "./picker-bundle.js";
 
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
-// Plugin-specific sandbox identity, separate from the authenticated dashboard
-// asset origin. OpenAI requires an explicit domain for submitted widget apps.
+// OpenAI-specific sandbox identity, separate from the authenticated dashboard
+// asset origin. Other MCP Apps hosts must choose their own sandbox origin:
+// Claude rejects an ordinary URL in ui.domain (it expects a connector URL hash).
 export const MCP_WIDGET_DOMAIN = "https://mcp.applaunchflow.com";
 
 function rebaseInlineCssAssetUrls(css: string, origin: string): string {
@@ -165,7 +166,6 @@ export function registerPickerResource(
             _meta: {
               ui: {
                 prefersBorder: true,
-                domain: MCP_WIDGET_DOMAIN,
                 csp: {
                   resourceDomains,
                   connectDomains: resourceDomains,

@@ -7,7 +7,7 @@ import {
   Client,
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
-import { createHttpServer } from "./http.js";
+import { createHttpServer, MAX_MCP_BODY_BYTES } from "./http.js";
 
 async function withServer(
   callback: (baseUrl: string) => Promise<void>,
@@ -197,6 +197,27 @@ test("authenticated Streamable HTTP clients can initialize and discover tools", 
           },
         },
       );
+      const oversized = await fetch(`${baseUrl}/mcp`, {
+        method: "POST",
+        headers: { authorization: "Bearer test-access-token", "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping", padding: "x".repeat(MAX_MCP_BODY_BYTES) }),
+      });
+      assert.equal(oversized.status, 413);
+      assert.match(JSON.stringify(await oversized.json()), /HTTPS source URLs/);
+      assert.equal((await fetch(`${baseUrl}/healthz`)).status, 200);
+      // The SDK's new 4 MiB default must not break the existing 25 MiB inline
+      // asset contract. The same bound applies at all three HTTP adapters.
+      const large = await fetch(`${baseUrl}/mcp`, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer test-access-token",
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "ping", params: { padding: "x".repeat(5 * 1024 * 1024) } }),
+      });
+      assert.equal(large.status, 200);
+      await large.body?.cancel();
       const client = new Client({ name: "http-test", version: "1.0.0" });
       await client.connect(transport);
       try {

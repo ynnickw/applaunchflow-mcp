@@ -6,7 +6,7 @@ This is a reference, not a script to execute in order. Read only the tool needed
 
 ## get_editing_reference
 
-Read before editing screenshots, social graphics, promo videos or mockups. Returns workflow, coordinate units and an exhaustive index of current configuration types, validators and catalogs. Pass a symbol from the index to retrieve its complete fields, enums, bounds and defaults. Works even in MCP clients without resource browsing; read-only, no project or network access.
+Read before editing screenshots, social graphics, promo videos or mockups. Returns workflow, coordinate units and an exhaustive index of current configuration types, validators and catalogs. Provide a symbol from the index to retrieve its complete fields, enums, bounds and defaults. Works even in MCP clients without resource browsing; read-only, no project or network access.
 
 Input schema:
 
@@ -178,7 +178,7 @@ Input schema:
   "type": "object",
   "properties": {
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -218,7 +218,7 @@ Input schema:
   "type": "object",
   "properties": {
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -367,7 +367,7 @@ Input schema:
 
 ## get_capabilities
 
-What this MCP can and cannot do. Lists, per area (projects, assets, screenshots, social graphics, promo videos, mockups, store listing text, keywords, plan), the tools available and the editor URL, and lists features that exist only in the AppLaunchFlow dashboard (store publishing, store connections, custom product pages, A/B tests, reviews, app icon, website, export history, collaborators, QR codes, API keys, billing) with a dashboard link for each. Read-only; pass projectId for project-specific links.
+What this MCP can and cannot do. Lists, per area (projects, assets, screenshots, social graphics, promo videos, mockups, store listing text, keywords, plan), the tools available and the editor URL, and lists features that exist only in the AppLaunchFlow dashboard (store publishing, store connections, custom product pages, A/B tests, reviews, app icon, website, export history, collaborators, QR codes, API keys, billing) with a dashboard link for each. Read-only; provide projectId for project-specific links.
 
 Input schema:
 

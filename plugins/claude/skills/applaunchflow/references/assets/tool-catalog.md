@@ -339,7 +339,7 @@ Input schema:
 
 ## view_screenshot
 
-Fetch a screenshot image and return it for visual analysis. Use this to inspect screenshots — extract colors, read UI text, understand layout context, or identify visual elements. Pass projectId and the relative path from list_screenshots or get_layout (e.g. 'mobile/ios/1234-image.PNG').
+Fetch a screenshot image and return it for visual analysis. Use this to inspect screenshots — extract colors, read UI text, understand layout context, or identify visual elements. Provide projectId and the relative path from list_screenshots or get_layout (e.g. 'mobile/ios/1234-image.PNG').
 
 Input schema:
 
@@ -593,7 +593,7 @@ Input schema:
 
 ## move_assets
 
-Move screenshot assets into a folder with the same device and platform, or pass null to ungroup them. Never changes storage paths or saved designs.
+Move screenshot assets into a folder with the same device and platform, or provide null to ungroup them. Never changes storage paths or saved designs.
 
 Input schema:
 
@@ -640,7 +640,7 @@ Input schema:
 
 ## set_asset_folder_locale
 
-Bind a screenshot folder to an explicit language code, or pass null to clear the binding. Folder names do not determine language.
+Bind a screenshot folder to an explicit language code, or provide null to clear the binding. Folder names do not determine language.
 
 Input schema:
 
@@ -681,7 +681,7 @@ Input schema:
 
 ## search_stock_photos
 
-Search free Pexels or Unsplash photos for backgrounds (screenshot/social panoramas, per-screen backgrounds, mockup animation backgrounds) — the same libraries as the editor's background picker. Returns preview URLs to judge results and an importInput per photo; pass a chosen photo's importInput to import_stock_photo. Nothing is stored until import.
+Search free Pexels or Unsplash photos for backgrounds (screenshot/social panoramas, per-screen backgrounds, mockup animation backgrounds) — the same libraries as the editor's background picker. Returns preview URLs to judge results and an importInput per photo; provide a chosen photo's importInput to import_stock_photo. Nothing is stored until import.
 
 Input schema:
 
@@ -731,7 +731,7 @@ Input schema:
 
 ## import_stock_photo
 
-Copy a Pexels/Unsplash photo into the project's storage and return its project path plus photographer attribution, exactly like choosing it in the editor's background picker. Pass importInput from search_stock_photos unchanged. Does not change any design by itself. Use the returned path and attribution: screenshots/social panorama → transform_layout {nodeType:'panoramaBackground', changes:{imageUrl:<path>, storagePath:<path>, attribution}}; one screen → {nodeType:'screen', screens:[i], changes:{backgroundImage:{url:<path>, storagePath:<path>, attribution}}}; mockup animation → state.backgroundMode:'image' and state.backgroundImage:{url:<returned url>, storagePath:<path>, attribution} via update_mockup_animation (the mockup editor displays url as-is; layouts re-sign from storagePath). Keep attribution: the editor credits the photographer from it.
+Copy a Pexels/Unsplash photo into the project's storage and return its project path plus photographer attribution, exactly like choosing it in the editor's background picker. Provide importInput from search_stock_photos unchanged. Does not change any design by itself. Use the returned path and attribution: screenshots/social panorama → transform_layout {nodeType:'panoramaBackground', changes:{imageUrl:<path>, storagePath:<path>, attribution}}; one screen → {nodeType:'screen', screens:[i], changes:{backgroundImage:{url:<path>, storagePath:<path>, attribution}}}; mockup animation → state.backgroundMode:'image' and state.backgroundImage:{url:<returned url>, storagePath:<path>, attribution} via update_mockup_animation (the mockup editor displays url as-is; layouts re-sign from storagePath). Keep attribution: the editor credits the photographer from it.
 
 Input schema:
 
