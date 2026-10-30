@@ -306,7 +306,7 @@ export function registerLayoutTools(
     {
       title: "Save Layout",
       description:
-        "Replaces complete saved screenshot layouts for the specified device sizes and language. Omitted formatLayouts preserves independent formats; an empty map resets them. Main layouts do not overwrite independent phone-format layouts. Invalid layouts are rejected before saving.",
+        "Replaces complete saved screenshot layouts for the specified device sizes and language. Omitted formatLayouts preserves independent formats; an empty map resets them. Main layouts do not overwrite independent phone-format layouts.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         language: z.string(),

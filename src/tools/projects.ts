@@ -571,7 +571,7 @@ export function registerProjectTools(
     {
       title: "Delete Project",
       description:
-        "Permanently deletes the specified project and its associated content. This action cannot be undone.",
+        "Deletes the specified project. This is a destructive project operation.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
       }),
