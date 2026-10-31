@@ -451,12 +451,34 @@ export class AppLaunchFlowClient {
     return this.requestJson<{ url: string; expiresAt?: string }>(path);
   }
 
-  generatePromoVideo(body: Record<string, unknown>) {
+  generatePromoVideo(body: Record<string, unknown>, generationJobId?: string) {
     return this.requestJson<any>("/api/promovideo/generate", {
       method: "POST",
       body,
+      ...(generationJobId
+        ? {
+            headers: {
+              Prefer: "respond-async",
+              "X-Generation-Job-Id": generationJobId,
+              "Idempotency-Key": generationJobId,
+            },
+          }
+        : {}),
       timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
     });
+  }
+
+  getGenerationJob(projectId: string, generationJobId: string) {
+    return this.requestJson<{
+      job: {
+        generation_id: string;
+        operation: string;
+        status: string;
+        response_body?: { candidateKey?: string; candidates?: unknown[] };
+        error?: string;
+        response_status?: number;
+      };
+    }>("/api/generation-jobs", { query: { projectId, id: generationJobId } });
   }
 
   updatePromoVideo(body: Record<string, unknown>) {

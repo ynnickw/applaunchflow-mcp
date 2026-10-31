@@ -120,6 +120,7 @@ const AREAS: Area[] = [
     label: "Promo videos",
     tools: [
       "generate_promo_video",
+      "get_promo_video_generation",
       "apply_promo_video_candidate",
       "get_promo_video",
       "update_promo_video",

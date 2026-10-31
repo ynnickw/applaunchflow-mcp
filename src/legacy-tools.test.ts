@@ -47,7 +47,7 @@ test("only prepare-and-show tools are exposed for content pickers", async () => 
       );
     }
     assert.match(instructions, /galleryUrl from the previous result/);
-    assert.match(instructions, /pickerUrl from the previous result/);
+    assert.match(instructions, /provide the exact pickerUrl/);
   } finally {
     await client.close();
     await server.close();

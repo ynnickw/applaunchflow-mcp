@@ -33,6 +33,40 @@ test("dashboard requests honor explicit timeouts", async () => {
   });
 });
 
+test("promo preparation opts into the existing async protocol and polls a project-bound receipt", async (t) => {
+  const projectId = "00000000-0000-4000-8000-000000000001";
+  const jobId = "00000000-0000-4000-8000-000000000002";
+  const calls: Array<{
+    url: URL;
+    headers: Headers;
+    method: string | undefined;
+  }> = [];
+  t.mock.method(globalThis, "fetch", async (url: URL, init: RequestInit) => {
+    calls.push({
+      url,
+      headers: new Headers(init.headers),
+      method: init.method,
+    });
+    return Response.json(
+      init.method === "POST"
+        ? { generationJobId: jobId }
+        : { job: { status: "running" } },
+    );
+  });
+  const client = new AppLaunchFlowClient({
+    baseUrl: "https://dashboard.test",
+    token: "fixture",
+  });
+  await client.generatePromoVideo({ projectId, candidateCount: 3 }, jobId);
+  await client.getGenerationJob(projectId, jobId);
+  assert.equal(calls[0].headers.get("Prefer"), "respond-async");
+  assert.equal(calls[0].headers.get("X-Generation-Job-Id"), jobId);
+  assert.equal(calls[0].headers.get("Idempotency-Key"), jobId);
+  assert.equal(calls[1].url.pathname, "/api/v1/generation-jobs");
+  assert.equal(calls[1].url.searchParams.get("projectId"), projectId);
+  assert.equal(calls[1].url.searchParams.get("id"), jobId);
+});
+
 test("dashboard requests inherit MCP request cancellation", async () => {
   await withUnresponsiveServer(async (baseUrl) => {
     const client = new AppLaunchFlowClient({ baseUrl, token: "test-token" });

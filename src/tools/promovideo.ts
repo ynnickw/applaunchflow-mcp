@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/server";
+import { randomUUID } from "node:crypto";
 import { ToolInputError } from "../telemetry.js";
 import { z } from "zod";
 import type { AppLaunchFlowClient } from "../client/api.js";
@@ -14,6 +15,7 @@ import {
 } from "./utils.js";
 import {
   createPromoVideoPickerResult,
+  createPendingPromoVideoPickerResult,
   PROMO_VIDEO_PICKER_URI,
 } from "../ui/promo-video-picker.js";
 import { pickerToolMeta } from "../ui/picker-resource.js";
@@ -133,7 +135,7 @@ export function registerPromoVideoTools(
     {
       title: "Generate Promo Video",
       description:
-        "Generates or reuses three transient promo-video scene/config candidates from uploaded screenshots and returns the embedded picker or its URL. Only an explicitly selected candidate becomes a saved variant. Optional replaceVariantId enables replacement after the new selection saves; selectedScreenshotPaths restricts candidate inputs.",
+        "Starts or reuses background preparation of three transient promo-video scene/config candidates and returns the embedded picker or its URL. The picker updates when preparation finishes. Only an explicitly selected candidate becomes a saved variant. Optional replaceVariantId enables replacement after the new selection saves; selectedScreenshotPaths restricts candidate inputs.",
       inputSchema: z.object({
         projectId: z.string().uuid().describe("Project / generation UUID."),
         message: z
@@ -178,7 +180,19 @@ export function registerPromoVideoTools(
       try {
         const result = await client.generatePromoVideo(
           buildPromoVideoCandidateRequest(args),
+          randomUUID(),
         );
+        if (result?.generationJobId) {
+          const generationJobId = z
+            .string()
+            .uuid()
+            .parse(result.generationJobId);
+          return createPendingPromoVideoPickerResult(client, {
+            projectId: args.projectId,
+            generationJobId,
+            replaceVariantId: args.replaceVariantId,
+          });
+        }
         if (!result?.candidateKey || result?.candidates?.length !== 3) {
           throw new Error(
             "Promo video generation did not return a reusable three-option picker",
@@ -215,6 +229,58 @@ export function registerPromoVideoTools(
             message: "Prepared promo video candidates; picker ready",
           },
         };
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_promo_video_generation",
+    {
+      title: "Get Promo Video Preparation",
+      description:
+        "Returns the status of an existing promo-video preparation job and the prepared picker when complete. Read-only; does not generate again, apply a candidate, replace a variant or export a video.",
+      inputSchema: z.object({
+        projectId: z.string().uuid(),
+        generationJobId: z.string().uuid(),
+        replaceVariantId: z.string().uuid().optional(),
+      }),
+      _meta: pickerToolMeta(PROMO_VIDEO_PICKER_URI),
+    },
+    async (args) => {
+      try {
+        const { job } = await client.getGenerationJob(
+          args.projectId,
+          args.generationJobId,
+        );
+        if (
+          job.generation_id !== args.projectId ||
+          job.operation !== "/api/promovideo/generate"
+        )
+          throw new Error(
+            "Promo-video preparation not found for this project.",
+          );
+        if (job.status === "failed")
+          throw new Error(
+            job.error ||
+              "Preparation did not finish. Check the project before retrying.",
+          );
+        if (job.status === "queued" || job.status === "running")
+          return createPendingPromoVideoPickerResult(client, args);
+        if (
+          job.status !== "completed" ||
+          !job.response_body?.candidateKey ||
+          job.response_body.candidates?.length !== 3
+        )
+          throw new Error(
+            "The preparation did not return three reusable promo-video concepts.",
+          );
+        return await createPromoVideoPickerResult(client, {
+          projectId: args.projectId,
+          candidateKey: job.response_body.candidateKey,
+          replaceVariantId: args.replaceVariantId,
+        });
       } catch (error) {
         return fail(error);
       }

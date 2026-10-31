@@ -230,6 +230,7 @@ export const WORKFLOW_GUIDE_RESOURCE = {
       name: "Promo video",
       preferredSteps: [
         "generate_promo_video",
+        "get_promo_video_generation",
         "get_editing_reference",
         "get_promo_video",
         "update_promo_video",

@@ -90,6 +90,7 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   // Preview is free; export uses the export allowance. Neither edits designs.
   render_graphics: createOrAppend,
   generate_promo_video: createOrAppend,
+  get_promo_video_generation: readOnly,
   // Optional replacement retires the previous variant after saving the new one.
   apply_promo_video_candidate: overwriteOrDelete,
   get_promo_video: readOnly,

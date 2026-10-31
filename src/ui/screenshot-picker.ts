@@ -6,7 +6,7 @@ import { registerPickerResource } from "./picker-resource.js";
 import { versionWidgetResourceUri } from "./widget-metadata.js";
 
 export const SCREENSHOT_PICKER_URI = versionWidgetResourceUri(
-  "ui://applaunchflow/screenshot-picker-v17.html",
+  "ui://applaunchflow/screenshot-picker-v18.html",
 );
 
 export async function createScreenshotPickerResult(

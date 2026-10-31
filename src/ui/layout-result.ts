@@ -4,7 +4,7 @@ import { versionWidgetResourceUri } from "./widget-metadata.js";
 // Hosts cache resource documents by URI. Advance this when the result UI
 // contract changes so new saves cannot reuse an obsolete thumbnail bundle.
 export const LAYOUT_RESULT_URI = versionWidgetResourceUri(
-  "ui://applaunchflow/layout-result-v2.html",
+  "ui://applaunchflow/layout-result-v3.html",
 );
 
 /** Only the private widget metadata receives the signed saved-layout URLs. */
