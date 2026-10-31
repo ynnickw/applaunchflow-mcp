@@ -41,7 +41,7 @@ test("every widget keeps OpenAI's dedicated domain without overriding other host
     );
     assert.equal(widgets.length, 13);
     assert.ok(
-      widgets.some((widget) => widget.uri.endsWith("layout-result-v2.html")),
+      widgets.some((widget) => widget.uri.endsWith("layout-result-v3.html")),
     );
     assert.ok(
       widgets.some((widget) => widget.uri.endsWith("layout-result-v1.html")),

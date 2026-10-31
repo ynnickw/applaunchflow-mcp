@@ -10,7 +10,7 @@ import { registerPickerResource } from "./picker-resource.js";
 import { versionWidgetResourceUri } from "./widget-metadata.js";
 
 export const SOCIAL_GRAPHICS_PICKER_URI = versionWidgetResourceUri(
-  "ui://applaunchflow/social-graphics-picker-v17.html",
+  "ui://applaunchflow/social-graphics-picker-v18.html",
 );
 
 export async function createSocialGraphicsPickerResult(

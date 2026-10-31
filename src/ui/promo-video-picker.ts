@@ -8,8 +8,36 @@ import { registerPickerResource } from "./picker-resource.js";
 import { versionWidgetResourceUri } from "./widget-metadata.js";
 
 export const PROMO_VIDEO_PICKER_URI = versionWidgetResourceUri(
-  "ui://applaunchflow/promo-video-picker-v20.html",
+  "ui://applaunchflow/promo-video-picker-v21.html",
 );
+
+export function createPendingPromoVideoPickerResult(
+  client: AppLaunchFlowClient,
+  args: {
+    projectId: string;
+    generationJobId: string;
+    replaceVariantId?: string;
+  },
+) {
+  const pickerUrl = buildPromoVideoDashboardUrl(client, {
+    generationId: args.projectId,
+    ...args,
+  });
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: `Your three promo-video concepts are being prepared. The picker updates when ready. If it is not displayed, open: ${pickerUrl}`,
+      },
+    ],
+    structuredContent: {
+      success: true,
+      data: { ...args, status: "preparing", pickerUrl },
+      message: "Preparing promo-video concepts",
+    },
+    _meta: { promoVideoPicker: { ...args, pickerUrl } },
+  };
+}
 
 type PromoCandidate = {
   id: string;

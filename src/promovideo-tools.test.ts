@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { McpServer } from "@modelcontextprotocol/server";
-import { AppLaunchFlowApiError, type AppLaunchFlowClient } from "./client/api.js";
+import {
+  AppLaunchFlowApiError,
+  type AppLaunchFlowClient,
+} from "./client/api.js";
 import {
   parsePromoFormat,
   registerPromoVideoTools,
@@ -17,7 +20,9 @@ function setup(overrides: Record<string, unknown>) {
     (name: string, result: unknown = {}) =>
     async (...args: unknown[]) => {
       calls.push({ name, args });
-      return typeof result === "function" ? (result as Function)(...args) : result;
+      return typeof result === "function"
+        ? (result as Function)(...args)
+        : result;
     };
   const client = {
     credentials: { token: "t", baseUrl: "http://localhost:3011" },
@@ -36,12 +41,17 @@ function setup(overrides: Record<string, unknown>) {
       derived: ["phoneId"],
     }),
     ...Object.fromEntries(
-      Object.entries(overrides).map(([key, value]) => [key, record(key, value)]),
+      Object.entries(overrides).map(([key, value]) => [
+        key,
+        record(key, value),
+      ]),
     ),
   } as unknown as AppLaunchFlowClient;
   registerPromoVideoTools(server, client);
   const handlers = (
-    server as unknown as { _registeredTools: Record<string, { handler: Handler }> }
+    server as unknown as {
+      _registeredTools: Record<string, { handler: Handler }>;
+    }
   )._registeredTools;
   const call = (name: string, args: Record<string, unknown>) =>
     handlers[name].handler(args, { mcpReq: {} });
@@ -49,9 +59,111 @@ function setup(overrides: Record<string, unknown>) {
 }
 
 const projectId = "00000000-0000-4000-8000-000000000001";
+const generationJobId = "00000000-0000-4000-8000-000000000002";
+
+test("cold generation returns a pending picker without waiting for candidates", async () => {
+  const { call, calls } = setup({ generatePromoVideo: { generationJobId } });
+  const result = await call("generate_promo_video", { projectId });
+  assert.equal(result.isError, undefined);
+  assert.equal(result.structuredContent.data.status, "preparing");
+  assert.equal(result._meta.promoVideoPicker.generationJobId, generationJobId);
+  assert.match(result.structuredContent.data.pickerUrl, /generationJobId=/);
+  assert.equal(
+    calls.length,
+    1,
+    "preparation must not load or apply candidates synchronously",
+  );
+  assert.equal((calls[0].args[0] as Record<string, unknown>).candidateCount, 3);
+  assert.match(String(calls[0].args[1]), /^[a-f0-9-]{36}$/);
+});
+
+test("polling preparation never generates again and keeps candidate configs private", async () => {
+  let status = "running";
+  const candidateKey = "a".repeat(64);
+  const candidates = [1, 2, 3].map((id) => ({
+    id: String(id),
+    title: `Concept ${id}`,
+    config: { privateMarker: "secret-config" },
+  }));
+  const { call, calls } = setup({
+    getGenerationJob: () => ({
+      job: {
+        generation_id: projectId,
+        operation: "/api/promovideo/generate",
+        status,
+        response_body: { candidateKey, candidates },
+      },
+    }),
+    getProject: {},
+    listProjectScreenshots: { paths: [], screenshotUrls: [] },
+    requestJson: {
+      generationId: projectId,
+      candidateKey,
+      screenshotPaths: [],
+      candidates,
+    },
+  });
+  const pending = await call("get_promo_video_generation", {
+    projectId,
+    generationJobId,
+  });
+  assert.equal(pending.structuredContent.data.status, "preparing");
+  status = "completed";
+  const ready = await call("get_promo_video_generation", {
+    projectId,
+    generationJobId,
+  });
+  assert.equal(ready.structuredContent.data.candidateKey, candidateKey);
+  assert.equal(
+    ready._meta.promoVideoPicker.batchJson.includes("secret-config"),
+    true,
+  );
+  assert.equal(
+    JSON.stringify([ready.content, ready.structuredContent]).includes(
+      "secret-config",
+    ),
+    false,
+  );
+  assert.equal(
+    calls.some((call) => call.name === "generatePromoVideo"),
+    false,
+  );
+});
+
+test("preparation polling rejects failed, foreign-project and unrelated jobs", async () => {
+  for (const job of [
+    {
+      generation_id: generationJobId,
+      operation: "/api/promovideo/generate",
+      status: "completed",
+    },
+    {
+      generation_id: projectId,
+      operation: "/api/graphics/generate",
+      status: "completed",
+    },
+    {
+      generation_id: projectId,
+      operation: "/api/promovideo/generate",
+      status: "failed",
+      error: "Preparation interrupted",
+    },
+  ]) {
+    const { call, calls } = setup({ getGenerationJob: { job } });
+    assert.equal(
+      (await call("get_promo_video_generation", { projectId, generationJobId }))
+        .isError,
+      true,
+    );
+    assert.equal(calls.length, 1);
+  }
+});
 
 test("export options follow the editor dialog rules and the video's format", () => {
-  assert.deepEqual(parsePromoFormat("ipad:11"), { category: "ipad", size: "11" });
+  assert.deepEqual(parsePromoFormat("ipad:11"), {
+    category: "ipad",
+    size: "11",
+  });
   assert.deepEqual(parsePromoFormat("social:9:16"), {
     category: "social",
     size: "9:16",
@@ -93,7 +205,10 @@ test("get returns the config as `config` and receipts are scoped per language", 
   });
   assert.equal(read.structuredContent.data.config.previewFormat, "social:9:16");
   assert.equal(read.structuredContent.data.project.remotion_code, undefined);
-  assert.deepEqual(read.structuredContent.data.availableLanguages, ["en", "de"]);
+  assert.deepEqual(read.structuredContent.data.availableLanguages, [
+    "en",
+    "de",
+  ]);
   assert.deepEqual(calls[0].args, [projectId, undefined, "de"]);
 
   // A read of "de" does not unlock a write to the source language.
@@ -110,10 +225,8 @@ test("get returns the config as `config` and receipts are scoped per language", 
     config: { scenes: [] },
   });
   assert.equal(saved.isError, undefined);
-  const body = calls.find((c) => c.name === "updatePromoVideo")!.args[0] as Record<
-    string,
-    unknown
-  >;
+  const body = calls.find((c) => c.name === "updatePromoVideo")!
+    .args[0] as Record<string, unknown>;
   assert.equal(body.language, "de");
   assert.deepEqual(saved.structuredContent.data.filledDefaults, ["version"]);
   assert.match(saved.content[0].text, /Derived: phoneId/);
@@ -167,7 +280,10 @@ test("preview returns the PNG as image content with its timing", async () => {
   });
   assert.equal(result.content[0].type, "image");
   assert.equal(result.content[0].data, png);
-  assert.match(result.content[1].text, /frame 135 \(4\.50 s of 15\.00 s\), scene 2/);
+  assert.match(
+    result.content[1].text,
+    /frame 135 \(4\.50 s of 15\.00 s\), scene 2/,
+  );
   assert.equal(result.structuredContent, undefined);
   assert.deepEqual(calls[0].args[0], { projectId, sceneIndex: 2 });
 
@@ -220,11 +336,13 @@ test("export defaults to the video's format and polling resolves a download URL"
     exportId: "11111111-1111-4111-8111-111111111111",
   });
   assert.equal(done.structuredContent.data.status, "completed");
-  assert.equal(done.structuredContent.data.downloadUrl, "https://s3.test/video.mp4");
-  assert.deepEqual(
-    calls.find((c) => c.name === "getDownloadLink")!.args,
-    ["/api/v1/export-history/h1/download"],
+  assert.equal(
+    done.structuredContent.data.downloadUrl,
+    "https://s3.test/video.mp4",
   );
+  assert.deepEqual(calls.find((c) => c.name === "getDownloadLink")!.args, [
+    "/api/v1/export-history/h1/download",
+  ]);
 });
 
 test("translate sends the batch request and generate accepts device type and 1-10 screenshots", async () => {
@@ -253,16 +371,27 @@ test("translate sends the batch request and generate accepts device type and 1-1
   } as unknown as AppLaunchFlowClient);
   const generate = (
     server as unknown as {
-      _registeredTools: Record<string, { inputSchema: { safeParse(v: unknown): { success: boolean } } }>;
+      _registeredTools: Record<
+        string,
+        { inputSchema: { safeParse(v: unknown): { success: boolean } } }
+      >;
     }
   )._registeredTools.generate_promo_video;
-  const parse = (value: unknown) => generate.inputSchema.safeParse(value).success;
+  const parse = (value: unknown) =>
+    generate.inputSchema.safeParse(value).success;
   assert.equal(
-    parse({ projectId, deviceType: "tablet", selectedScreenshotPaths: ["tablet/ios/a.png"] }),
+    parse({
+      projectId,
+      deviceType: "tablet",
+      selectedScreenshotPaths: ["tablet/ios/a.png"],
+    }),
     true,
   );
   assert.equal(
-    parse({ projectId, selectedScreenshotPaths: Array.from({ length: 11 }, (_, i) => `${i}.png`) }),
+    parse({
+      projectId,
+      selectedScreenshotPaths: Array.from({ length: 11 }, (_, i) => `${i}.png`),
+    }),
     false,
   );
   assert.equal(parse({ projectId, deviceType: "watch" }), false);

@@ -23,7 +23,7 @@ test("all registered tools expose submission safety metadata and output schemas"
   await client.connect(clientTransport);
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 90);
+    assert.equal(tools.length, 91);
     assert.equal(
       tools.find((tool) => tool.name === "replace_asset")?.annotations
         ?.destructiveHint,
