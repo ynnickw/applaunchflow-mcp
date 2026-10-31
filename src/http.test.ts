@@ -222,7 +222,7 @@ test("authenticated Streamable HTTP clients can initialize and discover tools", 
       await client.connect(transport);
       try {
         const { tools } = await client.listTools();
-        assert.equal(tools.length, 91);
+        assert.equal(tools.length, 93);
       } finally {
         await client.close();
       }
@@ -297,7 +297,7 @@ test("authenticated clients can pin the 2026-07-28 protocol", async () => {
       );
       await client.connect(transport);
       try {
-        assert.equal((await client.listTools()).tools.length, 91);
+        assert.equal((await client.listTools()).tools.length, 93);
         assert.ok(observedProtocolVersions.includes("2026-07-28"));
       } finally {
         await client.close();

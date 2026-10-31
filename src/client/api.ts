@@ -771,6 +771,19 @@ export class AppLaunchFlowClient {
     });
   }
 
+  getWebsite(generationId: string, variantId: string) {
+    return this.requestJson<any>("/api/website", {
+      query: { generationId, variantId },
+    });
+  }
+
+  updateWebsite(body: Record<string, unknown>) {
+    return this.requestJson<any>("/api/website", {
+      method: "POST",
+      body,
+    });
+  }
+
   getAsoCopy(generationId: string, variantId?: string) {
     return this.requestJson<any>("/api/aso/copy", {
       query: { generationId, variantId },

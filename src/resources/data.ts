@@ -351,6 +351,6 @@ export const WORKFLOW_GUIDE_RESOURCE = {
     "Do not regenerate styles or promo candidates just to reopen a picker; reuse the previous galleryUrl/pickerUrl.",
     "Do not invent fresh positions or styling for new screens when the user wants to keep the current design; copy values from neighbouring screens.",
     "Do not report success for composition edits without re-reading the result.",
-    "Do not attempt store publishing, A/B tests, custom product pages, reviews, app icon, website or billing through other tools; send the dashboard link from get_capabilities.",
+    "Do not attempt store publishing, A/B tests, custom product pages, reviews, app icon, website design and publishing or billing through other tools; send the dashboard link from get_capabilities.",
   ],
 };

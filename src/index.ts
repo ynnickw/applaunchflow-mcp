@@ -19,6 +19,7 @@ import { registerReleaseTools } from "./tools/releases.js";
 import { registerVariantTools } from "./tools/variants.js";
 import { registerKeywordTools } from "./tools/keywords.js";
 import { registerStoreListingTools } from "./tools/store-listing.js";
+import { registerWebsiteTools } from "./tools/website.js";
 import { registerCapabilityTools } from "./tools/capabilities.js";
 import { installToolMetadataPolicy } from "./tool-metadata.js";
 import { registerScreenshotPicker } from "./ui/screenshot-picker.js";
@@ -31,7 +32,7 @@ const packageJson = createRequire(import.meta.url)("../package.json") as {
 
 export const SERVER_INSTRUCTIONS = `
 AppLaunchFlow MCP edits the four AppLaunchFlow content types (app store screenshots, social graphics, promo videos, mockup animations) and the work around them: projects, uploads and asset folders, variants, translation, store listing text and keyword tracking.
-Call get_capabilities when unsure what is possible. Anything it lists under notAvailableViaMcp (App Store Connect / Google Play publishing, custom product pages, A/B tests, reviews, app icon, website, members, billing) cannot be done here: give the user its exact dashboardUrl instead of attempting or improvising it.
+Call get_capabilities when unsure what is possible. Anything it lists under notAvailableViaMcp (App Store Connect / Google Play publishing, custom product pages, A/B tests, reviews, app icon, website design and publishing, members, billing) cannot be done here: give the user its exact dashboardUrl instead of attempting or improvising it.
 Before editing screenshots, social graphics, promo videos or mockups, call get_editing_reference with the corresponding feature. Read its index, then retrieve the root and nested symbols relevant to the change. This reference covers ALL current fields, not just those already present in the saved document. Do not guess configuration names or infer capability from permissive validation. Use this tool if your client cannot browse resources.
 
 Use AppLaunchFlow MCP as an execution tool, not a questionnaire.
@@ -115,6 +116,7 @@ Translation and localization:
 - Screenshots: ALWAYS use translate_layouts to translate or localize (never edit text nodes by hand for translation). Re-running it for an existing language re-syncs that language's design from the source. sync_layout re-syncs designs without translating; apply_locale_screenshots applies per-language screenshot folders (set_asset_folder_locale) to the translations.
 - Social graphics: translate_graphics, then pass language to the graphics tools; list_graphics_translations lists languages.
 - Promo videos: translate_promo_video creates or re-translates languages (re-translating overwrites edits). Pass language to get_promo_video / update_promo_video; read receipts are per language.
+- Website pages: get_website, save_website_pages (Privacy Policy, Terms, Support, links and SEO only; design, domains and publishing stay in the dashboard).
 - Store listing text: get_store_listing, generate_store_listing, update_store_listing (only the fields you pass, store character limits enforced), translate_store_listing.
 - To apply the same transform across all screens, use transform_layout with screens: "all" in the target.
 
@@ -177,6 +179,7 @@ export function createAppLaunchFlowServer(
   registerReleaseTools(server, client);
   registerKeywordTools(server, client);
   registerStoreListingTools(server, client);
+  registerWebsiteTools(server, client);
   registerCapabilityTools(server, client);
   registerScreenshotPicker(server, client);
   registerSocialGraphicsPicker(server, client);

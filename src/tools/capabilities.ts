@@ -166,6 +166,15 @@ const AREAS: Area[] = [
     editor: "/asocopy?projectId={project}",
   },
   {
+    id: "websitePages",
+    label: "Website legal pages, links and SEO",
+    tools: ["get_website", "save_website_pages"],
+    notes: [
+      "Works on a website already created in the dashboard and never publishes. Tell the user to reload the studio if it is open.",
+    ],
+    editor: "/website?projectId={project}",
+  },
+  {
     id: "keywords",
     label: "Keyword tracking",
     tools: [
@@ -230,7 +239,7 @@ const NOT_AVAILABLE: Array<{ feature: string; what: string; route: string }> = [
   },
   {
     feature: "Website builder",
-    what: "The app's landing website, domains and publishing.",
+    what: "The app's landing website design, domains and publishing. Legal pages, links and SEO are available through save_website_pages.",
     route: "/website?projectId={project}",
   },
   {
