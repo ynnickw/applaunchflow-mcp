@@ -8,9 +8,10 @@ import {
 import { registerPickerResource } from "./picker-resource.js";
 
 import { versionWidgetResourceUri } from "./widget-metadata.js";
+import { packCatalogPayload } from "./catalog-payload.js";
 
 export const SOCIAL_GRAPHICS_PICKER_URI = versionWidgetResourceUri(
-  "ui://applaunchflow/social-graphics-picker-v19.html",
+  "ui://applaunchflow/social-graphics-picker-v20.html",
 );
 
 export async function createSocialGraphicsPickerResult(
@@ -81,20 +82,16 @@ export async function createSocialGraphicsPickerResult(
       message: "Social graphics picker ready",
     },
     _meta: {
-      socialGraphicsPicker: {
-        // Match the working promo transport: preserve rich text, image URLs
-        // and layout objects without host-side recursive transformations.
-        payloadJson: JSON.stringify({
-          generationId,
-          catalogKey,
-          primaryFormat,
-          templateIds,
-          selectedTemplateId,
-          galleryUrl,
-          paletteOptions: catalog.paletteOptions,
-          templateLayoutsByFormat: catalog.templateLayoutsByFormat,
-        }),
-      },
+      socialGraphicsPicker: packCatalogPayload({
+        generationId,
+        catalogKey,
+        primaryFormat,
+        templateIds,
+        selectedTemplateId,
+        galleryUrl,
+        paletteOptions: catalog.paletteOptions,
+        templateLayoutsByFormat: catalog.templateLayoutsByFormat,
+      }),
     },
   };
 }

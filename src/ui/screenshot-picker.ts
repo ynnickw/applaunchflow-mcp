@@ -4,9 +4,10 @@ import { listPublicTemplateIds } from "../catalog.js";
 import { buildTemplateGalleryUrl } from "../template-previews.js";
 import { registerPickerResource } from "./picker-resource.js";
 import { versionWidgetResourceUri } from "./widget-metadata.js";
+import { packCatalogPayload } from "./catalog-payload.js";
 
 export const SCREENSHOT_PICKER_URI = versionWidgetResourceUri(
-  "ui://applaunchflow/screenshot-picker-v19.html",
+  "ui://applaunchflow/screenshot-picker-v20.html",
 );
 
 export async function createScreenshotPickerResult(
@@ -70,20 +71,16 @@ export async function createScreenshotPickerResult(
     },
     // Layouts and signed image URLs go only to the component, not the model.
     _meta: {
-      picker: {
-        // Keep nested layouts opaque to host object/URL transformations, as
-        // the promo picker does. This stays private component metadata.
-        payloadJson: JSON.stringify({
-          generationId,
-          catalogKey,
-          deviceType,
-          templateIds,
-          selectedTemplateId,
-          galleryUrl,
-          paletteOptions: catalog.paletteOptions,
-          templateLayoutsByDevice: catalog.templateLayoutsByDevice,
-        }),
-      },
+      picker: packCatalogPayload({
+        generationId,
+        catalogKey,
+        deviceType,
+        templateIds,
+        selectedTemplateId,
+        galleryUrl,
+        paletteOptions: catalog.paletteOptions,
+        templateLayoutsByDevice: catalog.templateLayoutsByDevice,
+      }),
     },
   };
 }
