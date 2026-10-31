@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
+import { gunzipSync } from "node:zlib";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createAppLaunchFlowServer } from "./index.js";
 import { AppLaunchFlowClient } from "./client/api.js";
@@ -211,8 +212,14 @@ test("inline picker resource, private data, authenticated read, validation, and 
     });
     assert.equal(browsed.isError, undefined);
     assert.ok(
-      JSON.parse((browsed._meta?.picker as any).payloadJson)
-        .templateLayoutsByDevice.phone.default.privateAsset,
+      JSON.parse(
+        gunzipSync(
+          Buffer.from(
+            (browsed._meta?.picker as any).payloadGzipBase64,
+            "base64",
+          ),
+        ).toString("utf8"),
+      ).templateLayoutsByDevice.phone.default.privateAsset,
     );
     assert.equal(
       JSON.stringify(result.structuredContent).includes("signed-private-image"),

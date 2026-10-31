@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
+import { gunzipSync } from "node:zlib";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createAppLaunchFlowServer } from "./index.js";
 import { SOCIAL_GRAPHICS_PICKER_URI } from "./ui/social-graphics-picker.js";
@@ -224,8 +225,15 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     });
     assert.equal(browsedSocial.isError, undefined);
     assert.ok(
-      JSON.parse((browsedSocial._meta?.socialGraphicsPicker as any).payloadJson)
-        .templateLayoutsByFormat.instagram_post["social-clean"].privateAsset,
+      JSON.parse(
+        gunzipSync(
+          Buffer.from(
+            (browsedSocial._meta?.socialGraphicsPicker as any)
+              .payloadGzipBase64,
+            "base64",
+          ),
+        ).toString("utf8"),
+      ).templateLayoutsByFormat.instagram_post["social-clean"].privateAsset,
     );
     assert.equal(
       JSON.stringify(browsedSocial.structuredContent).includes("social-signed"),

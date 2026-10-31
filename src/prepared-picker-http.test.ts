@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
+import { gunzipSync } from "node:zlib";
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createAppLaunchFlowServer } from "./index.js";
@@ -125,9 +126,15 @@ for (const social of [false, true]) {
           false,
         );
         assert.ok(
-          displayed.result._meta[
-            social ? "socialGraphicsPicker" : "picker"
-          ].payloadJson.includes("signed-fixture"),
+          gunzipSync(
+            Buffer.from(
+              displayed.result._meta[social ? "socialGraphicsPicker" : "picker"]
+                .payloadGzipBase64,
+              "base64",
+            ),
+          )
+            .toString("utf8")
+            .includes("signed-fixture"),
         );
         assert.equal(
           JSON.stringify(displayed.result.structuredContent).includes(
