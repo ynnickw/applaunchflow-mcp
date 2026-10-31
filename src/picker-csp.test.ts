@@ -51,6 +51,11 @@ test("all picker CSPs allow production Storage in ChatGPT and MCP Apps", async (
         "https://ubvbpgodmmitzutgshzu.supabase.co",
         "https://fonts.googleapis.com",
         "https://fonts.gstatic.com",
+        ...Array.from(
+          { length: 5 },
+          (_, index) => `https://is${index + 1}-ssl.mzstatic.com`,
+        ),
+        "https://play-lh.googleusercontent.com",
       ];
       // Exact equality also guards against stale projects, wildcards and
       // accidental localhost access in a production sandbox.

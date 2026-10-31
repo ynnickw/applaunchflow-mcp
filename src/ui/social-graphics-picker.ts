@@ -71,13 +71,17 @@ export async function createSocialGraphicsPickerResult(
     },
     _meta: {
       socialGraphicsPicker: {
-        generationId,
-        catalogKey,
-        primaryFormat,
-        templateIds,
-        galleryUrl,
-        paletteOptions: catalog.paletteOptions,
-        templateLayoutsByFormat: catalog.templateLayoutsByFormat,
+        // Match the working promo transport: preserve rich text, image URLs
+        // and layout objects without host-side recursive transformations.
+        payloadJson: JSON.stringify({
+          generationId,
+          catalogKey,
+          primaryFormat,
+          templateIds,
+          galleryUrl,
+          paletteOptions: catalog.paletteOptions,
+          templateLayoutsByFormat: catalog.templateLayoutsByFormat,
+        }),
       },
     },
   };

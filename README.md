@@ -20,6 +20,12 @@ Use the [CI and Fastlane example](examples/README.md). Update captures and local
 
 **Release ordering:** 0.8.0 requires dashboard PR #282 (new v1 routes for previews, exports, translation and validation) and the Remotion site redeployed from that commit before this release is published or deployed.
 
+**Release ordering:** 0.8.4 requires the dashboard widget decoder supporting private
+`payloadJson` catalogs. Deploy that backwards-compatible decoder before the MCP:
+screenshot/social layouts are now transported as opaque JSON, matching the promo
+picker, while model-visible summaries remain unchanged. Widget metadata fingerprints
+also invalidate cached resources when the trusted store-icon CSP changes.
+
 ## Connect
 
 ### Cursor marketplace plugin
