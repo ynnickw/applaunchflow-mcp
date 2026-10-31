@@ -60,13 +60,17 @@ export async function createScreenshotPickerResult(
     // Layouts and signed image URLs go only to the component, not the model.
     _meta: {
       picker: {
-        generationId,
-        catalogKey,
-        deviceType,
-        templateIds,
-        galleryUrl,
-        paletteOptions: catalog.paletteOptions,
-        templateLayoutsByDevice: catalog.templateLayoutsByDevice,
+        // Keep nested layouts opaque to host object/URL transformations, as
+        // the promo picker does. This stays private component metadata.
+        payloadJson: JSON.stringify({
+          generationId,
+          catalogKey,
+          deviceType,
+          templateIds,
+          galleryUrl,
+          paletteOptions: catalog.paletteOptions,
+          templateLayoutsByDevice: catalog.templateLayoutsByDevice,
+        }),
       },
     },
   };

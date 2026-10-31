@@ -186,8 +186,8 @@ test("inline picker resource, private data, authenticated read, validation, and 
       "default",
     ]);
     assert.ok(
-      (result._meta?.picker as any).templateLayoutsByDevice.phone.default
-        .privateAsset,
+      JSON.parse((result._meta?.picker as any).payloadJson)
+        .templateLayoutsByDevice.phone.default.privateAsset,
     );
     assert.equal(
       JSON.stringify(result.structuredContent).includes("signed-private-image"),

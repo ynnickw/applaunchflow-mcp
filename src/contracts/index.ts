@@ -11,6 +11,8 @@ export const SOCIAL_FORMATS = [
   "play_store_feature",
   "app_store_event_card",
   "app_store_event_details",
+  "app_store_header",
+  "app_store_search",
   "ad_banner",
   "ad_mobile_banner",
   "ad_tablet_banner_720",

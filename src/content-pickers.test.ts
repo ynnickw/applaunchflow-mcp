@@ -196,8 +196,8 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       /action=apply/,
     );
     assert.ok(
-      (social._meta?.socialGraphicsPicker as any).templateLayoutsByFormat
-        .instagram_post["social-clean"].privateAsset,
+      JSON.parse((social._meta?.socialGraphicsPicker as any).payloadJson)
+        .templateLayoutsByFormat.instagram_post["social-clean"].privateAsset,
     );
 
     const promo = await client.callTool({
@@ -306,8 +306,9 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
     });
     assert.equal(invalid.isError, true);
     assert.equal(
-      requests.filter((item) => item.url === "/api/v1/promovideo/apply-candidate")
-        .length,
+      requests.filter(
+        (item) => item.url === "/api/v1/promovideo/apply-candidate",
+      ).length,
       1,
     );
   } finally {

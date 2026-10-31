@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
-  "contractsSha256": "079a34caf89502598bfb93cc27caadfba5ef211350386dd3acfe19094ff225bb",
+  "contractsSha256": "23f5e24d09a35167cbfd37ba73b530e20a9ac98808a04611d38fe5365007816d",
   "pickers": {
     "asset-list": {
-      "digest": "b506ba704b6fa69a2b07cab6cbc645c230277ab4636ca1e88b9204e440005cbe",
-      "filename": "picker-release-b506ba704b6fa69a2b07cab6cbc645c230277ab4636ca1e88b9204e440005cbe.json.gz",
-      "bytes": 885756,
-      "compressedBytes": 194445
+      "digest": "5eee2cfc193378a3a3359a9b95b797d23f643d5a073348cf43b0e26ea27f86ce",
+      "filename": "picker-release-5eee2cfc193378a3a3359a9b95b797d23f643d5a073348cf43b0e26ea27f86ce.json.gz",
+      "bytes": 907667,
+      "compressedBytes": 197212
     },
     "project-list": {
-      "digest": "ec74102df0b6b38483e708caaa576001e58d07a65c0c394647f22498f3dcdfd6",
-      "filename": "picker-release-ec74102df0b6b38483e708caaa576001e58d07a65c0c394647f22498f3dcdfd6.json.gz",
-      "bytes": 674647,
-      "compressedBytes": 159063
+      "digest": "9a3f55329adf71da81e12bec1d3f076e05eff3c3c584a7cc97cd7afbc2ebd844",
+      "filename": "picker-release-9a3f55329adf71da81e12bec1d3f076e05eff3c3c584a7cc97cd7afbc2ebd844.json.gz",
+      "bytes": 675062,
+      "compressedBytes": 158337
     }
   }
 }

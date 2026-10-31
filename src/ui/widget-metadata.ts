@@ -10,6 +10,13 @@ export function widgetResourceMetadata(origin: string, description: string) {
     "https://ubvbpgodmmitzutgshzu.supabase.co",
     "https://fonts.googleapis.com",
     "https://fonts.gstatic.com",
+    // Imported store icons remain on the stores' public image CDNs. Device
+    // textures use fetch as well as <img>, so both CSP directives need them.
+    ...Array.from(
+      { length: 5 },
+      (_, index) => `https://is${index + 1}-ssl.mzstatic.com`,
+    ),
+    "https://play-lh.googleusercontent.com",
   ];
   if (["localhost", "127.0.0.1"].includes(new URL(origin).hostname)) {
     resourceDomains.push("http://127.0.0.1:54321");
