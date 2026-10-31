@@ -450,14 +450,6 @@ export function registerGraphicsTools(
                   .join("; ")}`,
               ].join("\n"),
             },
-            {
-              type: "resource_link" as const,
-              uri: galleryUrl,
-              name: "Open Social Template Gallery",
-              mimeType: "text/html",
-              description:
-                "Hosted gallery for browsing social-graphics template previews.",
-            },
           ],
           structuredContent: {
             success: true,

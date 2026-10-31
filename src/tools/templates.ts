@@ -304,14 +304,6 @@ export function registerTemplateTools(
                   : "Static discovery mode copies the chosen template id.",
               ].join("\n"),
             },
-            {
-              type: "resource_link" as const,
-              uri: galleryUrl,
-              name: "Open Template Gallery",
-              mimeType: "text/html",
-              description:
-                "Hosted visual gallery for browsing screenshot template previews.",
-            },
           ],
           structuredContent: {
             success: true,

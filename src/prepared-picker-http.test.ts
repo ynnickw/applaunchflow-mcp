@@ -119,6 +119,8 @@ for (const social of [false, true]) {
           { generationId: project, catalogKey },
         );
         assert.equal(displayed.result.isError, undefined);
+        assert.deepEqual(displayed.result.content.map((item: { type: string }) => item.type), ["text"]);
+        assert.ok(displayed.result.content[0].text.includes(displayed.result.structuredContent.data.galleryUrl));
         assert.equal(
           displayed.packets.some(
             (packet) => packet.method === "notifications/progress",
