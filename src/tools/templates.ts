@@ -8,6 +8,11 @@ import {
   decorateTemplatePayload,
 } from "../template-previews.js";
 import { fail, openUrl } from "./utils.js";
+import {
+  createScreenshotPickerResult,
+  SCREENSHOT_PICKER_URI,
+} from "../ui/screenshot-picker.js";
+import { pickerToolMeta } from "../ui/picker-resource.js";
 
 type TemplateCatalogPayload = {
   templates: Array<{
@@ -156,7 +161,7 @@ export function registerTemplateTools(
     {
       title: "Browse & Select Template",
       description:
-        "Returns the screenshot-style gallery URL for a device and optional template subset. A project plus prepared catalogKey enables personalized V1/V2 previews and explicit style selection; without a catalog it opens static template discovery. Opening the gallery alone does not create a variant.",
+        "Displays the cached screenshot-style picker and returns its gallery URL for a device and optional template subset. A project plus prepared catalogKey enables personalized V1/V2 previews; without a catalog it provides static discovery. This read never generates options, applies a style or creates a variant.",
       inputSchema: z.object({
         deviceType: z
           .enum(TEMPLATE_PREVIEW_DEVICE_TYPES)
@@ -190,6 +195,7 @@ export function registerTemplateTools(
             "Catalog key from prepare_screenshot_styles. Pass together with generationId.",
           ),
       }),
+      _meta: pickerToolMeta(SCREENSHOT_PICKER_URI),
     },
     async (
       {
@@ -260,6 +266,17 @@ export function registerTemplateTools(
           applySelection: Boolean(generationId && catalogKey),
         });
 
+        const pickerResult =
+          generationId && catalogKey
+            ? await createScreenshotPickerResult(client, {
+                generationId,
+                catalogKey,
+                deviceType,
+                templateIds: filteredTemplateIds,
+                selectedTemplateId,
+                title,
+              })
+            : undefined;
         const opened = await openUrl(
           server,
           galleryUrl,
@@ -268,15 +285,19 @@ export function registerTemplateTools(
             : "Browse screenshot styles in AppLaunchFlow.",
           { signal: ctx.mcpReq.signal },
         );
-
         return {
+          _meta: pickerResult?._meta || {
+            picker: { mode: "discovery", galleryUrl },
+          },
           content: [
             {
               type: "text" as const,
               text: [
                 opened
                   ? "Opened the template gallery in the browser."
-                  : "The client could not open the browser automatically; paste this exact gallery URL into the user-visible reply.",
+                  : pickerResult
+                    ? "Choose a screenshot style in the picker."
+                    : "Browse screenshot styles in the gallery.",
                 `Template gallery URL: ${galleryUrl}`,
                 generationId && catalogKey
                   ? "The gallery shows the personalized v1/v2 renders. Confirming a style creates the variant and opens the editor directly."
@@ -298,7 +319,9 @@ export function registerTemplateTools(
               galleryUrl,
               userFacingUrl: galleryUrl,
               deviceType,
-              templateIds: filteredTemplateIds,
+              templateIds:
+                pickerResult?.structuredContent.data.templateIds ??
+                filteredTemplateIds,
               browserOpened: opened,
               personalized: Boolean(generationId && catalogKey),
             },

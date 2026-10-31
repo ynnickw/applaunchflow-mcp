@@ -9,7 +9,7 @@ const removedPickerTools = [
   "render_promo_video_picker",
 ] as const;
 
-test("only prepare-and-show tools are exposed for content pickers", async () => {
+test("existing browse tools display prepared catalogs without deprecated render tools", async () => {
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
   const server = createAppLaunchFlowServer({
@@ -46,7 +46,10 @@ test("only prepare-and-show tools are exposed for content pickers", async () => 
         `${name} must not remain callable`,
       );
     }
-    assert.match(instructions, /galleryUrl from the previous result/);
+    assert.match(instructions, /immediately call browse_templates/);
+    assert.match(instructions, /immediately call browse_social_templates/);
+    assert.equal(toolNames.has("browse_templates"), true);
+    assert.equal(toolNames.has("browse_social_templates"), true);
     assert.match(instructions, /provide the exact pickerUrl/);
   } finally {
     await client.close();

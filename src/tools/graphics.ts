@@ -99,7 +99,7 @@ export function registerGraphicsTools(
     {
       title: "Prepare Personalized Social Graphics Styles",
       description:
-        "Generates or reuses personalized layout candidates across supported social, store-creative and ad formats. Returns a catalogKey and an embedded picker, or the gallery URL in clients without UI support. Matching app context and screenshot paths reuse cached candidates. No variant is created until a style is explicitly selected.",
+        "Generates or reuses personalized layout candidates across supported social, store-creative and ad formats. Returns a catalogKey, templateIds and galleryUrl for cached picker display. Matching app context and screenshot paths reuse cached candidates. Preparation does not create a variant or open a picker.",
       inputSchema: z
         .object({
           generationId: z.string().uuid(),
@@ -128,7 +128,6 @@ export function registerGraphicsTools(
             path: ["selectedScreenshotPaths"],
           },
         ),
-      _meta: pickerToolMeta(SOCIAL_GRAPHICS_PICKER_URI),
     },
     async (
       { generationId, selectedScreenshotPaths, primaryFormat = "og" },
@@ -161,34 +160,22 @@ export function registerGraphicsTools(
             applySelection: true,
           },
         );
-        const opened = await openUrl(
-          server,
-          galleryUrl,
-          "Choose a personalized social-graphics style, then create the new variant in the editor.",
-          { signal: ctx.mcpReq.signal },
-        );
-        const pickerResult = await createSocialGraphicsPickerResult(client, {
-          generationId,
-          catalogKey: result.catalogKey,
-          primaryFormat,
-        });
-        return {
-          ...pickerResult,
-          content: pickerResult.content,
-          structuredContent: {
-            success: true,
-            data: {
-              ...pickerResult.structuredContent.data,
-              cacheHit: result.cacheHit === true,
-              formats: [...SOCIAL_FORMATS],
-              selectedScreenshotPaths,
-              browserOpened: opened,
-            },
-            message: result.cacheHit
-              ? "Reused personalized social graphics styles; picker ready"
-              : "Prepared personalized social graphics styles; picker ready",
+        return ok(
+          {
+            generationId,
+            catalogKey: result.catalogKey,
+            primaryFormat,
+            templateIds,
+            galleryUrl,
+            displayTool: "browse_social_templates",
+            cacheHit: result.cacheHit === true,
+            formats: [...SOCIAL_FORMATS],
+            selectedScreenshotPaths,
           },
-        };
+          result.cacheHit
+            ? "Reused personalized social graphics catalog"
+            : "Prepared personalized social graphics catalog",
+        );
       } catch (error) {
         return fail(error);
       } finally {
@@ -283,7 +270,7 @@ export function registerGraphicsTools(
     {
       title: "Browse & Select Social Template",
       description:
-        "Returns the social-style gallery URL and supported format specifications. A project plus prepared catalogKey enables personalized previews and explicit style selection; without a catalog it opens static discovery. Opening the gallery alone does not create a variant.",
+        "Displays the cached social-style picker and returns its gallery URL and format specifications. A project plus prepared catalogKey enables personalized V1/V2 previews; without a catalog it provides static discovery. This read never generates options, applies a style or creates a variant.",
       inputSchema: z.object({
         format: z
           .enum(SOCIAL_FORMATS)
@@ -319,6 +306,7 @@ export function registerGraphicsTools(
             "Catalog key from prepare_social_graphics_styles. Pass together with generationId.",
           ),
       }),
+      _meta: pickerToolMeta(SOCIAL_GRAPHICS_PICKER_URI),
     },
     async (
       {
@@ -388,14 +376,6 @@ export function registerGraphicsTools(
           },
         );
 
-        const opened = await openUrl(
-          server,
-          galleryUrl,
-          generationId && catalogKey
-            ? "Choose a personalized social-graphics style, then create the new variant in the editor."
-            : "Browse social-graphics styles in AppLaunchFlow.",
-          { signal: ctx.mcpReq.signal },
-        );
         const templateSummaries = payload.templates
           .filter(
             (template) =>
@@ -425,14 +405,38 @@ export function registerGraphicsTools(
           }),
         );
 
+        const pickerResult =
+          generationId && catalogKey
+            ? await createSocialGraphicsPickerResult(client, {
+                generationId,
+                catalogKey,
+                primaryFormat: format,
+                templateIds: filteredTemplateIds,
+                selectedTemplateId,
+                title,
+              })
+            : undefined;
+        const opened = await openUrl(
+          server,
+          galleryUrl,
+          generationId && catalogKey
+            ? "Choose a personalized social-graphics style, then create the new variant in the editor."
+            : "Browse social-graphics styles in AppLaunchFlow.",
+          { signal: ctx.mcpReq.signal },
+        );
         return {
+          _meta: pickerResult?._meta || {
+            socialGraphicsPicker: { mode: "discovery", galleryUrl },
+          },
           content: [
             {
               type: "text" as const,
               text: [
                 opened
                   ? "Opened the social template gallery in the browser."
-                  : "The client could not open the browser automatically; paste this exact gallery URL into the user-visible reply.",
+                  : pickerResult
+                    ? "Choose a social graphics style in the picker."
+                    : "Browse social graphics styles in the gallery.",
                 `Social template gallery URL: ${galleryUrl}`,
                 generationId && catalogKey
                   ? "The gallery shows the personalized renders. Confirming a style creates the variant across all supported formats and opens the graphics editor directly."
@@ -461,7 +465,9 @@ export function registerGraphicsTools(
               galleryUrl,
               userFacingUrl: galleryUrl,
               format,
-              templateIds: filteredTemplateIds,
+              templateIds:
+                pickerResult?.structuredContent.data.templateIds ??
+                filteredTemplateIds,
               templates: templateSummaries,
               formats,
               browserOpened: opened,

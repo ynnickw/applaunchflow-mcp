@@ -16,3 +16,15 @@ test("listPublicTemplateIds returns sorted public templates", () => {
 test("listPublicTemplateIds handles an absent catalog", () => {
   assert.deepEqual(listPublicTemplateIds(undefined), []);
 });
+
+test("prepared picker subsets cannot expose internal ids or silently broaden an empty match", () => {
+  const catalog = { studio: {}, default: {}, __internal: {} };
+  assert.deepEqual(listPublicTemplateIds(catalog, ["studio", "missing"]), [
+    "studio",
+  ]);
+  assert.deepEqual(listPublicTemplateIds(catalog, []), ["default", "studio"]);
+  assert.throws(
+    () => listPublicTemplateIds(catalog, ["missing", "__internal"]),
+    /None of the requested/,
+  );
+});

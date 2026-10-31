@@ -6,11 +6,6 @@ import { listPublicTemplateIds } from "../catalog.js";
 import { buildTemplateGalleryUrl } from "../template-previews.js";
 import { openUrl, fail, ok, startProgressHeartbeat } from "./utils.js";
 import { upstreamSignal } from "../request-context.js";
-import {
-  createScreenshotPickerResult,
-  SCREENSHOT_PICKER_URI,
-} from "../ui/screenshot-picker.js";
-import { pickerToolMeta } from "../ui/picker-resource.js";
 import { registerScreenshotExtraTools } from "./screenshot-extras.js";
 import { registerStockPhotoTools } from "./stock-photos.js";
 
@@ -25,7 +20,7 @@ export function registerScreenshotTools(
     {
       title: "Prepare Personalized Screenshot Styles",
       description:
-        "Generates or reuses personalized screenshot-layout candidates for every phone, tablet and desktop template. Returns a catalogKey and an embedded V1/V2 picker, or a gallery URL in clients without UI support. Matching app context and source paths reuse cached candidates. No variant is created until a style is explicitly selected.",
+        "Generates or reuses personalized screenshot-layout candidates for every phone, tablet and desktop template. Returns a catalogKey, templateIds and galleryUrl for cached V1/V2 picker display. Matching app context and source paths reuse cached candidates. Preparation does not create a variant or open a picker.",
       inputSchema: z.object({
         generationId: z.string().uuid().describe("Project/generation UUID."),
         selectedScreenshotPaths: z
@@ -45,7 +40,6 @@ export function registerScreenshotTools(
             "Initial preview device. All three device layouts are prepared regardless. Defaults to phone.",
           ),
       }),
-      _meta: pickerToolMeta(SCREENSHOT_PICKER_URI),
     },
     async (
       { generationId, selectedScreenshotPaths, deviceType = "phone" },
@@ -75,34 +69,22 @@ export function registerScreenshotTools(
           catalogKey: result.catalogKey,
           applySelection: true,
         });
-        const opened = await openUrl(
-          server,
-          galleryUrl,
-          "Choose a personalized screenshot style. Compare v1 and v2, then create the new variant in the editor.",
-          { signal: ctx.mcpReq.signal },
-        );
-        const pickerResult = await createScreenshotPickerResult(client, {
-          generationId,
-          catalogKey: result.catalogKey,
-          deviceType,
-        });
-        return {
-          ...pickerResult,
-          content: pickerResult.content,
-          structuredContent: {
-            success: true,
-            data: {
-              ...pickerResult.structuredContent.data,
-              cacheHit: result.cacheHit === true,
-              devices: ["phone", "tablet", "desktop"],
-              selectedScreenshotPaths,
-              browserOpened: opened,
-            },
-            message: result.cacheHit
-              ? "Reused personalized screenshot styles; picker ready"
-              : "Prepared personalized screenshot styles; picker ready",
+        return ok(
+          {
+            generationId,
+            catalogKey: result.catalogKey,
+            deviceType,
+            templateIds,
+            galleryUrl,
+            displayTool: "browse_templates",
+            cacheHit: result.cacheHit === true,
+            devices: ["phone", "tablet", "desktop"],
+            selectedScreenshotPaths,
           },
-        };
+          result.cacheHit
+            ? "Reused personalized screenshot catalog"
+            : "Prepared personalized screenshot catalog",
+        );
       } catch (error) {
         return fail(error);
       } finally {

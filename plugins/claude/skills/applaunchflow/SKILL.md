@@ -60,8 +60,10 @@ actual requested workflow rather than a similarly named tool.
    a local filesystem path; use a supported transfer or the asset widget.
    Uploading alone does not bind an asset into a design.
 2. **Let the user choose.** New screenshot and graphics styles, and the three
-   promo concepts, return a picker or a browser URL. Preparing options does not
-   select one. Stop for the user's choice unless they already supplied an exact
+   promo concepts, use a picker or a browser URL. For screenshots/social, prepare
+   once, then immediately display the returned catalog with `browse_templates`
+   or `browse_social_templates`; no extra question is needed between those steps.
+   Preparing options does not select one. Stop for the user's choice unless they already supplied an exact
    choice. Widget confirmation creates the variant: don't apply it again or
    generate another set to reopen an existing picker. `create_variant` alone
    makes an empty variant, so it isn't a prerequisite to generation.
@@ -88,7 +90,9 @@ actual requested workflow rather than a similarly named tool.
 
 Resolve the project, find its sources and choose 3–7 appropriate captures in
 story order. Read [the screenshot guide](references/screenshots.md), then call
-`prepare_screenshot_styles` with its supported inputs. Show the picker/URL and
+`prepare_screenshot_styles` with its supported inputs. Immediately call
+`browse_templates` with the returned generationId/catalogKey and requested
+deviceType, then show the picker/URL and
 wait for the user's visual choice. Use tablet/desktop captures for those device
 families rather than stretching a phone screenshot.
 

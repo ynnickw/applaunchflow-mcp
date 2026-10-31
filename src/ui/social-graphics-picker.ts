@@ -10,7 +10,7 @@ import { registerPickerResource } from "./picker-resource.js";
 import { versionWidgetResourceUri } from "./widget-metadata.js";
 
 export const SOCIAL_GRAPHICS_PICKER_URI = versionWidgetResourceUri(
-  "ui://applaunchflow/social-graphics-picker-v18.html",
+  "ui://applaunchflow/social-graphics-picker-v19.html",
 );
 
 export async function createSocialGraphicsPickerResult(
@@ -19,10 +19,16 @@ export async function createSocialGraphicsPickerResult(
     generationId,
     catalogKey,
     primaryFormat,
+    templateIds: requestedIds,
+    selectedTemplateId,
+    title,
   }: {
     generationId: string;
     catalogKey: string;
     primaryFormat: (typeof SOCIAL_FORMATS)[number];
+    templateIds?: string[];
+    selectedTemplateId?: string;
+    title?: string;
   },
 ) {
   await client.getProject(generationId);
@@ -38,6 +44,7 @@ export async function createSocialGraphicsPickerResult(
   });
   const templateIds = listPublicTemplateIds(
     catalog.templateLayoutsByFormat?.[primaryFormat] || {},
+    requestedIds,
   );
   if (!templateIds.length) {
     throw new Error(
@@ -47,6 +54,10 @@ export async function createSocialGraphicsPickerResult(
   const galleryUrl = buildSocialTemplateGalleryUrl(client.credentials.baseUrl, {
     format: primaryFormat,
     templateIds,
+    selectedTemplateId: templateIds.includes(selectedTemplateId || "")
+      ? selectedTemplateId
+      : undefined,
+    title,
     generationId,
     catalogKey,
     applySelection: true,
@@ -78,6 +89,7 @@ export async function createSocialGraphicsPickerResult(
           catalogKey,
           primaryFormat,
           templateIds,
+          selectedTemplateId,
           galleryUrl,
           paletteOptions: catalog.paletteOptions,
           templateLayoutsByFormat: catalog.templateLayoutsByFormat,

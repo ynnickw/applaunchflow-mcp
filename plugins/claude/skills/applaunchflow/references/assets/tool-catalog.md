@@ -1,12 +1,12 @@
 # assets tool catalog
 
-Generated from the registered hosted MCP schema. Do not edit by hand; run `npm run sync:plugin-skills`.
+Generated from the registered hosted MCP schema. Do not edit by hand; run `npm run sync:claude-catalogs`.
 
 This is a reference, not a script to execute in order. Read only the tool needed for the task. The host's actual tool/input schema takes precedence if versions differ. Never call a tool hidden by the host, and never copy synthetic IDs into a real request.
 
 ## list_assets
 
-Browse an existing project's uploaded screenshots (all devices/platforms), illustrations, app icons, backgrounds, panoramas, recordings, music and clips (audio/video/images), and font files in an embedded asset list. Listing is read-only. The user can explicitly upload files using the widget's Upload button; opening the list does not upload, select or apply anything. Inspect existing assets before asking the user to upload again. Signed preview links are private widget data; use returned relative paths in editing tools. At most 100 newest files per folder; truncated indicates more exist. For just the app screenshots used as generation input use list_source_screenshots; for screenshot paths by device/platform use list_screenshots.
+Returns an embedded library of a project's screenshots, illustrations, icons, backgrounds, panoramas, recordings, music, clips and fonts. Listing is read-only; Upload is an explicit widget action. Results contain relative storage paths; signed preview links remain private widget data. Each folder is limited to its newest 100 files and reports truncation.
 
 Input schema:
 
@@ -29,7 +29,7 @@ Input schema:
 
 ## prepare_asset_upload
 
-App-only: authorize one explicitly selected file upload to the user's project. Does not upload bytes, replace existing files, apply designs or change the project icon. The upload permission is private widget metadata; never include it in a chat message.
+App-only: authorizes one explicitly selected file upload to the project and returns its upload permission as private widget metadata. Does not transfer file bytes, replace files, apply a design or change the project icon.
 
 Input schema:
 
@@ -99,7 +99,7 @@ Input schema:
 
 ## upload_screenshots
 
-Upload screenshot images for screenshot generation workflows. Hosted connectors must use HTTPS URLs or base64 data; local file paths are available only to the npm/stdio connector. If a batch is incomplete, follow its recovery guidance and do not re-upload completed files.
+Uploads screenshot images to a project from HTTPS URLs or base64 data; local files are supported only by the npm/stdio transport. Results identify completed and failed files. Overwrite mode changes the bytes at existing paths and can affect saved designs that reference those paths.
 
 Input schema:
 
@@ -174,7 +174,7 @@ Input schema:
 
 ## upload_asset
 
-Upload a project asset: illustration, logo, panorama, background, font file, mockup media (image/video recording, or audio for the mockup soundtrack: state.audio.storagePath), or promo media (image/video/audio). Maximum 25 MB per file. Use an HTTPS URL or base64 data with a filename including its extension; local paths are also available to the npm/stdio connector. Upload stores a file only: it does not replace the project's app icon or apply a design. Returns the stored project-relative path. Put it in the field the renderer signs: illustration/logo node path (add_node {id, path, position, zIndex, ...}); a screen's backgroundImage.storagePath; panoramaBackground.storagePath; or a screenshot node's path (images from upload_screenshots). Font uploads are registered as a project font family by default (registerFont) so texts can use it immediately; list_fonts shows the family name. For illustrations: list_illustrations first to show existing options, then upload only if the user wants a custom image. For panoramas: use an HTTPS URL or base64-encoded image. Video/audio uploads also return durationSeconds when it can be read from the file (MP4/MOV/M4V/M4A, WAV, MP3); WebM/OGG return no duration.
+Uploads one illustration, logo, background, panorama, font, recording, image, video or audio asset. Maximum 25 MB per file. HTTPS URLs and base64 data are supported; local paths are npm/stdio-only. Returns a project-relative storage path and available media metadata. Font registration is enabled by default. Upload alone does not apply an asset to a design or change the project icon.
 
 Input schema:
 
@@ -238,7 +238,7 @@ Input schema:
 
 ## list_source_screenshots
 
-List the project's real uploaded app screenshots (the captures used as input for AI generation) with project-relative path, signed preview URL, platform and phone/tablet/desktop device type, across all devices and platforms. No sample fallback is added. Use the returned paths to choose 3-7 inputs for prepare_screenshot_styles or prepare_social_graphics_styles. Compare: list_screenshots = paths only, filtered by one device type/platform (may return sample screenshots when none are uploaded, flagged isSample); list_assets = every uploaded file (screenshots, illustrations, logos, backgrounds, media, fonts) as a browsable list.
+Lists real uploaded app screenshots across device types and platforms, with project-relative paths and preview metadata suitable as generation inputs. Does not add sample screenshots. Read-only.
 
 Input schema:
 
@@ -261,7 +261,7 @@ Input schema:
 
 ## list_screenshots
 
-List uploaded screenshot paths (project-relative) for one device type (mobile/tablet/desktop) and platform (ios/android). Returns sample screenshots flagged isSample when the project has none. Use the paths with view_screenshot or in layout screenshot nodes. For generation inputs with preview URLs and device types use list_source_screenshots; for every uploaded file type use list_assets.
+Lists project-relative screenshot paths for one device type and platform. Empty projects can return sample screenshots explicitly marked isSample. Read-only.
 
 Input schema:
 
@@ -299,7 +299,7 @@ Input schema:
 
 ## list_illustrations
 
-List available illustrations. Use 'shared' source to browse the shared library (icons, stickers, etc.). Use 'project' source to list illustrations uploaded to a specific project. When the user wants to add an illustration, list available options FIRST so they can pick one or choose to upload.
+Lists shared-library illustrations or illustrations uploaded to a specified project. Read-only.
 
 Input schema:
 
@@ -339,7 +339,7 @@ Input schema:
 
 ## view_screenshot
 
-Fetch a screenshot image and return it for visual analysis. Use this to inspect screenshots — extract colors, read UI text, understand layout context, or identify visual elements. Provide projectId and the relative path from list_screenshots or get_layout (e.g. 'mobile/ios/1234-image.PNG').
+Returns the image pixels of a project screenshot identified by its project-relative path. Read-only.
 
 Input schema:
 
@@ -368,7 +368,7 @@ Input schema:
 
 ## replace_asset
 
-Replace an asset with an already uploaded file in the same category/device/platform. Explicitly updates all saved-design references and preserves folder membership, then permanently deletes the old file from storage. No restore. Upload the new file first. On partial failure both files are retained until cleanup succeeds; inspect the result and retry the same paths.
+Globally replaces an asset, updates its saved-design references and permanently deletes the old storage object. The replacement affects every referenced design and cannot be undone.
 
 Input schema:
 
@@ -403,7 +403,7 @@ Input schema:
 
 ## delete_assets
 
-Permanently delete explicitly selected unused assets from storage. Files referenced by any saved design are blocked. There is no restore.
+Permanently removes the specified asset records and storage objects. Saved-design references block deletion. This action cannot be undone.
 
 Input schema:
 
@@ -437,7 +437,7 @@ Input schema:
 
 ## list_asset_folders
 
-List device/platform-scoped screenshot folders, their explicit locales and memberships. Shared by the dashboard and MCP. Does not modify anything.
+Lists screenshot folders with explicit device, platform and optional locale bindings. Folder names do not imply language. Read-only.
 
 Input schema:
 
@@ -465,7 +465,7 @@ Input schema:
 
 ## create_asset_folder
 
-Create a screenshot folder within the specified device and platform. Optionally bind it to an explicit locale. Supply a new UUID folderId and reuse it for retries. Storage paths do not change.
+Creates a screenshot folder for an explicit device and platform, optionally bound to a locale. A caller-supplied UUID folderId makes retries reuse the same folder. Storage paths and saved designs are unchanged.
 
 Input schema:
 
@@ -529,7 +529,7 @@ Input schema:
 
 ## rename_asset_folder
 
-Rename an existing logical asset folder. Does not rename or modify files.
+Renames a screenshot folder. Its ID, locale binding, asset storage paths and saved designs are unchanged.
 
 Input schema:
 
@@ -564,7 +564,7 @@ Input schema:
 
 ## delete_asset_folder
 
-Remove an explicitly selected folder. Its files become ungrouped; no files are deleted.
+Deletes a screenshot folder and ungroups its files. Does not delete asset files, storage objects or saved-design references.
 
 Input schema:
 
@@ -593,7 +593,7 @@ Input schema:
 
 ## move_assets
 
-Move screenshot assets into a folder with the same device and platform, or provide null to ungroup them. Never changes storage paths or saved designs.
+Groups screenshot assets in a folder with the same device and platform, or ungroups them when folderId is null. Storage paths and saved designs are unchanged.
 
 Input schema:
 
@@ -640,7 +640,7 @@ Input schema:
 
 ## set_asset_folder_locale
 
-Bind a screenshot folder to an explicit language code, or provide null to clear the binding. Folder names do not determine language.
+Sets a screenshot folder's explicit language code, or clears its locale binding with null. Does not infer language from the folder name or alter saved designs.
 
 Input schema:
 
@@ -681,7 +681,7 @@ Input schema:
 
 ## search_stock_photos
 
-Search free Pexels or Unsplash photos for backgrounds (screenshot/social panoramas, per-screen backgrounds, mockup animation backgrounds) — the same libraries as the editor's background picker. Returns preview URLs to judge results and an importInput per photo; provide a chosen photo's importInput to import_stock_photo. Nothing is stored until import.
+Searches Pexels or Unsplash for existing photos and returns preview metadata and import inputs. Does not upload a photo or modify a design.
 
 Input schema:
 
@@ -731,7 +731,7 @@ Input schema:
 
 ## import_stock_photo
 
-Copy a Pexels/Unsplash photo into the project's storage and return its project path plus photographer attribution, exactly like choosing it in the editor's background picker. Provide importInput from search_stock_photos unchanged. Does not change any design by itself. Use the returned path and attribution: screenshots/social panorama → transform_layout {nodeType:'panoramaBackground', changes:{imageUrl:<path>, storagePath:<path>, attribution}}; one screen → {nodeType:'screen', screens:[i], changes:{backgroundImage:{url:<path>, storagePath:<path>, attribution}}}; mockup animation → state.backgroundMode:'image' and state.backgroundImage:{url:<returned url>, storagePath:<path>, attribution} via update_mockup_animation (the mockup editor displays url as-is; layouts re-sign from storagePath). Keep attribution: the editor credits the photographer from it.
+Imports a selected Pexels or Unsplash photo into project storage and returns its relative path and photographer attribution. Does not apply the image to a design. Attribution is part of the imported asset metadata.
 
 Input schema:
 
@@ -771,7 +771,7 @@ Input schema:
 
 ## list_fonts
 
-List the font families a screenshot or social layout can use: the editor's built-in fonts, the Google Fonts catalog (~770 families, loaded on demand) and the project's uploaded custom fonts, with available weights. Use an exact family name in richContent attrs.defaultFontFamily or a textStyle mark's fontFamily; unknown names are rejected by transform_layout/save_layout. To add a custom font, upload a TTF/OTF/WOFF/WOFF2 with upload_asset fileType 'font' (it is registered as a project font family automatically).
+Lists built-in, Google and project-uploaded font families with their available weights. Layout validation accepts these exact family names in rich-text font fields. Read-only.
 
 Input schema:
 

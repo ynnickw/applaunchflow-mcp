@@ -1,8 +1,9 @@
 # Inline content pickers
 
-`prepare_screenshot_styles` prepares the catalog and returns the MCP Apps widget
-in the same result. Revisit an existing catalog using the original widget or its
-exact `galleryUrl`, without preparing it again. The current versioned
+`prepare_screenshot_styles` prepares the catalog; `browse_templates` displays it
+using the returned generationId/catalogKey and requested deviceType. The agent
+completes both steps before waiting for the user's choice. Revisit with the same
+browse arguments or exact `galleryUrl`, without preparing again. The current versioned
 screenshot-picker resource links a standalone dashboard renderer bundle.
 It does not embed the full dashboard.
 
@@ -16,7 +17,8 @@ URL.
 The same standard MCP Apps contract is available for the other visual choice
 flows:
 
-- `prepare_social_graphics_styles` directly renders the existing
+- `prepare_social_graphics_styles` prepares the catalog; `browse_social_templates`
+  displays it with generationId/catalogKey and primaryFormat as format, using
   `SocialTemplateSelectorContent`, including every social template, format
   group, and V1/V2 palette. It calls `apply_social_graphics_style` only after
   confirmation. Its `galleryUrl` reopens the prepared catalog in the browser.
@@ -27,15 +29,18 @@ flows:
   Its `pickerUrl` reopens the same prepared candidate batch in the browser.
 
 There are no standalone picker-render tools. Internal result builders and HTML
-resources are retained and used directly by the preparation tools. Showing or
+resources are retained and used by the existing read-only browse tools. The
+progress-emitting screenshot/social preparation requests no longer own widgets.
+Showing or
 revisiting options does not apply a selection; the separate apply tools still
 require the user's explicit choice.
 
-All three tools publish the official `ui.resourceUri` and
+The browse tools and promo picker tools publish the official `ui.resourceUri` and
 `text/html;profile=mcp-app` contract used by Claude and other MCP Apps hosts.
 OpenAI compatibility metadata remains alongside it. Private layouts, signed
-URLs, and video configs stay in result `_meta`, outside model-visible structured
-content.
+URLs, and video configs use result `_meta` in native MCP Apps hosts. The existing
+Cursor compatibility transport mirrors widget data into structured content when
+that host cannot pass private metadata; it is not equivalent privacy isolation.
 
 ## Local verification
 
@@ -65,9 +70,11 @@ In this MCP repository, run `npm test` for transport/resource/auth tests.
    Public bundle, font, device-model and renderer assets have CORS enabled;
    authenticated API routes do not.
 2. Deploy/release this MCP version using the existing release workflow.
-3. Refresh the connector's tool discovery in the target host. Prepare a catalog
-   or candidate batch and verify that the same tool result renders its picker.
-   Use the returned gallery or picker URL to revisit prepared options. Verify
+3. Refresh the connector's tool discovery in the target host. Prepare a catalog,
+   then display it through the corresponding browse tool; verify the actual card
+   remains visible. Reopen with the same catalogKey and verify that no generation
+   or apply call occurs. Promo batches keep their existing asynchronous picker.
+   Use the returned gallery or picker URL if UI display is unavailable. Verify
    each widget loads and creates a variant using a dedicated test account. Local harness
    tests do not establish that a particular Claude/ChatGPT host renders the
    widget.

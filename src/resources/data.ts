@@ -37,15 +37,19 @@ export const TRANSFORM_SCHEMA_RESOURCE = {
         "all_headers — target all headers",
         "all_texts — target all texts",
       ],
-      warning: "Do NOT use '#' prefix or any other format. Invalid selectors silently match ALL screens.",
+      warning:
+        "Do NOT use '#' prefix or any other format. Invalid selectors silently match ALL screens.",
     },
-    screens: "array of screen indexes or 'all' — preferred way to target screens by index",
+    screens:
+      "array of screen indexes or 'all' — preferred way to target screens by index",
   },
   platform:
     "Operation-level, screenshot path changes only: 'ios' | 'android' stores changes.path as that platform's override (iosPath/androidPath). Omitted: the new path is the image on both platforms and existing overrides are cleared, like the editor's Replace.",
-  unset: "A null value in changes removes that field (dot-notation too): {backgroundGradient:null}, {model3D:null} returns to the 2D frame, {shadow:null}, {iosPath:null}.",
+  unset:
+    "A null value in changes removes that field (dot-notation too): {backgroundGradient:null}, {model3D:null} returns to the 2D frame, {shadow:null}, {iosPath:null}.",
   layoutTarget: {
-    usage: "{type:'update_node', target:{nodeType:'layout'}, changes:{...}} edits layout-level fields of each selected layout size.",
+    usage:
+      "{type:'update_node', target:{nodeType:'layout'}, changes:{...}} edits layout-level fields of each selected layout size.",
     fields: [
       "backgroundColor",
       "backgroundGradient (null removes)",
@@ -57,7 +61,8 @@ export const TRANSFORM_SCHEMA_RESOURCE = {
       "themeColors: partial role map {primary|secondary|accent|text|textSecondary|background|panel|onPanel|onAccent|tile|onTile: '#hex'} — recolors every element linked to (or still matching) that role and re-derives dependent roles, like the Theme panel",
       "themePaletteMode: 'v1' | 'v2' — applies the layout's generated palette options (themePaletteOptions)",
     ],
-    fixed: "template, platform, canvasWidth/Height and screens cannot be set here.",
+    fixed:
+      "template, platform, canvasWidth/Height and screens cannot be set here.",
   },
   stacking:
     "zIndex is ONE stacking order per screen shared by every node type (screenshots, texts, pills, illustrations, ...). reorder (changes.order = node ids back-to-front) permutes the zIndex values the listed nodes already hold; bring_to_front / send_to_back move the matched node(s) above / below everything else on the screen.",
@@ -90,12 +95,20 @@ export const SUPPORTED_DEVICES = {
   note: "2D frames: phoneId/tabletId/desktopId/watchId on a ScreenshotNode. The 2D phone frame follows the project platform when rendered. model3D (a real 3D device) overrides the 2D frame on phone, tablet and desktop screens; watches have no 3D model. The complete registries, 3D models and finishes are in get_editing_reference (feature screenshots or mockups).",
   phone: [
     // id stays iphone17 for saved layouts; the frame shows the iPhone 18 Pro Max.
-    { id: "iphone17", label: "iPhone 18 Pro Max", platform: "ios", aspectRatio: 1320 / 2868 },
-    { id: "googlepixel", label: "Google Pixel", platform: "android", aspectRatio: 1080 / 2400 },
+    {
+      id: "iphone17",
+      label: "iPhone 18 Pro Max",
+      platform: "ios",
+      aspectRatio: 1320 / 2868,
+    },
+    {
+      id: "googlepixel",
+      label: "Google Pixel",
+      platform: "android",
+      aspectRatio: 1080 / 2400,
+    },
   ],
-  tablet: [
-    { id: "ipad", label: 'iPad Pro 12.9"', aspectRatio: 2048 / 2732 },
-  ],
+  tablet: [{ id: "ipad", label: 'iPad Pro 12.9"', aspectRatio: 2048 / 2732 }],
   desktop: [
     {
       id: "macbook-pro-16",
@@ -113,7 +126,14 @@ export const SUPPORTED_DEVICES = {
       modelId: "iphone-17-pro",
       label: "iPhone 18 Pro",
       kind: "phone",
-      finishes: ["silver", "black", "glacier", "burgundy", "cosmic-orange", "deep-blue"],
+      finishes: [
+        "silver",
+        "black",
+        "glacier",
+        "burgundy",
+        "cosmic-orange",
+        "deep-blue",
+      ],
       defaultFinish: "black",
     },
     {
@@ -131,7 +151,13 @@ export const SUPPORTED_DEVICES = {
       defaultFinish: "duo-night-sky",
       notes: "lidOpen 0 folded .. 1 unfolded",
     },
-    { modelId: "ipad-pro", label: "iPad Pro", kind: "tablet", finishes: ["silver"], defaultFinish: "silver" },
+    {
+      modelId: "ipad-pro",
+      label: "iPad Pro",
+      kind: "tablet",
+      finishes: ["silver"],
+      defaultFinish: "silver",
+    },
     {
       modelId: "macbook-pro-14",
       label: "MacBook Pro 14",
@@ -197,13 +223,21 @@ export const WORKFLOW_GUIDE_RESOURCE = {
     },
     {
       name: "New screenshot design (picker)",
-      preferredSteps: ["list_source_screenshots", "prepare_screenshot_styles"],
+      preferredSteps: [
+        "list_source_screenshots",
+        "prepare_screenshot_styles",
+        "browse_templates",
+      ],
       notes:
-        "Pick 3-7 real screenshots in story order. prepare_screenshot_styles shows the personalized V1/V2 picker in its result; stop and let the user choose there. The choice creates a new variant and opens the editor. Do not call apply_screenshot_style yourself; use it only when a template id was given directly by the user or an API client. browse_templates only reopens the gallery.",
+        "Pick 3-7 real screenshots in story order. Prepare once, then immediately display the cached V1/V2 picker with browse_templates using the returned generationId, catalogKey and requested deviceType. No question is needed between these steps. Stop for the user's choice; confirmation creates the variant. Reopen with the same catalogKey rather than generating again. apply_screenshot_style is only for an explicit user/API-supplied choice.",
     },
     {
       name: "Edit screenshots",
-      preferredSteps: ["get_editing_reference", "get_layout", "transform_layout"],
+      preferredSteps: [
+        "get_editing_reference",
+        "get_layout",
+        "transform_layout",
+      ],
       notes:
         "get_layout is mandatory before every transform_layout. Default layouts ['mobile']; scope with screens. Use formatId for one phone size. save_layout replaces the whole layout; prefer transform_layout. Re-read after composition edits and check for overlaps. In widget hosts the edit-result widget renders the change; view_review_snapshot returns its PNG when the widget provides a snapshotId.",
     },
@@ -212,9 +246,10 @@ export const WORKFLOW_GUIDE_RESOURCE = {
       preferredSteps: [
         "list_source_screenshots",
         "prepare_social_graphics_styles",
+        "browse_social_templates",
       ],
       notes:
-        "prepare_social_graphics_styles shows the picker in its result; stop and let the user choose. Choosing creates a variant with every format. Do not call apply_social_graphics_style yourself; it is only for a template id supplied directly by the user or an API client. browse_social_templates only reopens the gallery.",
+        "Prepare once, then immediately display the cached picker with browse_social_templates using the returned generationId, catalogKey and primaryFormat as format. No question is needed between these steps. Stop for the user's choice; confirmation creates a variant with every format. Reopen with the same catalogKey rather than generating again. apply_social_graphics_style is only for an explicit user/API-supplied choice.",
     },
     {
       name: "Edit social graphics",
@@ -253,7 +288,11 @@ export const WORKFLOW_GUIDE_RESOURCE = {
     },
     {
       name: "Localization",
-      preferredSteps: ["list_translations", "translate_layouts", "translate_store_listing"],
+      preferredSteps: [
+        "list_translations",
+        "translate_layouts",
+        "translate_store_listing",
+      ],
       notes:
         "Translate screenshot text with translate_layouts, never by hand-editing text nodes. Store listing text translates with translate_store_listing. New languages count against the plan's translation limit.",
     },
