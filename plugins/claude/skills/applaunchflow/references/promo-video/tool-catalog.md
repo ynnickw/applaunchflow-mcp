@@ -25,7 +25,7 @@ Input schema:
       "type": "string"
     },
     "replaceVariantId": {
-      "description": "Existing promo-video variant to replace after the user chooses a candidate. Only pass with explicit user approval.",
+      "description": "Existing promo-video variant to replace after the user chooses a candidate. Only provide with explicit user approval.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -93,7 +93,7 @@ Input schema:
       "maxLength": 120
     },
     "replaceVariantId": {
-      "description": "Existing promo-video variant to delete after saving the selected candidate. Only pass when the user explicitly approved replacing that variant.",
+      "description": "Existing promo-video variant to delete after saving the selected candidate. Only provide when the user explicitly approved replacing that variant.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -119,7 +119,7 @@ Input schema:
   "type": "object",
   "properties": {
     "generationId": {
-      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may pass projectId instead. Project / generation UUID.",
+      "description": "Project id: the same UUID as projectId from list_projects/get_project (generationId is its legacy name). You may provide projectId instead. Project / generation UUID.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -189,7 +189,7 @@ Input schema:
       "type": "string"
     },
     "readReceipt": {
-      "description": "Hosted connector only: pass the readReceipt returned by the immediately preceding get_promo_video call.",
+      "description": "Hosted connector only: provide the readReceipt returned by the immediately preceding get_promo_video call.",
       "type": "string"
     }
   },

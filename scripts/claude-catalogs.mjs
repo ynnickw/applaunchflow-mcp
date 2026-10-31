@@ -11,6 +11,24 @@ const references = path.join(
   "plugins/claude/skills/applaunchflow/references",
 );
 
+const catalogProse = (text) =>
+  text.replace(/\bPass\b/g, "Provide").replace(/\bpass\b/g, "provide");
+
+// Retain the existing Claude bundle's wording cleanup for API descriptions.
+// Do not rewrite parameter names, enum literals or other contract values.
+export function documentedSchema(value) {
+  if (Array.isArray(value)) return value.map(documentedSchema);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      key === "description" && typeof item === "string"
+        ? catalogProse(item)
+        : documentedSchema(item),
+    ]),
+  );
+}
+
 export async function syncClaudeCatalogs({ check = false } = {}) {
   const server = createAppLaunchFlowServer(
     { baseUrl: "https://invalid.local", token: "synthetic-catalog-check" },
@@ -35,7 +53,7 @@ export async function syncClaudeCatalogs({ check = false } = {}) {
       const sections = names.map((name) => {
         const tool = tools.get(name);
         assert.ok(tool, `Unknown documented tool ${name}`);
-        return `## ${name}\n\n${tool.description || tool.title}\n\nInput schema:\n\n\`\`\`json\n${JSON.stringify(tool.inputSchema, null, 2)}\n\`\`\`\n`;
+        return `## ${name}\n\n${catalogProse(tool.description || tool.title)}\n\nInput schema:\n\n\`\`\`json\n${JSON.stringify(documentedSchema(tool.inputSchema), null, 2)}\n\`\`\`\n`;
       });
       const header = source
         .slice(0, source.indexOf("\n## "))
