@@ -2,7 +2,7 @@ Check that the workflow's named tools are exposed by this host. If one is absent
 
 # Choose the actual surface
 
-Resolve project, variant and language. For a new design, use the project's existing source screenshots and `prepare_social_graphics_styles`; show its picker/URL and stop for the user's choice. Picker confirmation creates the variant; don't apply twice. Use `apply_social_graphics_style` only for an explicit template/catalog choice supplied directly in chat or by an API. `browse_social_templates` supports revisiting and programmatic inspection. Most formats need 3–7 source screenshots; app_store_header can start with 1–7.
+Resolve project, variant and language. For a new design, use the project's existing sources with `prepare_social_graphics_styles`, then immediately call `browse_social_templates` with the returned generationId/catalogKey and primaryFormat as format. No extra question is needed between preparation and display. Show the picker/URL and stop for the user's choice. Revisit with the same catalogKey, without preparing again. Picker confirmation creates the variant; don't apply twice. Use `apply_social_graphics_style` only for an explicit template/catalog choice supplied directly in chat or by an API. Most formats need 3–7 source screenshots; app_store_header can start with 1–7.
 
 `get_graphics` gives an overview and primary format. Use `get_editing_reference(feature: "socialGraphics")` and `SOCIAL_FORMATS`/`SocialFormatDefinition` for the current formats and dimensions. Distinguish a static App Store header/search creative from an animated promo export in category creative.
 

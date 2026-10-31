@@ -6,7 +6,7 @@ import { registerPickerResource } from "./picker-resource.js";
 import { versionWidgetResourceUri } from "./widget-metadata.js";
 
 export const SCREENSHOT_PICKER_URI = versionWidgetResourceUri(
-  "ui://applaunchflow/screenshot-picker-v18.html",
+  "ui://applaunchflow/screenshot-picker-v19.html",
 );
 
 export async function createScreenshotPickerResult(
@@ -15,10 +15,16 @@ export async function createScreenshotPickerResult(
     generationId,
     catalogKey,
     deviceType,
+    templateIds: requestedIds,
+    selectedTemplateId,
+    title,
   }: {
     generationId: string;
     catalogKey: string;
     deviceType: "phone" | "tablet" | "desktop";
+    templateIds?: string[];
+    selectedTemplateId?: string;
+    title?: string;
   },
 ) {
   // The catalog URL is a read capability. Also verify project access using
@@ -33,6 +39,7 @@ export async function createScreenshotPickerResult(
   });
   const templateIds = listPublicTemplateIds(
     catalog.templateLayoutsByDevice?.[deviceType] || {},
+    requestedIds,
   );
   if (!templateIds.length)
     throw new Error(
@@ -43,6 +50,10 @@ export async function createScreenshotPickerResult(
     catalogKey,
     deviceType,
     templateIds,
+    selectedTemplateId: templateIds.includes(selectedTemplateId || "")
+      ? selectedTemplateId
+      : undefined,
+    title,
     applySelection: true,
   });
   return {
@@ -54,7 +65,7 @@ export async function createScreenshotPickerResult(
     ],
     structuredContent: {
       success: true,
-      data: { generationId, catalogKey, templateIds, galleryUrl },
+      data: { generationId, catalogKey, deviceType, templateIds, galleryUrl },
       message: "Screenshot picker ready",
     },
     // Layouts and signed image URLs go only to the component, not the model.
@@ -67,6 +78,7 @@ export async function createScreenshotPickerResult(
           catalogKey,
           deviceType,
           templateIds,
+          selectedTemplateId,
           galleryUrl,
           paletteOptions: catalog.paletteOptions,
           templateLayoutsByDevice: catalog.templateLayoutsByDevice,

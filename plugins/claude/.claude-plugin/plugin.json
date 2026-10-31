@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "applaunchflow",
   "displayName": "AppLaunchFlow",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Create and edit AppLaunchFlow launch assets with feature-specific guidance for screenshots, social graphics, store creatives, promo videos, animated device mockups, assets, localization, store copy and keyword tracking.",
   "author": {
     "name": "Yannick Westermann Labs",

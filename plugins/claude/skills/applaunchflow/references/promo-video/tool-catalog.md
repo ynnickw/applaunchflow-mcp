@@ -1,12 +1,12 @@
 # promo-video tool catalog
 
-Generated from the registered hosted MCP schema. Do not edit by hand; run `npm run sync:plugin-skills`.
+Generated from the registered hosted MCP schema. Do not edit by hand; run `npm run sync:claude-catalogs`.
 
 This is a reference, not a script to execute in order. Read only the tool needed for the task. The host's actual tool/input schema takes precedence if versions differ. Never call a tool hidden by the host, and never copy synthetic IDs into a real request.
 
 ## generate_promo_video
 
-Generate or reuse three transient promo-video candidates from the project's screenshots. This tool itself displays the same three-option dashboard picker inline in Claude, ChatGPT, and other MCP Apps-compatible hosts; do not call another tool after it. Only the candidate explicitly chosen by the user becomes a saved variant. Clients without UI support receive the exact picker URL. Use replaceVariantId only when the user explicitly chose to replace that existing variant, which also allows a safe swap at the plan limit. Use selectedScreenshotPaths to constrain which uploaded screenshots feed the candidates.
+Starts or reuses background preparation of three transient promo-video scene/config candidates and returns the embedded picker or its URL. The picker updates when preparation finishes. Only an explicitly selected candidate becomes a saved variant. Optional replaceVariantId enables replacement after the new selection saves; selectedScreenshotPaths restricts candidate inputs.
 
 Input schema:
 
@@ -70,7 +70,7 @@ Input schema:
 
 ## apply_promo_video_candidate
 
-Create a promo-video variant from one of the three server-stored candidates. This is called by the inline picker after explicit user selection; arbitrary video config input is not accepted. If replaceVariantId is supplied, the previous variant is deleted after the new variant is saved; replacement requires explicit user approval.
+Saves the specified prepared promo-video candidate as a variant and returns its editor link. When replaceVariantId is supplied, the prior variant is retired only after the new variant saves successfully.
 
 Input schema:
 
@@ -110,7 +110,7 @@ Input schema:
 
 ## get_promo_video
 
-Fetch the saved promo video config (the Remotion VideoConfig) for a project variant and language. Required before update_promo_video so edits operate on fresh state. Edit the returned `config` (persisted as promovideo project `remotion_code`) and send the whole object back to update_promo_video. Also returns sourceLanguage and availableLanguages (existing translations); provide `language` to read a translation. Configs come back already migrated to content-motion transition names (`transitionNaming: "content-motion"`). Field reference: get_editing_reference feature promoVideo (or the resource applaunchflow://schema/video-config).
+Returns a saved promo-video configuration, source/available languages and a same-target editing read receipt. Transition names are normalized to content-motion semantics. Reading a translation does not change it.
 
 Input schema:
 
@@ -148,7 +148,7 @@ Input schema:
 
 ## update_promo_video
 
-Persist a promo video config: a full-config replace of the `config` returned by get_promo_video (no per-scene patch tool). ENFORCED: each call requires a fresh get_promo_video for the same projectId/variantId/language immediately beforehand. The server validates the config against the same renderer schema the editor loads with; any violation rejects the whole update with a 400 listing each field path and message, and nothing is saved. Fix those fields and retry. Fields the editor always writes are filled server-side when absent: version (2), duration, scene choreography (null), nullable content fields (e.g. feature subtitle, hook logoUrl, closeup caption → null; frameVariant 'flat', showLogo true, badge 'appStore'), illustration url when storagePath is set, and the transitionNaming marker (names always mean content motion; never mirrored). Copy, screenshot indexes and layouts are never invented. Also rejected: all scenes hidden, unknown transition types, unknown font families. Cascades like the editor: changing deviceModelId re-derives phoneId; changing audioDesign.musicId resets musicStartTimeSeconds to 0 (scene timings are NOT re-cut to the new beat). The response lists filledDefaults/derived. appName sets the app name used by hook/CTA fallbacks; projectName RENAMES the whole project. Field reference: get_editing_reference feature promoVideo.
+Replaces a complete saved promo-video configuration for one variant/language. Hosted edits require a fresh same-target read receipt. Renderer-schema errors reject the entire update; missing editor defaults and derived values are reported. Device-model changes update the frame; music changes reset track start without re-cutting scenes. appName changes fallback copy; projectName renames the project.
 
 Input schema:
 
@@ -203,7 +203,7 @@ Input schema:
 
 ## clear_promo_video
 
-Wipe the promo video config for a variant so the user can start over. Does not delete the variant itself.
+Clears the specified promo-video variant's saved configuration. This removes its current video content rather than creating a new variant.
 
 Input schema:
 
@@ -231,7 +231,7 @@ Input schema:
 
 ## translate_promo_video
 
-AI-translate the saved promo video (all scene copy) of a variant into one or more languages. Each language becomes its own editable translation; read or edit it with get_promo_video / update_promo_video using `language`. Translating a language that already exists RE-TRANSLATES it from the source and overwrites edits made to that translation; only do that when the user asks. Returns per-language results plus sourceLanguage and availableLanguages (get_promo_video also lists availableLanguages). Subject to the plan's translation limits.
+Translates saved promo-video scene text into requested languages. Re-translating an existing language replaces its edited translation. Returns per-language results and available languages; subject to translation allowances.
 
 Input schema:
 
@@ -271,7 +271,7 @@ Input schema:
 
 ## preview_promo_video
 
-Render one frame of the SAVED promo video server-side and return it as a PNG image, so you can check an edit (legibility, overlap, device placement) without a browser. Pick a scene by its config index (sceneIndex; hidden scenes do not render) and a position inside it (at: 0 = first frame, 0.5 = default mid-scene, 1 = last frame), or an absolute 30 fps frame. Renders the video's own previewFormat unless format is given (e.g. 'social:9:16'). Save with update_promo_video first; unsaved edits are not visible. Takes ~10–40 s. Not billed as an export.
+Renders one frame of a saved promo video as PNG for inspection. Selection supports a visible scene index plus relative position, or an absolute 30-fps frame. Defaults to the video's preview format. Unsaved changes are not included. Does not consume export allowance or modify the design.
 
 Input schema:
 
@@ -330,7 +330,7 @@ Input schema:
 
 ## export_promo_video
 
-Render the SAVED promo video (variant + language) to an MP4/WebM file on the server; no browser needed. Same options as the editor's export dialog: category appStore (size default 886×1920 App Store preview, 6.9, 6.7, 6.5, 6.3), ipad (12.9, 11), social (9:16, 1:1, 16:9) or creative (App Store header/search: mp4 1080p only, 5–30 s); quality 1080p or 720p; format mp4 or webm. Category/size default to the video's previewFormat. Server exports must be shorter than 30 s (hide or shorten scenes otherwise). Requires export access: an active Pro plan with remaining monthly API exports (or the Automation add-on); Launch Passes and editor credits do not cover API exports. Each call that is accepted uses one export. Returns exportId immediately; poll get_promo_video_export until status is completed to get the download URL. Reuse the same idempotencyKey when retrying; never invent a new one after an uncertain outcome.
+Starts an MP4/WebM export of a saved promo-video variant and language. Supports configured App Store, iPad, social and creative placements within renderer limits. Server duration must be under thirty seconds. An accepted job uses one API export allowance and returns exportId. The same idempotencyKey identifies the same request across retries.
 
 Input schema:
 
@@ -397,7 +397,7 @@ Input schema:
 
 ## get_promo_video_export
 
-Poll an export started by export_promo_video. While queued/rendering it returns progress; when completed it returns a short-lived downloadUrl (valid ~1 hour; call again for a fresh one). Failed exports are refunded and must not be retried with a new idempotencyKey automatically.
+Returns the status and progress of a promo-video export. Completed jobs include a short-lived download URL; another status read can refresh the URL. Failed exports are refunded. Read-only.
 
 Input schema:
 

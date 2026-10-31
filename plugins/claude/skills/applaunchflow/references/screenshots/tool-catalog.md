@@ -1,12 +1,12 @@
 # screenshots tool catalog
 
-Generated from the registered hosted MCP schema. Do not edit by hand; run `npm run sync:plugin-skills`.
+Generated from the registered hosted MCP schema. Do not edit by hand; run `npm run sync:claude-catalogs`.
 
 This is a reference, not a script to execute in order. Read only the tool needed for the task. The host's actual tool/input schema takes precedence if versions differ. Never call a tool hidden by the host, and never copy synthetic IDs into a real request.
 
 ## prepare_screenshot_styles
 
-Generate or reuse the project's personalized screenshot-style catalog before the user chooses a style. This prepares every screenshot template for phone, tablet, and desktop in one AI call and returns a catalogKey. This tool itself displays the interactive picker in MCP Apps-compatible clients; do not call another tool after it. The picker shows real v1/v2 renders and creates a variant only after the user explicitly confirms a style. Repeating this with the same app context and screenshot paths is a cache hit and does not regenerate AI content. Clients without UI support receive the exact full-gallery URL.
+Generates or reuses personalized screenshot-layout candidates for every phone, tablet and desktop template. Returns a catalogKey, templateIds and galleryUrl for cached V1/V2 picker display. Matching app context and source paths reuse cached candidates. Preparation does not create a variant or open a picker.
 
 Input schema:
 
@@ -55,7 +55,7 @@ Input schema:
 
 ## browse_templates
 
-Open the visual style gallery. With generationId and catalogKey from prepare_screenshot_styles it renders personalized v1/v2 previews and creates the selected variant directly; without them it provides static style discovery. Never offer templates via text or AskUserQuestion.
+Displays the cached screenshot-style picker and returns its gallery URL for a device and optional template subset. A project plus prepared catalogKey enables personalized V1/V2 previews; without a catalog it provides static discovery. This read never generates options, applies a style or creates a variant.
 
 Input schema:
 
@@ -112,7 +112,7 @@ Input schema:
 
 ## apply_screenshot_style
 
-Create a new screenshot variant from a previously prepared personalized style catalog without another AI generation. Fallback for applying a template id supplied directly in chat or by an API client. The normal prepare_screenshot_styles flow now lets the user compare v1/v2 and create the variant directly in the browser. The new variant includes phone, tablet, and desktop layouts and opens in the editor.
+Creates a new screenshot variant from a prepared personalized catalog and the specified template/palette selection. Reuses cached candidate layouts without another generation and returns the editor link. Existing variants are preserved.
 
 Input schema:
 
@@ -169,7 +169,7 @@ Input schema:
 
 ## get_layout
 
-Get layout JSON for the current translation before editing or reviewing a variant. Includes independent phone designs in format_layouts; they do not follow main/mobile edits. Use transform_layout with formatId to edit one, or resetFormat:true to follow main again. This is mandatory before every direct transform_layout call. Returns the editor URL as a reference link; it is not opened automatically. Share it when the user wants to review the result. The returned JSON follows the layout schema documented in the resource applaunchflow://schema/layout — read it to learn which fields exist and their valid ranges, not just which ones happen to be set here.
+Returns saved screenshot layouts for one variant and language, including independent phone-format layouts, an editor link and a same-target editing read receipt. Main/mobile changes do not implicitly update independent phone formats. Read-only.
 
 Input schema:
 
@@ -209,7 +209,7 @@ Input schema:
 
 ## save_layout
 
-Persist a full translation layout payload. Whole-layout replace per device size — prefer transform_layout for targeted edits. formatLayouts is the complete independent phone-format map: omit it to preserve existing formats, provide {} to reset all, or provide the map from get_layout with explicit changes. Main edits do not overwrite independent formats. Each layout must be a complete, valid Layout object; see the resource applaunchflow://schema/layout for every field and valid value range.
+Replaces complete saved screenshot layouts for the specified device sizes and language. Omitted formatLayouts preserves independent formats; an empty map resets them. Main layouts do not overwrite independent phone-format layouts.
 
 Input schema:
 
@@ -302,7 +302,7 @@ Input schema:
 
 ## transform_layout
 
-Apply transform operations to an existing layout. Primary editing tool for text, screenshots, colors, and structure changes. IMPORTANT: Always call get_layout FIRST to inspect the current layout state before using this tool. Never transform blindly. ENFORCED RULE: each transform_layout call requires a fresh get_layout call for the same generationId, language, and variantId immediately beforehand. RULES: 1. nodeType is REQUIRED in every operation target. 2. Omit nodeId to update ALL nodes of that type in the target screens. 3. Use screens:'all' to target every screen at once. Do NOT send one operation per screen when the same change applies to all. 4. Dot-notation is supported for deep updates without replacing the whole object. Example: {'richContent.attrs.defaultFontSize': 96} updates only the font size inside richContent.attrs, preserving all other fields. Always use dot-notation for nested property changes. 5. For add_node, changes MUST include an 'id' field. 6. To add new screens, first add empty screen containers, then populate them in a SECOND call using selector 'screenId:<id>'. 7. layouts defaults to ['mobile'] (phone only); list 'tablet'/'desktop' explicitly to change them too. Use formatId to edit a separate phone size such as ios-duo-inner; do not combine formatId with layouts. resetFormat:true with formatId and no operations makes that size follow main again. 8. FONT SIZE: The rendered font size is controlled ONLY by 'richContent.attrs.defaultFontSize' (pixel value). To change font size, use dot-notation: {'richContent.attrs.defaultFontSize': 80}. Do NOT use 'fontSizeScale' — that property is for promo videos only and has NO effect on screenshot rendering. 9. UNSET: a null value removes a field ({model3D:null} returns to the 2D frame, {backgroundGradient:null}, {shadow:null}). 10. THEME: target {nodeType:'layout'} with changes {themeColors:{primary:'#...'}} recolors every linked element and re-derives dependent roles like the editor; {themePaletteMode:'v2'} switches the generated palette; orientation, backgroundColor, backgroundGradient, screenshotGap are also layout-level. 11. SCREENSHOT IMAGE: setting a screenshot's path replaces the image on both platforms (iosPath/androidPath overrides win over path and are cleared); provide platform:'ios'|'android' to change one platform only. phoneId is the 2D frame and follows the project platform at render (iphone17 / googlepixel); choose another device with model3D {modelId, finish, rotationX, rotationY, rotationZ}. 12. STACKING: zIndex is one order per screen across ALL node types; use bring_to_front / send_to_back, or reorder (which keeps the collection's zIndex values). 13. COORDINATES are per screen in canvas pixels: a text's position.x is the LEFT edge of its box (width wide, aligned inside it) and position.y its top; a screenshot's position is the device CENTRE and ScreenshotNode.scale its size factor. VALIDATION: unknown font families (see list_fonts), invalid 3D modelId/finish, magnifier.screenshotId not on the same screen, and asset paths that do not exist in the project are rejected with the reason; nothing is saved. Check the result visually with preview_screenshots. SCHEMA REFERENCE: read the resource applaunchflow://schema/transforms for the full operation and selector reference, and applaunchflow://schema/layout for every node type's fields and valid value ranges. Read them before any non-trivial edit rather than guessing field names.
+Applies scoped operations to saved screenshot layouts. Hosted edits require a fresh same-target read receipt. Every target requires nodeType; missing nodeId matches all nodes of that type within the selected screens. Dot-notation preserves sibling fields; null removes a field. Defaults to mobile only. Independent formatId edits and resetFormat are supported. Layout, font, device and asset validation occurs before saving.
 
 Input schema:
 
@@ -453,7 +453,7 @@ Input schema:
 
 ## translate_layouts
 
-Translate screenshot layouts into one or more target languages using AI. This is the PREFERRED way to localize screenshots — do NOT manually edit text nodes for translation. The backend translates all text in the layout while preserving positioning, styling, and screenshots. Requires a source screenshot layout to already exist — created by the personalized gallery or apply_screenshot_style. Provide the source variantId when available to translate that exact variant; if omitted, the active variant is used. Re-running it for a language that already exists RE-SYNCS that translation from the source layout: its design (positions, styles, colors, devices) is replaced by the source's, unchanged text reuses the previous translation and per-language screenshots are kept; manual per-language design edits are lost. To copy only the design without translating, use sync_layout; to put language-specific screenshots in, use apply_locale_screenshots.
+Translates screenshot-layout text into requested languages while preserving composition and language-specific images. Requires an existing source layout. Re-running a target language re-syncs its design from the source and can replace manual target-language design tweaks. Subject to translation allowances.
 
 Input schema:
 
@@ -562,7 +562,7 @@ Input schema:
 
 ## list_translations
 
-List available translations for a project variant. Returns which languages have been translated.
+Lists available screenshot-layout translations and source-language metadata for a project or variant. Read-only.
 
 Input schema:
 
@@ -594,7 +594,7 @@ Input schema:
 
 ## apply_locale_screenshots
 
-Put language-specific screenshots into existing translations without retranslating: each language's images fill that translation's device frames in document order (a two-device screen takes two images); extra images are reported, unfilled frames keep their image. Sources (exactly one): localeFolders {language: folderId} from list_asset_folders / set_asset_folder_locale (images sorted by original filename), screenshotPathsByLanguage {language: [paths]}, or screenshotPaths (same images for every selected language). platform 'both' (default) sets the shared image and clears per-platform overrides; 'ios'/'android' sets only that platform's override. Use preview:true first to see the frame assignments without saving. Overwrites the images of the targeted translations.
+Assigns language-specific screenshot assets to existing translated device frames. Sources are locale folders, per-language paths or a shared path list. Assignment follows document order; unfilled frames retain their images and excess sources are reported. Preview mode returns assignments without saving. Apply mode replaces only the targeted translation images.
 
 Input schema:
 
@@ -686,7 +686,7 @@ Input schema:
 
 ## sync_layout
 
-Copy the source-language design (positions, sizes, styles, colors, devices, new or removed elements) of a screenshot variant to every other language WITHOUT re-translating: each translation keeps its own text and its own screenshots. Use after design edits to the source language. fillMissingImages also fills empty frames from the source. translateChangedText:true additionally translates only text that changed in the source (uses AI). Overwrites the design of every non-source translation of the variant, including per-language design tweaks.
+Copies a screenshot variant's source-language design to its other languages while retaining translated text and language-specific screenshots. Existing language-specific design tweaks are replaced. Optional missing-image fill and changed-text translation are supported.
 
 Input schema:
 
@@ -724,7 +724,7 @@ Input schema:
 
 ## preview_screenshots
 
-Render chosen screens of a saved screenshot variant with the real export renderer and return them as images you can look at. Use it after transform_layout / save_layout / translate_layouts to check legibility, overlap, cropping and colors before reporting a visual result. Renders the saved state (not unsaved edits) for one platform/device/size/language. Defaults: active variant, project source language, phone, the project's platform, the store's primary size (iOS 6.9", Android play-high, iPad 13"). displaySize also selects an independent phone format (6.5/6.3/6.1, duo-inner/duo-outer, play-high). Takes ~20-60 s (longer with 3D devices); request only the screens you need (max 10). Images are downscaled; this is not an export (use render_screenshots for store files).
+Renders selected screens of a saved screenshot variant as inspection images using the export renderer. Supports one platform, device, size and language per request, including independent phone formats. At most ten screens. Images can be downscaled and are not store-delivery exports. Does not change saved designs.
 
 Input schema:
 
@@ -807,7 +807,7 @@ Input schema:
 
 ## store_review_snapshot
 
-App-only: temporarily store the PNG rendered by the edit-result widget for automatic review or a manual Review retry. Does not render on the server or modify any design or library asset.
+App-only: temporarily stores a PNG rendered by the edit-result widget for visual review. Does not render on the server or modify a design or library asset.
 
 Input schema:
 
@@ -836,7 +836,7 @@ Input schema:
 
 ## view_review_snapshot
 
-Retrieve actual PNG image pixels rendered by the user's edit-result widget. Call this when the widget's review message provides projectId and snapshotId; inspect the returned image, not layout JSON. Snapshots expire after 15 minutes and only the uploading user can read them. This does not modify the design.
+Returns actual PNG pixels previously uploaded by the edit-result widget for the specified project and snapshot ID. Only the uploading user can access the snapshot, which expires after fifteen minutes. Does not modify a design.
 
 Input schema:
 
@@ -866,7 +866,7 @@ Input schema:
 
 ## list_export_formats
 
-List supported store dimensions and locales for validated Fastlane packages.
+Lists screenshot export formats, device families, platforms, authored dimensions and available resolution presets. Read-only.
 
 Input schema:
 
@@ -880,7 +880,7 @@ Input schema:
 
 ## render_screenshots
 
-Render the saved translations of the active screenshot variant (or a specified existing variant). Use list_export_formats for sizes, including ios.phone.duo-inner and ios.phone.duo-outer. Presets use their independent format layout when present; use transform_layout with formatId to edit or reset it. Validated iOS packages allow at most 10 screens. Set resolutions['android.phone'] to {preset:'preview'} for 1290x2796 or {preset:'play-high'} for 2160x3840 (default). Any requested format can use exact custom {width,height} (320-8192 pixels); custom sizes may not satisfy store requirements. Presets follow layout orientation. One resolution per format per request. Update captures and copy through the normal asset and layout tools first. Reuse idempotencyKey for retries; never replace it after an uncertain outcome.
+Starts a render of saved screenshot translations for the active or specified variant. Supports preset or custom dimensions, independent phone-format layouts and at most ten screens per validated iOS package. Uses export allowance. Repeated requests with the same idempotencyKey reuse the original request.
 
 Input schema:
 
@@ -974,7 +974,7 @@ Input schema:
 
 ## get_release_render
 
-Poll a render. Only succeeded renders provide a validated manifest and short-lived package download URL. Failed or indeterminate jobs must not be retried with a new key automatically.
+Returns the status, progress and available download artifacts of an existing screenshot render job. Read-only.
 
 Input schema:
 

@@ -47,6 +47,12 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       );
       return;
     }
+    if (url === "/api/v1/social-templates") {
+      response.end(
+        JSON.stringify({ templates: [{ id: "social-clean", name: "Clean" }] }),
+      );
+      return;
+    }
     if (url === "/api/v1/promovideo/generate") {
       response.end(
         JSON.stringify({
@@ -144,7 +150,7 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
   try {
     const { tools } = await client.listTools();
     for (const [toolName, uri] of [
-      ["prepare_social_graphics_styles", SOCIAL_GRAPHICS_PICKER_URI],
+      ["browse_social_templates", SOCIAL_GRAPHICS_PICKER_URI],
       ["generate_promo_video", PROMO_VIDEO_PICKER_URI],
     ] as const) {
       const tool = tools.find((item) => item.name === toolName)!;
@@ -153,7 +159,10 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
         uri,
       );
       assert.equal(tool._meta?.["openai/outputTemplate"], uri);
-      assert.equal(tool.annotations?.readOnlyHint, false);
+      assert.equal(
+        tool.annotations?.readOnlyHint,
+        toolName === "browse_social_templates",
+      );
       const resource = await client.readResource({ uri });
       assert.equal(resource.contents[0].mimeType, "text/html;profile=mcp-app");
       assert.ok("text" in resource.contents[0]);
@@ -184,6 +193,15 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       },
     });
     assert.equal((social.structuredContent as any).success, true);
+    const prepareSocial = tools.find(
+      (item) => item.name === "prepare_social_graphics_styles",
+    )!;
+    assert.equal(prepareSocial._meta?.ui, undefined);
+    assert.equal(social._meta?.socialGraphicsPicker, undefined);
+    assert.equal(
+      (social.structuredContent as any).data.displayTool,
+      "browse_social_templates",
+    );
     assert.deepEqual((social.structuredContent as any).data.templateIds, [
       "social-clean",
     ]);
@@ -195,9 +213,45 @@ test("social and promo pickers use standard MCP Apps metadata and server-owned a
       (social.structuredContent as any).data.galleryUrl,
       /action=apply/,
     );
+    const browsedSocial = await client.callTool({
+      name: "browse_social_templates",
+      arguments: {
+        generationId: project,
+        catalogKey,
+        format: "instagram_post",
+        selectedTemplateId: "social-clean",
+      },
+    });
+    assert.equal(browsedSocial.isError, undefined);
     assert.ok(
-      JSON.parse((social._meta?.socialGraphicsPicker as any).payloadJson)
+      JSON.parse((browsedSocial._meta?.socialGraphicsPicker as any).payloadJson)
         .templateLayoutsByFormat.instagram_post["social-clean"].privateAsset,
+    );
+    assert.equal(
+      JSON.stringify(browsedSocial.structuredContent).includes("social-signed"),
+      false,
+    );
+    const reopenedSocial = await client.callTool({
+      name: "browse_social_templates",
+      arguments: {
+        generationId: project,
+        catalogKey,
+        format: "instagram_post",
+      },
+    });
+    assert.equal(reopenedSocial.isError, undefined);
+    assert.equal(
+      requests.filter((item) => item.url === "/api/v1/graphics/generate")
+        .length,
+      1,
+    );
+    const socialDiscovery = await client.callTool({
+      name: "browse_social_templates",
+      arguments: {},
+    });
+    assert.equal(
+      (socialDiscovery._meta?.socialGraphicsPicker as any).mode,
+      "discovery",
     );
 
     const promo = await client.callTool({

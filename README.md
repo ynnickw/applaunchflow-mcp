@@ -26,6 +26,11 @@ screenshot/social layouts are now transported as opaque JSON, matching the promo
 picker, while model-visible summaries remain unchanged. Widget metadata fingerprints
 also invalidate cached resources when the trusted store-icon CSP changes.
 
+**Release ordering:** 0.8.5 moves screenshot/social picker display to the existing
+read-only browse tools. Deploy dashboard support for discovery results before the
+MCP. Preparation still supports progress for long requests, but no longer owns a
+widget; browsing reads the prepared catalog without generation or mutation.
+
 ## Connect
 
 ### Cursor marketplace plugin
@@ -165,12 +170,14 @@ preview is available.
 
 ### Inline screenshot picker
 
-`prepare_screenshot_styles` returns the personalized V1/V2 picker directly in
-MCP Apps-compatible hosts and creates a variant only after explicit user
-confirmation through the authenticated tool bridge. Other hosts retain the
-full-gallery link. Revisit prepared options using the existing widget or that
-link; there is no separate render-tool call. Social graphics and promo video
-use the same prepare-and-show flow.
+`prepare_screenshot_styles` prepares a catalog, then `browse_templates` displays
+its cached V1/V2 picker in MCP Apps-compatible hosts. The agent completes both
+steps before waiting for the user's choice. Reopen with the same catalogKey;
+no generation or saved variant is needed to browse. Social graphics uses
+`prepare_social_graphics_styles` then `browse_social_templates`. There are no
+additional render tools. Promo videos keep their existing asynchronous picker.
+Variants are created only after explicit selection through the authenticated
+tool bridge; all hosts retain the full-gallery link.
 See [local testing and deployment notes](docs/inline-picker.md).
 
 The public Streamable HTTP service uses OAuth 2.1 authorization code flow with
@@ -219,7 +226,7 @@ For App Store screenshots:
 
 1. `list_source_screenshots`
 2. `prepare_screenshot_styles` with 3-7 ordered paths
-3. The personalized gallery opens automatically. Compare each template's V1/V2 render and confirm the choice; the gallery creates the new variant from cache and opens the editor.
+3. `browse_templates` with the returned generationId/catalogKey and requested deviceType displays the cached picker. Compare V1/V2, then confirm the choice; the picker creates the new variant and opens the editor.
 
 `browse_templates` can reopen a prepared catalog, and `apply_screenshot_style`
 remains available when an API client supplies a template id directly.
@@ -228,10 +235,10 @@ For social graphics:
 
 1. `list_source_screenshots`
 2. `prepare_social_graphics_styles` with 3-7 ordered paths
-3. The picker opens in the result. The user chooses a template and palette there;
+3. `browse_social_templates` with the returned generationId/catalogKey and primaryFormat as format displays the cached picker. The user chooses a template and palette there;
    the choice creates a variant with every format and opens the graphics editor.
 
-`browse_social_templates` only reopens a prepared catalog, and
+`browse_social_templates` also reopens a prepared catalog, and
 `apply_social_graphics_style` is for an API client or user that supplies a
 template id directly. Agents do not call it after preparing styles.
 

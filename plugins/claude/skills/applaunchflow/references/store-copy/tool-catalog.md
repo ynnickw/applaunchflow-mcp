@@ -1,12 +1,12 @@
 # store-copy tool catalog
 
-Generated from the registered hosted MCP schema. Do not edit by hand; run `npm run sync:plugin-skills`.
+Generated from the registered hosted MCP schema. Do not edit by hand; run `npm run sync:claude-catalogs`.
 
 This is a reference, not a script to execute in order. Read only the tool needed for the task. The host's actual tool/input schema takes precedence if versions differ. Never call a tool hidden by the host, and never copy synthetic IDs into a real request.
 
 ## get_store_listing
 
-Read the project's App Store / Google Play listing text (ASO copy): promotionalText, shortDescription (iOS subtitle / Play short description), fullDescription, keywords, whatsNew, suggested category, AI insights, and translations keyed by language. Returns asoCopy:null when none was generated yet (use generate_store_listing). Reads the active listing variant unless variantId is given.
+Returns saved App Store/Google Play listing copy, insights and translations for the active or specified listing variant. Returns asoCopy:null if none exists. Does not publish or modify store listings.
 
 Input schema:
 
@@ -34,7 +34,7 @@ Input schema:
 
 ## generate_store_listing
 
-AI-write the store listing text (promotional text, subtitle/short description, full description, keywords, category) from the project's app details, optionally informed by competitor apps. Saves it as a NEW active listing variant (the previous one is kept unless replaceVariantId is given with the user's approval) and returns it with the editor URL. Takes up to a minute.
+Generates store-listing text in a new ASO-copy variant using project context and requested options. Optional replaceVariantId retires a prior variant after successful replacement. Does not publish text to Apple or Google.
 
 Input schema:
 
@@ -81,7 +81,7 @@ Input schema:
 
 ## update_store_listing
 
-Edit store listing text. Provide only the fields to change: fields edits the source language, translations edits existing languages ({ "de": { "promotionalText": "..." } }). Everything else (other fields, insights, other languages) is kept as saved. Enforces store character limits. Edits the active listing variant unless variantId is given. Editing the source text does not re-translate; call translate_store_listing for that.
+Updates only supplied source-language fields and existing translations in a listing variant. Preserves other fields, insights and languages and enforces store character limits. Editing source text does not automatically translate it or publish it to a store.
 
 Input schema:
 
@@ -184,7 +184,7 @@ Input schema:
 
 ## translate_store_listing
 
-AI-translate the store listing text into other languages (adds or refreshes translations; languages whose source text did not change are skipped). Each new language counts against the plan's translation limit. Language codes: en, en-GB, en-AU, en-CA, es, es-MX, fr, fr-CA, de, it, pt, pt-BR, ja, ko, zh-CN, zh-TW, nl, ru, ar, tr, pl, sv, no, da, fi, cs, hi, hu, ro, uk, el, he, id, ms, th, vi, fil, hr, sk, ca, bn, gu, kn, ml, mr, or, pa, sl, ta, te, ur.
+Translates saved listing text into requested languages and refreshes existing translations whose source changed. Does not publish to Apple or Google. Subject to translation allowances.
 
 Input schema:
 

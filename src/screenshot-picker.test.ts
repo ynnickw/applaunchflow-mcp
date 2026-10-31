@@ -57,6 +57,12 @@ test("inline picker resource, private data, authenticated read, validation, and 
       );
       return;
     }
+    if (req.url === "/api/v1/templates") {
+      res.end(
+        JSON.stringify({ templates: [{ id: "default", name: "Default" }] }),
+      );
+      return;
+    }
     if (req.url === "/api/v1/screenshots/apply-template") {
       assert.equal(req.method, "POST");
       let body = "";
@@ -130,15 +136,19 @@ test("inline picker resource, private data, authenticated read, validation, and 
     const prepareTool = tools.find(
       (item) => item.name === "prepare_screenshot_styles",
     )!;
+    const browseTool = tools.find((item) => item.name === "browse_templates")!;
+    assert.equal(prepareTool._meta?.ui, undefined);
+    assert.equal(prepareTool._meta?.["openai/outputTemplate"], undefined);
     assert.equal(
-      (prepareTool._meta?.ui as any).resourceUri,
+      (browseTool._meta?.ui as any).resourceUri,
       SCREENSHOT_PICKER_URI,
     );
     assert.equal(
-      prepareTool._meta?.["openai/outputTemplate"],
+      browseTool._meta?.["openai/outputTemplate"],
       SCREENSHOT_PICKER_URI,
     );
     assert.equal(prepareTool.annotations?.readOnlyHint, false);
+    assert.equal(browseTool.annotations?.readOnlyHint, true);
     const resource = await client.readResource({ uri: SCREENSHOT_PICKER_URI });
     assert.equal(resource.contents[0].mimeType, "text/html;profile=mcp-app");
     assert.ok("text" in resource.contents[0]);
@@ -185,12 +195,33 @@ test("inline picker resource, private data, authenticated read, validation, and 
     assert.deepEqual((result.structuredContent as any).data.templateIds, [
       "default",
     ]);
+    assert.equal(result._meta?.picker, undefined);
+    assert.equal(
+      (result.structuredContent as any).data.displayTool,
+      "browse_templates",
+    );
+    assert.equal(requests.at(-1), "/api/v1/screenshots/generate");
+    const browsed = await client.callTool({
+      name: browseTool.name,
+      arguments: {
+        ...args,
+        deviceType: "phone",
+        selectedTemplateId: "default",
+      },
+    });
+    assert.equal(browsed.isError, undefined);
     assert.ok(
-      JSON.parse((result._meta?.picker as any).payloadJson)
+      JSON.parse((browsed._meta?.picker as any).payloadJson)
         .templateLayoutsByDevice.phone.default.privateAsset,
     );
     assert.equal(
       JSON.stringify(result.structuredContent).includes("signed-private-image"),
+      false,
+    );
+    assert.equal(
+      JSON.stringify(browsed.structuredContent).includes(
+        "signed-private-image",
+      ),
       false,
     );
     assert.match(
@@ -203,7 +234,7 @@ test("inline picker resource, private data, authenticated read, validation, and 
     );
     assert.equal(
       (result.structuredContent as any).message,
-      "Reused personalized screenshot styles; picker ready",
+      "Reused personalized screenshot catalog",
     );
     assert.equal(
       requests.filter((path) => path === "/api/v1/screenshots/generate").length,
@@ -220,6 +251,20 @@ test("inline picker resource, private data, authenticated read, validation, and 
       ),
       "the exact browser URL remains available without another tool call",
     );
+    const reopened = await client.callTool({
+      name: browseTool.name,
+      arguments: args,
+    });
+    assert.equal(reopened.isError, undefined);
+    assert.equal(
+      requests.filter((path) => path === "/api/v1/screenshots/generate").length,
+      1,
+    );
+    const discovery = await client.callTool({
+      name: browseTool.name,
+      arguments: {},
+    });
+    assert.equal((discovery._meta?.picker as any).mode, "discovery");
     const applied = await client.callTool({
       name: "apply_screenshot_style",
       arguments: { ...args, templateId: "default", paletteMode: "v2" },
@@ -245,12 +290,24 @@ test("inline picker resource, private data, authenticated read, validation, and 
       before + 1,
       "unauthorized read must not fetch catalog",
     );
+    const deniedBrowse = await client.callTool({
+      name: browseTool.name,
+      arguments: args,
+    });
+    assert.equal(deniedBrowse.isError, true);
+    assert.equal(deniedBrowse._meta?.picker, undefined);
     denied = false;
     stale = true;
     await assert.rejects(
       createScreenshotPickerResult(apiClient, { ...args, deviceType: "phone" }),
       /Catalog expired/,
     );
+    const staleBrowse = await client.callTool({
+      name: browseTool.name,
+      arguments: args,
+    });
+    assert.equal(staleBrowse.isError, true);
+    assert.equal(staleBrowse._meta?.picker, undefined);
     const invalidBefore = requests.length;
     assert.equal(
       (
