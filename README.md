@@ -248,8 +248,8 @@ The screenshot result includes phone, tablet, and desktop. The social result inc
 
 `get_capabilities` lists, per area, the tools this server exposes and the
 editor URL, plus everything that only the dashboard can do (store publishing,
-store connections, custom product pages, A/B tests, reviews, app icon, website,
-export history, collaborators, QR codes, API keys, billing) with a deep link for
+store connections, custom product pages, A/B tests, reviews, app icon, website design
+and publishing, export history, collaborators, QR codes, API keys, billing) with a deep link for
 each. Pass `projectId` for project links. `get_plan_usage` reports the monthly
 API export allowance and, with `projectId`, keyword and competitor limits.
 

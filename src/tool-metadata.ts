@@ -131,6 +131,8 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   add_keyword_competitors: { ...createOrAppend, idempotentHint: true },
   remove_keyword_competitors: overwriteOrDelete,
   get_keyword_history: readOnly,
+  get_website: readOnly,
+  save_website_pages: overwriteOrDelete,
   get_store_listing: readOnly,
   // Optional replaceVariantId retires the previous listing variant.
   generate_store_listing: overwriteOrDelete,

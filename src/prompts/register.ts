@@ -3,6 +3,40 @@ import { z } from "zod";
 
 export function registerPrompts(server: McpServer): void {
   server.registerPrompt(
+    "first-run",
+    {
+      title: "Check Connection and Get Started",
+      description:
+        "Confirm the AppLaunchFlow connection works, show what this account can access, and choose a next step without changing anything.",
+      argsSchema: z.object({
+        projectId: z
+          .string()
+          .optional()
+          .describe("Optional project to focus on after the check."),
+      }),
+    },
+    async ({ projectId }) => ({
+      description:
+        "Use this prompt right after connecting AppLaunchFlow to confirm it works.",
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: [
+              "Check my AppLaunchFlow connection. Call list_projects and get_plan_usage, then tell me in two lines which projects you can see and what I have left this month.",
+              projectId
+                ? `Then call get_project for project ${projectId} and suggest the most useful next step based on what it already has.`
+                : "Then ask one question: create a new app or work on an existing one? For an existing one, suggest the most useful next step based on what it already has.",
+              "Make no changes until I choose.",
+            ].join("\n"),
+          },
+        },
+      ],
+    }),
+  );
+
+  server.registerPrompt(
     "create-project-wizard",
     {
       title: "Create Project Wizard",
