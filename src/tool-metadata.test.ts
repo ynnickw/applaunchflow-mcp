@@ -89,6 +89,43 @@ test("all registered tools expose submission safety metadata and output schemas"
   }
 });
 
+test("project creation advertises public App Store access in both transports", async () => {
+  for (const hosted of [false, true]) {
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    const server = createAppLaunchFlowServer(
+      {
+        baseUrl: "https://dashboard.applaunchflow.com",
+        token: "test-token",
+      },
+      { hosted },
+    );
+    const client = new Client({ name: "project-import-metadata-test", version: "1.0.0" });
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      const { tools } = await client.listTools();
+      const createProject = tools.find((tool) => tool.name === "create_project");
+      assert.deepEqual(createProject?.annotations, {
+        title: "Create Project",
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      });
+      assert.ok(createProject?.inputSchema.properties?.appStore);
+      assert.ok(createProject?.inputSchema.properties?.appName);
+      assert.equal(
+        tools.find((tool) => tool.name === "list_projects")?.annotations?.openWorldHint,
+        false,
+      );
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  }
+});
+
 test("hosted tools emit privacy-safe structured outcome logs", async () => {
   const api = createServer((request, response) => {
     if (request.url === "/api/v1/projects") {

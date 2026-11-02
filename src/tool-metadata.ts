@@ -43,7 +43,8 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   get_release_render: readOnly,
   list_projects: readOnly,
   get_project: readOnly,
-  create_project: createOrAppend,
+  // Optional appStore import reads metadata/icons from Apple's public catalog.
+  create_project: openWorldCreate,
   delete_project: overwriteOrDelete,
   upload_screenshots: { ...overwriteOrDelete, openWorldHint: true },
   list_illustrations: readOnly,
