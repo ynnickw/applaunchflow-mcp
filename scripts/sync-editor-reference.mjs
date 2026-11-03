@@ -35,6 +35,8 @@ const sources = [
   ['promoVideo', 'src/features/promovideo/lib/fontFamilies.ts'],
   ['mockups', 'src/features/mockups/types.ts'],
   ['mockups', 'src/app/api/mockups/apiSchema.ts'],
+  ['mockups', 'src/features/mockups/lib/projectStateSchema.ts'],
+  ['mockups', 'src/features/mockups/lib/projectMediaPathSchema.ts'],
   ['mockups', 'src/features/mockups/lib/audioTrackSchema.ts'],
   ['shared', 'src/features/mockups/config.ts'],
   ['mockups', 'src/features/mockups/lib/devices.ts'],
