@@ -61,7 +61,7 @@ export function registerDeviceVideoTools(
     {
       title: "Create Device-Only Video",
       description:
-        "Creates and saves a regular Video variant with project screenshots or recordings on a 3D device and no generated copy. The editor can add text, scenes and transitions later. Returns the variant ID and editor link.",
+        "Saves a new Video variant in the selected project using its existing screenshots or recordings on a 3D device, without generating copy. Returns the variant ID and editor link. Optional replaceVariantId retires that existing variant after the new video saves and requires explicit user approval.",
       inputSchema: z
         .object({
           projectId,

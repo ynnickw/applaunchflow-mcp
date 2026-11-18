@@ -353,6 +353,24 @@ test("export defaults to the video's format and polling resolves a download URL"
   ]);
 });
 
+test("over-length video export points to browser export without suggesting design edits", async () => {
+  const { call, calls } = setup({
+    exportPromoVideo: () => {
+      throw new Error("Server exports must be under 30 seconds.");
+    },
+  });
+  const result = await call("export_promo_video", {
+    projectId,
+    category: "social",
+    size: "9:16",
+    idempotencyKey: "export-key-1",
+  });
+  assert.equal(result.isError, true);
+  assert.match(result.structuredContent.error.message, /use "On your device"/);
+  assert.doesNotMatch(result.structuredContent.error.message, /update_promo_video/);
+  assert.deepEqual(calls.map(({ name }) => name), ["exportPromoVideo"]);
+});
+
 test("translate sends the batch request and generate accepts device type and 1-10 screenshots", async () => {
   const { call, calls } = setup({
     translatePromoVideo: {

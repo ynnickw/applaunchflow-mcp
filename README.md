@@ -282,7 +282,8 @@ Other tools in this area:
 - Keywords: `add_keywords` resolves the store and app from the project's linked
   app; `remove_keywords`, `suggest_keywords`, `add_keyword_competitors`,
   `remove_keyword_competitors`, `suggest_keyword_competitors`.
-- Variants: `create_variant` makes an empty variant and never activates it;
+- Variants: `create_variant` makes an empty variant. The first variant of a
+  content type becomes active automatically. Later variants start inactive.
   `duplicate_variant` copies content and returns an editor URL;
   `set_active_variant` refuses empty variants; `delete_variant` needs
   `confirm: true`.

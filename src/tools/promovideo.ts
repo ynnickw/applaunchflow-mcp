@@ -585,7 +585,7 @@ export function registerPromoVideoTools(
     {
       title: "Export Promo Video",
       description:
-        "Starts an MP4/WebM export of a saved promo-video variant and language. Supports configured App Store, iPad, social and creative placements within renderer limits. Server duration must be under thirty seconds. An accepted job uses one API export allowance and returns exportId. The same idempotencyKey identifies the same request across retries.",
+        "Starts an MP4 or WebM render of a saved video variant and language under 30 seconds. An accepted job uses one API export allowance and returns exportId. The saved design stays intact. Transparent backgrounds require social WebM. Reuse the same idempotencyKey for retries of the same export.",
       inputSchema: z.object({
         projectId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
@@ -594,7 +594,9 @@ export function registerPromoVideoTools(
         size: z.string().optional(),
         format: z.enum(["mp4", "webm"]).optional(),
         quality: z.enum(["720p", "1080p"]).optional(),
-        transparentBackground: z.boolean().optional()
+        transparentBackground: z
+          .boolean()
+          .optional()
           .describe("Render with alpha. Requires a social WebM export."),
         idempotencyKey: z
           .string()
@@ -603,7 +605,14 @@ export function registerPromoVideoTools(
           .describe("Unique per intended export; reuse on retries."),
       }),
     },
-    async ({ projectId, variantId, language, idempotencyKey, transparentBackground, ...choice }) => {
+    async ({
+      projectId,
+      variantId,
+      language,
+      idempotencyKey,
+      transparentBackground,
+      ...choice
+    }) => {
       try {
         let previewFormat: unknown;
         if (!choice.category || !choice.size) {
@@ -635,9 +644,8 @@ export function registerPromoVideoTools(
         );
       } catch (error) {
         if (error instanceof Error && /under 30 seconds/i.test(error.message)) {
-          // The editor's "On your device" export is browser-only.
           error.message +=
-            " Via MCP: shorten scene durations or set hidden: true on scenes with update_promo_video, then export again with a new idempotencyKey.";
+            ' For longer videos, use "On your device" in the Videos editor.';
         }
         return fail(error);
       }
