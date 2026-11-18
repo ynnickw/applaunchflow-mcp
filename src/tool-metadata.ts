@@ -103,16 +103,9 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   // Uses one API export; the idempotency key makes retries safe.
   export_promo_video: { ...createOrAppend, idempotentHint: true },
   get_promo_video_export: readOnly,
-  create_mockup_animation: createOrAppend,
-  get_mockup_animation: readOnly,
-  update_mockup_animation: overwriteOrDelete,
-  list_mockup_media: readOnly,
-  list_mockup_presets: readOnly,
-  // Server renders (Lambda) but changes no user content.
-  preview_mockup_animation: { ...readOnly, idempotentHint: false },
-  export_mockup_animation: { ...createOrAppend, idempotentHint: true },
-  get_mockup_animation_export: readOnly,
-  generate_mockup_motion: { ...readOnly, idempotentHint: false },
+  create_device_video: overwriteOrDelete,
+  list_video_recordings: readOnly,
+  generate_promo_video_motion: { ...readOnly, idempotentHint: false },
   // Re-running for an existing language re-syncs its design from the source.
   translate_layouts: overwriteOrDelete,
   list_translations: readOnly,
@@ -208,7 +201,6 @@ export function resolveProjectIdAlias(args: unknown): unknown {
 /** Tools whose result is image content; see the outputSchema note below. */
 const IMAGE_RESULT_TOOLS = new Set([
   "view_review_snapshot",
-  "preview_mockup_animation",
   "preview_screenshots",
   "preview_promo_video",
 ]);

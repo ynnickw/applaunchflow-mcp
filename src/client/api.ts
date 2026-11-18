@@ -154,7 +154,7 @@ export class AppLaunchFlowClient {
       | "logo"
       | "panorama"
       | "background"
-      | "mockup-media"
+      | "recording-library"
       | "promo-media"
       | "font";
   }) {
@@ -408,6 +408,45 @@ export class AppLaunchFlowClient {
     });
   }
 
+  createDeviceVideo(body: Record<string, unknown>, idempotencyKey?: string) {
+    return this.requestJson<{ variantId: string; durationInFrames: number }>(
+      "/api/v1/promovideo/create-device-only",
+      {
+        method: "POST",
+        body,
+        headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
+      },
+    );
+  }
+
+  listVideoRecordings(projectId: string, includeMetadata: boolean) {
+    return this.requestJson<{
+      media: Array<{ path: string; kind: "image" | "video" }>;
+    }>("/api/v1/assets/recordings", {
+      query: { projectId, includeMetadata: includeMetadata ? "true" : undefined },
+      timeoutMs: includeMetadata ? 90_000 : undefined,
+    });
+  }
+
+  generatePromoVideoMotion(body: {
+    generationId: string;
+    prompt: string;
+    deviceKind: "phone" | "tablet" | "laptop";
+  }) {
+    return this.requestJson<{
+      motion: {
+        label: string;
+        description: string;
+        keyframes: unknown[];
+        duration: number;
+      };
+    }>("/api/v1/promovideo/generate-motion", {
+      method: "POST",
+      body,
+      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
+    });
+  }
+
   translatePromoVideo(body: {
     generationId: string;
     variantId?: string;
@@ -492,125 +531,6 @@ export class AppLaunchFlowClient {
     return this.requestJson<any>("/api/promovideo/clear", {
       method: "POST",
       body,
-    });
-  }
-
-  createMockupAnimation(body: Record<string, unknown>) {
-    return this.requestJson<any>("/api/mockups/setup", {
-      method: "POST",
-      body,
-    });
-  }
-
-  getMockupAnimation(generationId: string, variantId?: string) {
-    return this.requestJson<any>("/api/mockups", {
-      query: { generationId, variantId },
-    });
-  }
-
-  updateMockupAnimation(body: Record<string, unknown>) {
-    return this.requestJson<any>("/api/mockups", {
-      method: "POST",
-      body,
-    });
-  }
-
-  listMockupMedia(projectId: string, options: { includeMetadata?: boolean } = {}) {
-    return this.requestJson<any>("/api/mockup-media/list", {
-      query: {
-        projectId,
-        includeMetadata: options.includeMetadata ? "true" : undefined,
-      },
-      timeoutMs: options.includeMetadata ? 90_000 : undefined,
-    });
-  }
-
-  inspectMockupMedia(body: {
-    generationId: string;
-    path: string;
-    removeIfUnsuitable?: boolean;
-  }) {
-    return this.requestJson<any>("/api/mockup-media/inspect", {
-      method: "POST",
-      body,
-    });
-  }
-
-  getMockupPresets() {
-    return this.requestJson<any>("/api/mockups/presets");
-  }
-
-  previewMockupAnimation(body: {
-    generationId: string;
-    variantId?: string;
-    times?: number[];
-    scale?: number;
-  }) {
-    return this.requestJson<any>("/api/mockups/preview", {
-      method: "POST",
-      body,
-      timeoutMs: 150_000,
-    });
-  }
-
-  generateMockupMotion(body: {
-    generationId: string;
-    prompt: string;
-    deviceKind: "phone" | "tablet" | "laptop";
-  }) {
-    return this.requestJson<any>("/api/mockups/generate-motion", {
-      method: "POST",
-      body,
-      timeoutMs: LONG_RUNNING_API_TIMEOUT_MS,
-    });
-  }
-
-  exportMockupAnimation(
-    body: {
-      projectId: string;
-      variantId?: string;
-      options: { format: "mp4" | "webm"; quality: "720p" | "1080p"; fps: 30 | 60 };
-    },
-    idempotencyKey?: string,
-  ) {
-    return this.requestJson<{ status: string; exportJobId: string }>(
-      "/api/mockups/export",
-      {
-        method: "POST",
-        body,
-        headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
-        timeoutMs: 120_000,
-      },
-    );
-  }
-
-  /** Video export job status (promo or mockup). */
-  getExportJob(exportJobId: string) {
-    return this.requestJson<{
-      export: {
-        id: string;
-        contentType: string;
-        status: string;
-        progress: number | null;
-        errorMessage: string | null;
-        fileName: string | null;
-        fileSize: number | null;
-        expiresAt: string | null;
-      };
-      downloadUrl?: string;
-    }>(`/api/exports/${encodeURIComponent(exportJobId)}`, {
-      timeoutMs: 60_000,
-    });
-  }
-
-  /** Resolve an export-history download link to a short-lived file URL. */
-  getExportDownload(downloadPath: string) {
-    return this.requestJson<{ url: string; expiresAt: string }>(downloadPath);
-  }
-
-  getMockupThemeColors(generationId: string) {
-    return this.requestJson<any>("/api/mockups/theme-colors", {
-      query: { generationId },
     });
   }
 

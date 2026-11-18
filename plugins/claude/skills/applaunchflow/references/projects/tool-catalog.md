@@ -6,7 +6,7 @@ This is a reference, not a script to execute in order. Read only the tool needed
 
 ## get_editing_reference
 
-Returns the built-in editing reference for screenshots, social graphics, promo videos or mockups. Includes a symbol index and complete field, enum, coordinate, validator and catalog definitions. Read-only and available without project access or external resource browsing.
+Returns the built-in editing reference for screenshots, social graphics, or promo videos. Includes a symbol index and complete field, enum, coordinate, validator and catalog definitions. Read-only and available without project access or external resource browsing.
 
 Input schema:
 
@@ -19,12 +19,11 @@ Input schema:
       "enum": [
         "screenshots",
         "socialGraphics",
-        "promoVideo",
-        "mockups"
+        "promoVideo"
       ]
     },
     "symbol": {
-      "description": "Exact type/schema/catalog name from the index, e.g. ScreenshotNode, Model3DConfig, SceneDeviceSchema, stateSchema or MockupDevice.",
+      "description": "Exact type/schema/catalog name from the index, e.g. ScreenshotNode, Model3DConfig, SceneDeviceSchema or DeviceCustomMotionSchema.",
       "type": "string"
     }
   },
@@ -189,7 +188,6 @@ Input schema:
         "screenshots",
         "socialGraphics",
         "promoVideo",
-        "mockups",
         "website"
       ]
     },
@@ -229,7 +227,6 @@ Input schema:
         "screenshots",
         "socialGraphics",
         "promoVideo",
-        "mockups",
         "website"
       ]
     },
@@ -299,7 +296,6 @@ Input schema:
         "screenshots",
         "socialGraphics",
         "promoVideo",
-        "mockups",
         "website"
       ]
     },
@@ -340,7 +336,6 @@ Input schema:
         "screenshots",
         "socialGraphics",
         "promoVideo",
-        "mockups",
         "website"
       ]
     },

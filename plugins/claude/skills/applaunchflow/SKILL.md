@@ -1,6 +1,6 @@
 ---
 name: applaunchflow
-description: Create and edit AppLaunchFlow app-store screenshots, social graphics, App Store headers and search creatives, promo videos, animated device mockups, assets, localized listing copy and keyword tracking through its connected MCP server. Use for AppLaunchFlow launch-asset workflows, not for implementing the app itself.
+description: Create and edit AppLaunchFlow app-store screenshots, social graphics, App Store headers and search creatives, AI and device-only videos, assets, localized listing copy and keyword tracking through its connected MCP server. Use for AppLaunchFlow launch-asset workflows, not for implementing the app itself.
 ---
 
 # AppLaunchFlow
@@ -42,15 +42,13 @@ Each includes supported editing instructions and a complete tool-input catalog.
 | App Store / Google Play screenshot story; change headline, illustration, frame, device size or locale | [Screenshots](references/screenshots.md) |
 | Instagram post/story, banner, ad, App Store header/search creative or event card | [Graphics and store creatives](references/graphics.md) |
 | Marketing video scenes, closeups, recordings, text, transitions, music or localized video | [Promo videos](references/promo-video.md) |
-| Animated phone, duo, tablet or laptop; motion paths, recordings, presenter or audio | [Device mockups](references/mockups.md) |
+| Animated phone, Duo, tablet or laptop with project screenshots or recordings | [Device-only videos](references/promo-video.md#start-a-device-only-video) |
 | Upload, find, bind, organize, replace or remove screenshots, illustrations, fonts, backgrounds and audio | [Assets](references/assets.md) |
 | Draft, correct or translate stored App Store / Google Play listing text | [Store copy](references/store-copy.md) |
 | Discover or track keywords, competitors and rank history | [Keywords](references/keywords.md) |
 | Project/variant setup, mixed requests or account recovery | [Projects and variants](references/projects.md) |
 
-An App Store header is a graphics format, not screenshot number one. A promo
-video is a scene sequence; a mockup is an animated device composition. Use the
-actual requested workflow rather than a similarly named tool.
+An App Store header is a graphics format. Use the Videos workflow for AI concepts, device-only demos, and migrated mockups.
 
 ## Essential workflow contracts
 
@@ -116,13 +114,7 @@ placements must not receive invented retina multiples.
 
 ### Refine a promo or device animation
 
-Read the saved configuration and [promo](references/promo-video.md) or
-[mockup](references/mockups.md) guide. Preserve the complete document during
-updates. Inspect a settled frame and another relevant scene/time when checking
-closeup focus or transitions. For mockups, exported duration/timing is distinct
-from editor playback speed. Still frames cannot establish motion or audio
-continuity; use editor playback for those checks. Preview resolution is
-independent of export quality.
+Read the saved configuration and the [Videos guide](references/promo-video.md). Preserve the complete document during updates. Inspect a settled frame and another relevant scene or time for closeup focus and transitions. Use editor playback to check continuous motion and audio.
 
 ### Localize without overwriting custom work
 

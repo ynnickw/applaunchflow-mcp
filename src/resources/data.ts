@@ -209,7 +209,7 @@ export const WORKFLOW_GUIDE_RESOURCE = {
     "Prefer direct execution for concrete requests. Ask follow-up questions only when needed to avoid a materially wrong result. Call get_capabilities to see what is possible and what only the dashboard can do.",
   conventions: [
     "projectId and generationId are the same project id; tools that take generationId also accept projectId.",
-    "Every edit tool needs a fresh read of the same target first (get_layout, get_graphics_format, get_promo_video, get_mockup_animation).",
+    "Every edit tool needs a fresh read of the same target first (get_layout, get_graphics_format, get_promo_video).",
     "Read get_editing_reference for the feature before writing JSON; a get_* response only shows fields currently set.",
     "Always repeat returned editor/gallery/picker URLs verbatim to the user.",
     "Plan-limit errors carry error.recovery (retryable false + upgradeUrl): do not retry; tell the user the options.",
@@ -274,17 +274,16 @@ export const WORKFLOW_GUIDE_RESOURCE = {
         "generate_promo_video shows three candidates in a picker; stop and let the user choose (no variant exists until then). Edit by reading the full config with get_promo_video, changing it in memory and sending the whole config to update_promo_video. clear_promo_video wipes a variant only on explicit request. There is no template gallery.",
     },
     {
-      name: "Mockup animation",
+      name: "Device-only video",
       preferredSteps: [
-        "list_mockup_media",
-        "list_mockup_presets",
-        "create_mockup_animation",
-        "get_editing_reference",
-        "get_mockup_animation",
-        "update_mockup_animation",
+        "list_source_screenshots",
+        "list_video_recordings",
+        "create_device_video",
+        "get_promo_video",
+        "preview_promo_video",
       ],
       notes:
-        "Upload a recording or screenshot first if needed (upload_asset fileType mockup-media; video uploads return durationSeconds). create_mockup_animation always makes a new variant. Edits are full-state replaces after a fresh get_mockup_animation.",
+        "Choose project screenshots or recordings and a matching device. Use generate_promo_video_motion only for custom keyframes. The result is a standard Video variant. Edit with a fresh read receipt and use the promo-video export flow.",
     },
     {
       name: "Localization",

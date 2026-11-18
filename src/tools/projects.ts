@@ -302,7 +302,6 @@ export function toSafeProjectState(
       "screenshots",
       "socialGraphics",
       "promoVideo",
-      "mockups",
       "asoCopy",
       "appIcon",
       "website",

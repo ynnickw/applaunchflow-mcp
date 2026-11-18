@@ -500,7 +500,7 @@ test("plan-limit failures from the dashboard reach the agent with recovery guida
     async (client, _calls, base) => {
       const result: any = await client.callTool({
         name: "create_variant",
-        arguments: { generationId: PROJECT, contentType: "mockups" },
+        arguments: { generationId: PROJECT, contentType: "promoVideo" },
       });
       assert.equal(result.isError, true);
       assert.equal(result.structuredContent.error.recovery.kind, "variant_limit");

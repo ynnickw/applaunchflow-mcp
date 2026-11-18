@@ -4,7 +4,7 @@ Check that the workflow's named tools are exposed by this host. If one is absent
 
 Use `list_assets` and `list_source_screenshots` to find reusable sources; `list_screenshots`/`view_screenshot` inspect uploaded screenshots, not the rendered marketing layout. `list_illustrations` lists illustration assets. Keep returned relative paths for edits; never invent storage paths or treat signed display URLs as durable references.
 
-An ordinary upload stores a new asset. It doesn't put it into a screenshot, graphic, promo scene or mockup. After upload, bind it through that feature's edit workflow using the returned path and the correct target frame/scene. Explicit screenshot recapture/overwrite is a separate workflow below.
+An ordinary upload stores a new asset. It doesn't put it into a screenshot, graphic, or video scene. After upload, bind it through that feature's edit workflow using the returned path and the correct target frame/scene. Explicit screenshot recapture/overwrite is a separate workflow below.
 
 # Choose an upload path
 

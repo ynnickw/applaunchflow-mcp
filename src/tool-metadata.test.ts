@@ -23,7 +23,7 @@ test("all registered tools expose submission safety metadata and output schemas"
   await client.connect(clientTransport);
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 93);
+    assert.equal(tools.length, 87);
     assert.equal(
       tools.find((tool) => tool.name === "replace_asset")?.annotations
         ?.destructiveHint,
@@ -61,7 +61,7 @@ test("all registered tools expose submission safety metadata and output schemas"
     for (const tool of tools) {
       assert.deepEqual(tool.annotations, { ...TOOL_ANNOTATIONS[tool.name], title: tool.title });
       if (
-        ["view_review_snapshot", "preview_mockup_animation", "preview_screenshots", "preview_promo_video"].includes(tool.name)
+        ["view_review_snapshot", "preview_screenshots", "preview_promo_video"].includes(tool.name)
       ) {
         assert.equal(tool.outputSchema, undefined);
       } else {

@@ -1,6 +1,6 @@
 # Start from the intended deliverable
 
-Resolve the user's project with `list_projects` and `get_project`. Use names to find it and returned IDs for calls. A project can contain screenshots, graphics, promo videos, mockups and store copy; a similarly named variant is not interchangeable across these types.
+Resolve the user's project with `list_projects` and `get_project`. Use names to find it and returned IDs for calls. A project can contain screenshots, graphics, AI and device-only videos, and store copy; a similarly named variant is not interchangeable across these types.
 
 For an existing asset, use `list_variants` for the requested content type and carry an explicit variant ID through reads, edits and previews. Resolve the language, store platform, device and output format only to the detail needed for this task. Do not ask for information already in the project.
 
@@ -15,7 +15,6 @@ Read only the skill relevant to the request:
 - [Screenshots](screenshots.md): multi-screen store listing designs, device formats and localization.
 - [Graphics](graphics.md): social posts, banners, ads and static store creatives.
 - [Promo videos](promo-video.md): a sequence of marketing scenes with copy, media, music and transitions.
-- [Mockups](mockups.md): device motion, screen recordings and presenter overlays.
 - [Assets](assets.md): upload, reuse, organize and remove source media.
 - [Store copy](store-copy.md): listing text and languages.
 - [Keywords](keywords.md): linked-app rank monitoring, suggestions and competitors.

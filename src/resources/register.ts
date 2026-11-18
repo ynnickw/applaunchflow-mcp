@@ -13,7 +13,7 @@ import {
   TRANSFORM_SCHEMA_RESOURCE,
   WORKFLOW_GUIDE_RESOURCE,
 } from "./data.js";
-import { getFullEditorReference } from "./editor-reference.js";
+import { EDITOR_FEATURES, getFullEditorReference } from "./editor-reference.js";
 
 function asJsonResource(uri: string, payload: unknown) {
   return {
@@ -43,7 +43,7 @@ export function registerResources(
   server: McpServer,
   client: AppLaunchFlowClient,
 ): void {
-  for (const feature of ["screenshots", "socialGraphics", "promoVideo", "mockups"] as const) {
+  for (const feature of EDITOR_FEATURES) {
     server.registerResource(`editing-${feature}`, `applaunchflow://editing/${feature}`, {
       title: `${feature} complete editing reference`,
       description: "Complete current editor contracts, validators, catalogs, coordinate units and safe editing workflow. For smaller targeted responses use get_editing_reference.",

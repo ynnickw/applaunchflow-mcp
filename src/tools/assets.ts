@@ -321,43 +321,6 @@ async function resolveUploadPayload(
   ];
 }
 
-/**
- * Check an uploaded mockup recording against the cloud-render profile and
- * have the server delete it when unsuitable. null when the dashboard predates
- * the inspection endpoint.
- */
-async function inspectMockupRecording(
-  client: AppLaunchFlowClient,
-  projectId: string,
-  path: string,
-): Promise<{
-  exportSafe: boolean;
-  issues: string[];
-  removed?: boolean;
-  ffmpegCommand?: string;
-  durationSeconds?: number;
-  width?: number;
-  height?: number;
-  fps?: number | null;
-} | null> {
-  try {
-    return await client.inspectMockupMedia({
-      generationId: projectId,
-      path,
-      removeIfUnsuitable: true,
-    });
-  } catch (error) {
-    if (error instanceof AppLaunchFlowApiError && error.status === 404)
-      return null;
-    if (error instanceof AppLaunchFlowApiError && error.status < 500)
-      throw new ToolInputError(
-        "INVALID_UPLOAD_INPUT",
-        `Uploaded ${path}, but it could not be read as a video recording: ${error.message}`,
-      );
-    throw error;
-  }
-}
-
 export function registerAssetTools(
   server: McpServer,
   client: AppLaunchFlowClient,
@@ -748,11 +711,12 @@ export function registerAssetTools(
             "panorama",
             "background",
             "font",
+            "recording-library",
             "mockup-media",
             "promo-media",
           ])
           .describe(
-            "Use mockup-media for mockup screens/recordings and mockup soundtracks, promo-media for promo video/audio footage, font for TTF/OTF/WOFF/WOFF2, or an image category. Mockup recordings are checked on upload (H.264, ≤1080 px short side, keyframe every ≤2 s, ≤60 fps) and rejected with an ffmpeg command when unsuitable.",
+            "Use recording-library for device-only screen recordings (mockup-media is a legacy alias), promo-media for video/audio footage, font for TTF/OTF/WOFF/WOFF2, or an image category. Use list_video_recordings with includeMetadata to check a recording for cloud rendering.",
           ),
         source: exposedUploadSourceSchema.describe(
           "The file source — provide an HTTPS URL or base64 data, or a local file path for npm/stdio, with an appropriate filename.",
@@ -784,11 +748,12 @@ export function registerAssetTools(
             "Asset exceeds the 25 MB upload limit",
           );
         const mime = payload.contentType;
+        const uploadType = fileType === "mockup-media" ? "recording-library" : fileType;
         const allowed =
           fileType === "font"
             ? /^(font\/|application\/(x-font-|font-))/.test(mime)
             : mime.startsWith("image/") ||
-              ((fileType === "mockup-media" || fileType === "promo-media") &&
+              ((uploadType === "recording-library" || uploadType === "promo-media") &&
                 (mime.startsWith("video/") || mime.startsWith("audio/")));
         if (!allowed)
           throw new ToolInputError(
@@ -799,7 +764,7 @@ export function registerAssetTools(
           projectId,
           filename: `${randomUUID()}-${payload.filename}`,
           contentType: payload.contentType,
-          fileType,
+          fileType: uploadType,
         });
         await client.uploadBinary(
           signed.uploadUrl,
@@ -814,7 +779,7 @@ export function registerAssetTools(
                 ...(fontFamily ? { name: fontFamily } : {}),
               })
             : null;
-        // Durations let agents time promo/mockup scenes to the real clip.
+        // Durations let agents time video scenes to the real clip.
         const durationSeconds =
           mime.startsWith("video/") || mime.startsWith("audio/")
             ? mediaDurationSeconds(payload.buffer, mime)
@@ -828,47 +793,11 @@ export function registerAssetTools(
             ? { fontFamily: registered.family, font: registered.font }
             : {}),
         };
-        if (fileType === "mockup-media" && mime.startsWith("video/")) {
-          let inspection: Awaited<ReturnType<typeof inspectMockupRecording>>;
-          try {
-            inspection = await inspectMockupRecording(
-              client,
-              projectId,
-              signed.path,
-            );
-          } catch (error) {
-            if (error instanceof ToolInputError) return fail(error);
-            throw error;
-          }
-          if (inspection && !inspection.exportSafe)
-            return fail(
-              new ToolInputError(
-                "INVALID_UPLOAD_INPUT",
-                [
-                  `This recording isn't suitable for mockup rendering and was ${inspection.removed ? "removed" : "not used"}: ${inspection.issues.join(" ")}`,
-                  "The editor re-encodes recordings to H.264, 30 fps, a keyframe every 2 s, ≤1080 px short side, ≤30 MB; the server cannot re-encode.",
-                  `Re-encode it and upload again, e.g.: ${inspection.ffmpegCommand}`,
-                  "Or ask the user to upload it in the mockup editor, which converts it automatically.",
-                ].join("\n"),
-              ),
-            );
-          if (inspection)
-            return ok(
-              {
-                ...uploaded,
-                durationSeconds: inspection.durationSeconds,
-                width: inspection.width,
-                height: inspection.height,
-                fps: inspection.fps,
-              },
-              `Uploaded ${fileType} recording (${inspection.durationSeconds}s, ${inspection.width}×${inspection.height})`,
-            );
-        }
         return ok(
           uploaded,
           registered
             ? `Uploaded and registered font family "${registered.family}"`
-            : `Uploaded ${fileType} asset`,
+            : `Uploaded ${uploadType} asset`,
         );
       } catch (error) {
         return safeFail(

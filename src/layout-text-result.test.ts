@@ -5,7 +5,6 @@ import type { AppLaunchFlowClient } from "./client/api.js";
 import { registerLayoutTools } from "./tools/layouts.js";
 import { registerGraphicsTools } from "./tools/graphics.js";
 import { registerPromoVideoTools } from "./tools/promovideo.js";
-import { registerMockupTools } from "./tools/mockups.js";
 
 test("text-only hosted clients can read a layout and pass its receipt to a matching edit", async () => {
   const previous = process.env.APPLAUNCHFLOW_MCP_REMOTE;
@@ -105,12 +104,10 @@ test("all guarded reads expose identical edit state to text-only clients", async
       },
       getGraphicsFormat: async () => fixture,
       getPromoVideo: async () => fixture,
-      getMockupAnimation: async () => fixture,
       getLayout: async () => null,
     } as unknown as AppLaunchFlowClient;
     registerGraphicsTools(server, client);
     registerPromoVideoTools(server, client);
-    registerMockupTools(server, client);
     registerLayoutTools(server, client);
     const handlers = (
       server as unknown as {
@@ -120,7 +117,6 @@ test("all guarded reads expose identical edit state to text-only clients", async
     for (const tool of [
       "get_graphics_format",
       "get_promo_video",
-      "get_mockup_animation",
     ]) {
       const result = await handlers[tool].handler(
         {

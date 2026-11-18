@@ -14,21 +14,20 @@ test('references cover the current editable roots and easily missed manual setti
     ['promoVideo', 'SceneDeviceSchema', ['video', 'mediaRotation', 'presentation', 'animationDelay']],
     ['promoVideo', 'MultiPhoneContentSchema', ['layoutDeviceCount', 'devicePresentations', 'deviceModels', 'videos']],
     ['promoVideo', 'FeatureContentSchema', ['modelLidOpen', 'modelFinish', 'devicePresentation']],
+    ['promoVideo', 'createDeviceOnlyVideoRequestSchema', ['recordings', 'customMotion', 'DEVICE_ONLY_MAX_SCREENS']],
+    ['promoVideo', 'DeviceCustomMotionSchema', ['keyframes', 'lidOpen', 'easing']],
+    ['promoVideo', 'PROMO_MOTION_IDS', ['duo-unfold', 'lid-turn']],
     ['promoVideo', 'VideoConfigSchema', ['audioDesign', 'screenshotPaths', 'previewFormat']],
-    ['mockups', 'MockupDevice', ['name', 'primaryKeyframes', 'selectedMediaPath']],
-    ['mockups', 'mockupDeviceSchema', ['start', 'end', 'entrance', 'exit', 'transitionDuration']],
-    ['mockups', 'stateSchema', ['MAX_MOCKUP_DEVICES', 'Device IDs must be unique', 'at least 0.1s']],
-    ['mockups', 'MockupAudioTrackSchema', ['bundledMusicId', 'exactly one', 'startTimeSeconds']],
   ] as const;
   for (const [feature, symbol, fields] of cases) {
     const ref = JSON.stringify(getEditorReference(feature, symbol));
     for (const field of fields) assert.ok(ref.includes(field), `${feature}/${symbol} must cover ${field}`);
   }
-  assert.throws(() => getEditorReference('mockups', 'invented'), /Unknown/);
+  assert.throws(() => getEditorReference('promoVideo', 'invented'), /Unknown/);
   assert.match(SERVER_INSTRUCTIONS, /Before editing.*get_editing_reference/);
 });
 
-test('all four full references and symbol indexes agree without truncated declarations', () => {
+test('full references and symbol indexes agree without truncated declarations', () => {
   for (const feature of EDITOR_FEATURES) {
     const full = getFullEditorReference(feature);
     assert.ok(full.contracts.length >= 4);
@@ -50,6 +49,7 @@ test('MCP clients can retrieve editing guidance through both tools and resources
   await client.connect(a);
   try {
     const listed = await client.listResources();
+    assert.ok(!listed.resources.some(resource => resource.uri === "applaunchflow://editing/mockups"));
     for (const feature of EDITOR_FEATURES) {
       const uri = `applaunchflow://editing/${feature}`;
       assert.ok(listed.resources.some(resource => resource.uri === uri));
@@ -61,10 +61,10 @@ test('MCP clients can retrieve editing guidance through both tools and resources
       assert.notEqual(tool.isError, true);
       assert.match(JSON.stringify(tool), /symbols/);
     }
-    const detail = await client.callTool({ name: 'get_editing_reference', arguments: { feature: 'mockups', symbol: 'MockupDevice' } });
+    const detail = await client.callTool({ name: 'get_editing_reference', arguments: { feature: 'promoVideo', symbol: 'DeviceCustomMotionSchema' } });
     assert.notEqual(detail.isError, true);
-    assert.match(JSON.stringify(detail), /primaryKeyframes/);
-    const invalid = await client.callTool({ name: 'get_editing_reference', arguments: { feature: 'mockups', symbol: 'invented' } });
+    assert.match(JSON.stringify(detail), /lidOpen/);
+    const invalid = await client.callTool({ name: 'get_editing_reference', arguments: { feature: 'promoVideo', symbol: 'invented' } });
     assert.equal(invalid.isError, true);
   } finally {
     await client.close();
