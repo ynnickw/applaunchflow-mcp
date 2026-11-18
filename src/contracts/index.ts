@@ -292,7 +292,7 @@ type AssetUploadMetadata = {
   platform?: AssetUploadRequest["platform"];
   fileType?:
     | "logo"
-    | "mockup-media"
+    | "recording-library"
     | "illustration"
     | "background"
     | "panorama"
@@ -325,7 +325,7 @@ export function assetUploadMetadata(
   }
   const fileType = {
     appIcon: "logo",
-    recordings: "mockup-media",
+    recordings: "recording-library",
     illustrations: "illustration",
     backgrounds: "background",
     panoramas: "panorama",
@@ -352,7 +352,7 @@ export function validateAssetUploadGrant(
   const metadata = assetUploadMetadata(request);
   const folders = {
     logo: "logo",
-    "mockup-media": "mockups",
+    "recording-library": "mockups",
     illustration: "illustrations",
     background: "backgrounds",
     panorama: "panorama",

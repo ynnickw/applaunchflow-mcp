@@ -7,8 +7,8 @@ not submit until every unchecked item has live evidence.
 
 - **Name:** AppLaunchFlow
 - **Category:** Design
-- **Short description:** Create app-store screenshots, social graphics, promo videos, and animated device mockups.
-- **Long description:** AppLaunchFlow turns uploaded app screenshots into polished launch assets without leaving ChatGPT or Codex. Create and edit App Store and Google Play screenshot sets, generate social graphics in six common formats, produce promo-video concepts, and build animated device mockups. Every operation is scoped to the AppLaunchFlow account connected through OAuth, and visual pickers open in the browser when a design choice needs human review.
+- **Short description:** Create app-store screenshots, social graphics, and AI or device-only videos.
+- **Long description:** AppLaunchFlow turns uploaded app screenshots into polished launch assets without leaving ChatGPT or Codex. Create and edit App Store and Google Play screenshot sets, generate social graphics in six common formats, produce promo-video concepts, and create device-only videos. Every operation is scoped to the AppLaunchFlow account connected through OAuth, and visual pickers open in the browser when a design choice needs human review.
 - **Website:** `https://www.applaunchflow.com`
 - **Support:** `https://dashboard.applaunchflow.com/docs/mcp`
 - **MCP URL:** `https://mcp.applaunchflow.com/mcp`
@@ -43,7 +43,7 @@ the same capabilities and authorization surface.
 2. Create a demo project, upload three HTTPS image assets, prepare screenshot styles, open the hosted gallery, select a template id, and apply it.
 3. Fetch a layout, pass its opaque `readReceipt` into `transform_layout`, and confirm only the requested screen changes.
 4. Prepare and apply a social-graphics style, then fetch and update one format with its matching receipt.
-5. Generate a promo video and a mockup animation, then perform one get-before-update flow for each.
+5. Generate an AI promo video and a device-only video, then perform one get-before-update flow for each.
 
 ## Starter prompts
 
@@ -83,11 +83,11 @@ the same capabilities and authorization surface.
 - **Expected shape:** A new graphics variant containing all supported formats and a saved Instagram Story update.
 - **Fixture:** The same five project screenshots.
 
-### Positive 5: Promo video and mockup animation
+### Positive 5: AI promo video and device-only video
 
 - **Prompt:** `Create promo-video concepts and an animated phone mockup from this project's screenshots.`
-- **Expected behavior:** Generate three transient promo candidates, let the reviewer select one, then create a mockup animation. Read before any subsequent update.
-- **Expected shape:** One saved promo variant, one mockup-animation variant, and their editor URLs.
+- **Expected behavior:** Generate three transient promo candidates, let the reviewer select one, then create a device-only video. Read before any subsequent update.
+- **Expected shape:** One saved promo variant, one device-only video variant, and their editor URLs.
 - **Fixture:** A project with remaining reviewer-plan capacity.
 
 ### Negative 1: Unauthenticated access
@@ -110,7 +110,7 @@ the same capabilities and authorization surface.
 
 ## Release notes
 
-Initial public submission of AppLaunchFlow as a universal OAuth-backed MCP plugin for ChatGPT and Codex. It supports app-store screenshots, social graphics, promo videos, and animated device mockups. Review credentials use an isolated demo account containing synthetic project data only.
+Initial public submission of AppLaunchFlow as a universal OAuth-backed MCP plugin for ChatGPT and Codex. It supports app-store screenshots, social graphics, and AI or device-only videos. Review credentials use an isolated demo account containing synthetic project data only.
 
 ## Negative and safety tests
 

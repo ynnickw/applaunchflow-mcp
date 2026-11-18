@@ -4,6 +4,293 @@ Generated from the registered hosted MCP schema. Do not edit by hand; run `npm r
 
 This is a reference, not a script to execute in order. Read only the tool needed for the task. The host's actual tool/input schema takes precedence if versions differ. Never call a tool hidden by the host, and never copy synthetic IDs into a real request.
 
+## create_device_video
+
+Creates and saves a regular Video variant with project screenshots or recordings on a 3D device and no generated copy. The editor can add text, scenes and transitions later. Returns the variant ID and editor link.
+
+Input schema:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "Project / generation UUID."
+    },
+    "deviceType": {
+      "default": "phone",
+      "type": "string",
+      "enum": [
+        "phone",
+        "tablet",
+        "desktop"
+      ]
+    },
+    "deviceModelId": {
+      "description": "Match deviceType. iPhone Duo is a phone and MacBook is desktop.",
+      "type": "string",
+      "enum": [
+        "iphone-17-pro",
+        "iphone-duo",
+        "google-pixel-10-pro",
+        "ipad-pro",
+        "macbook-pro-14"
+      ]
+    },
+    "selectedScreenshotPaths": {
+      "description": "Screenshots in playback order. With no clips or selection, uses the first screenshot for the chosen device.",
+      "minItems": 1,
+      "maxItems": 10,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "recordings": {
+      "description": "Recordings play before screenshots. Up to ten clips and screenshots combined.",
+      "minItems": 1,
+      "maxItems": 10,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "storagePath": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "durationSeconds": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 3600
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Use the measured clip length when available, or null."
+          }
+        },
+        "required": [
+          "storagePath",
+          "durationSeconds"
+        ]
+      }
+    },
+    "motion": {
+      "description": "Preset for every scene. Duo folds and MacBook lid motions work on their matching devices.",
+      "type": "string",
+      "enum": [
+        "hero-launch",
+        "pivot-showcase",
+        "slow-rotate",
+        "drifting-tilt",
+        "float",
+        "glide-left",
+        "glide-right",
+        "tilt-in",
+        "duo-unfold",
+        "duo-flip",
+        "duo-half-fold",
+        "duo-fold-shut",
+        "lid-open",
+        "lid-turn",
+        "lid-shut"
+      ]
+    },
+    "customMotion": {
+      "description": "Authored or generated device keyframes. Omit motion when using this.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "keyframes": {
+          "minItems": 2,
+          "maxItems": 24,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "time": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "rotationX": {
+                "type": "number"
+              },
+              "rotationY": {
+                "type": "number"
+              },
+              "rotationZ": {
+                "type": "number"
+              },
+              "scale": {
+                "type": "number"
+              },
+              "lidOpen": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "easing": {
+                "type": "string",
+                "enum": [
+                  "linear",
+                  "ease-in",
+                  "ease-out",
+                  "ease-in-out"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "time",
+              "x",
+              "y",
+              "rotationX",
+              "rotationY",
+              "rotationZ",
+              "scale",
+              "easing"
+            ]
+          }
+        }
+      },
+      "required": [
+        "label",
+        "keyframes"
+      ]
+    },
+    "previewFormat": {
+      "type": "string",
+      "enum": [
+        "appStore:default",
+        "appStore:duo",
+        "appStore:6.9",
+        "appStore:6.7",
+        "appStore:6.5",
+        "appStore:6.3",
+        "ipad:12.9",
+        "ipad:11",
+        "ipad:13",
+        "social:9:16",
+        "social:1:1",
+        "social:16:9",
+        "social:4:3",
+        "creative:header",
+        "creative:search"
+      ]
+    },
+    "replaceVariantId": {
+      "description": "Existing Video variant to replace only after explicit user approval.",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "idempotencyKey": {
+      "description": "Reuse the same key when retrying an uncertain creation.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+    }
+  },
+  "required": [
+    "projectId"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
+```
+
+## list_video_recordings
+
+Lists saved screen recordings for device-only or promo videos. Set includeMetadata to get the duration, dimensions and cloud-render suitability. Returns project-relative paths.
+
+Input schema:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "Project / generation UUID."
+    },
+    "includeMetadata": {
+      "default": false,
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "projectId"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
+```
+
+## generate_promo_video_motion
+
+Drafts device-motion keyframes from a prompt for a new device-only video or a compatible saved scene. Returns the motion without saving a video.
+
+Input schema:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "Project / generation UUID."
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 600
+    },
+    "deviceKind": {
+      "type": "string",
+      "enum": [
+        "phone",
+        "tablet",
+        "laptop"
+      ],
+      "description": "Use phone for iPhone Duo and laptop for MacBook."
+    }
+  },
+  "required": [
+    "projectId",
+    "prompt",
+    "deviceKind"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
+```
+
 ## generate_promo_video
 
 Starts or reuses background preparation of three transient promo-video scene/config candidates and returns the embedded picker or its URL. The picker updates when preparation finishes. Only an explicitly selected candidate becomes a saved variant. Optional replaceVariantId enables replacement after the new selection saves; selectedScreenshotPaths restricts candidate inputs.
@@ -311,7 +598,7 @@ Input schema:
       "maximum": 9007199254740991
     },
     "format": {
-      "description": "category:size — appStore:{default,6.9,6.7,6.5,6.3}, ipad:{12.9,11}, social:{9:16,1:1,16:9}, creative:{header,search}.",
+      "description": "category:size — appStore:{default,duo,6.9,6.7,6.5,6.3}, ipad:{13,12.9,11}, social:{9:16,1:1,16:9,4:3}, creative:{header,search}.",
       "type": "string"
     },
     "scale": {
@@ -379,6 +666,10 @@ Input schema:
         "720p",
         "1080p"
       ]
+    },
+    "transparentBackground": {
+      "description": "Render with alpha. Requires a social WebM export.",
+      "type": "boolean"
     },
     "idempotencyKey": {
       "type": "string",

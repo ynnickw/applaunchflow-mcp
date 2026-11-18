@@ -1,7 +1,7 @@
 # AppLaunchFlow MCP
 
 [AppLaunchFlow](https://www.applaunchflow.com/) creates app-store screenshots,
-social graphics, promo videos, and animated device mockups. This repository provides
+social graphics, and AI or device-only videos. This repository provides
 its hosted MCP connector for supported AI assistants.
 
 [Website](https://www.applaunchflow.com/) · [MCP documentation](https://dashboard.applaunchflow.com/docs/mcp)
@@ -23,6 +23,8 @@ The MCP and the Node SDK now share the versioned `/api/v1` API. Import `AppLaunc
 Use the [CI and Fastlane example](examples/README.md). Update captures and localized copy directly in the active variant, then render with `projectId`, `languages` and `formats`. CI keys need asset, design read/write and export scopes. [HTTP API reference](https://dashboard.applaunchflow.com/docs/api).
 
 **Release ordering:** 0.7.0 requires the dashboard v1 API and validating bundler to be enabled before this MCP/SDK release is published or deployed.
+
+**Release ordering:** 0.9.0 requires the dashboard to expose `POST /api/v1/promovideo/create-device-only` before this MCP release is published or deployed.
 
 **Release ordering:** 0.8.0 requires dashboard PR #282 (new v1 routes for previews, exports, translation and validation) and the Remotion site redeployed from that commit before this release is published or deployed.
 
@@ -147,12 +149,11 @@ Before any edit, the instructions direct the assistant to
 `get_editing_reference(feature)`, then to retrieve the relevant named symbols.
 This also works in clients that do not expose MCP resource browsing.
 
-Supported features are `screenshots`, `socialGraphics`, `promoVideo`, and
-`mockups`. The index includes the full persisted types, API/renderer validators,
+Supported features are `screenshots`, `socialGraphics`, and `promoVideo`. The index includes the full persisted types, API/renderer validators,
 device/format/music/motion catalogs, units, bounds, defaults, and read-before-save
 workflows. Examples: `ScreenshotNode` for overflow/crop/status bars,
-`Model3DConfig` for laptop lids, `MultiPhoneContentSchema` for promo slot arrays,
-and `mockupDeviceSchema` for independent device entrances/exits. Complete
+`Model3DConfig` for laptop lids, `MultiPhoneContentSchema` for promo slots,
+and `DeviceCustomMotionSchema` for keyed folds and lid motion. Complete
 references are also available at `applaunchflow://editing/<feature>`; the existing
 layout and video-config resource URLs resolve to these current references.
 
@@ -173,6 +174,15 @@ browser rendering, recording camera input) are not persisted configuration and
 must not be advertised as MCP tools. Models can still make mistakes: preserve
 unrelated fields, read back after saving and verify visual composition where a
 preview is available.
+
+### Device-only videos and migrated mockups
+
+Use `create_device_video` to save a device demo from project screenshots or recordings. Use
+`list_source_screenshots` for screenshots, `list_video_recordings` for clips, and
+`generate_promo_video_motion` for prompt-driven keyframes. The tool returns a Video variant
+and an editor link. Use `list_variants(contentType: "promoVideo")` to find migrated mockups,
+then the existing `get_promo_video`, `update_promo_video`, `preview_promo_video`, and
+`export_promo_video` tools. The old Mockups tools were retired in 0.9.0.
 
 ### Inline screenshot picker
 

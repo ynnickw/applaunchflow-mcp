@@ -12,7 +12,7 @@ import { registerScreenshotTools } from "./tools/screenshots.js";
 import { registerTemplateTools } from "./tools/templates.js";
 import { registerGraphicsTools } from "./tools/graphics.js";
 import { registerPromoVideoTools } from "./tools/promovideo.js";
-import { registerMockupTools } from "./tools/mockups.js";
+import { registerDeviceVideoTools } from "./tools/device-video.js";
 import { registerEditingReferenceTool } from "./tools/editing-reference.js";
 import { registerLocalizationTools } from "./tools/localization.js";
 import { registerReleaseTools } from "./tools/releases.js";
@@ -31,9 +31,9 @@ const packageJson = createRequire(import.meta.url)("../package.json") as {
 };
 
 export const SERVER_INSTRUCTIONS = `
-AppLaunchFlow MCP edits the four AppLaunchFlow content types (app store screenshots, social graphics, promo videos, mockup animations) and the work around them: projects, uploads and asset folders, variants, translation, store listing text and keyword tracking.
+AppLaunchFlow MCP edits app store screenshots, social graphics, and Videos including animated device demos and the work around them: projects, uploads and asset folders, variants, translation, store listing text and keyword tracking.
 Call get_capabilities when unsure what is possible. Anything it lists under notAvailableViaMcp (App Store Connect / Google Play publishing, custom product pages, A/B tests, reviews, app icon, website design and publishing, members, billing) cannot be done here: give the user its exact dashboardUrl instead of attempting or improvising it.
-Before editing screenshots, social graphics, promo videos or mockups, call get_editing_reference with the corresponding feature. Read its index, then retrieve the root and nested symbols relevant to the change. This reference covers ALL current fields, not just those already present in the saved document. Do not guess configuration names or infer capability from permissive validation. Use this tool if your client cannot browse resources.
+Before editing screenshots, social graphics, or videos, call get_editing_reference with the corresponding feature. Read its index, then retrieve the root and nested symbols relevant to the change. This reference covers ALL current fields, not just those already present in the saved document. Do not guess configuration names or infer capability from permissive validation. Use this tool if your client cannot browse resources.
 
 Use AppLaunchFlow MCP as an execution tool, not a questionnaire.
 
@@ -47,18 +47,17 @@ Default behavior:
 - projectId and generationId are the same project id; tools accept either.
 - If a tool returns a user-facing URL, repeat the exact URL in the assistant reply. Do not say "link above" or assume tool output is visible to the user.
 - Initial creation tools return an editor URL. Include that exact URL in the reply so the user can open the result.
-- For edit tools (transform_layout, save_layout, save_graphics_format, save_graphics, transform_graphics, update_promo_video, update_mockup_animation), include the editor URL as a reference without claiming a new browser tab was opened.
+- For edit tools (transform_layout, save_layout, save_graphics_format, save_graphics, transform_graphics, update_promo_video), include the editor URL as a reference without claiming a new browser tab was opened.
 - Errors: when error.recovery.retryable is false (plan limits, quota, Pro required), do not retry. Explain the options and share error.recovery.upgradeUrl when present. get_plan_usage shows remaining allowances.
 
 Look before you report, then deliver:
-- After a visual edit, look at the rendered result before describing it: preview_screenshots (screenshots), render_graphics with mode "preview" (social graphics), preview_promo_video with sceneIndex or at (promo videos), preview_mockup_animation (mockups). Fix overlaps or misplacements before telling the user the edit is done. Re-reading the JSON is not a visual check.
-- To deliver files: render_screenshots (store screenshot packages), render_graphics with mode "export" (social graphics), export_promo_video then get_promo_video_export (promo videos; under 30 s, reuse the idempotencyKey on retries), export_mockup_animation then get_mockup_animation_export (mockup videos). Show download URLs immediately; they expire.
+- After a visual edit, look at the rendered result before describing it: preview_screenshots (screenshots), render_graphics with mode "preview" (social graphics), preview_promo_video with sceneIndex or at (promo videos). Fix overlaps or misplacements before telling the user the edit is done. Re-reading the JSON is not a visual check.
+- To deliver files: render_screenshots (store screenshot packages), render_graphics with mode "export" (social graphics), export_promo_video then get_promo_video_export (promo videos; under 30 s, reuse the idempotencyKey on retries). Show download URLs immediately; they expire.
 
 Schema references (MCP resources — read them, they are not loaded automatically):
 - applaunchflow://schema/layout — every field of the layout JSON: all 11 node types, their properties, and valid value ranges. Used by BOTH screenshots and social graphics (a social layout is the same shape with exactly one screen and the format's canvas size).
 - applaunchflow://schema/transforms — the transform_layout operations, selector syntax, and the selector pitfalls that silently match every screen.
 - applaunchflow://schema/video-config — the full Remotion VideoConfig: scene types and their content shapes, theme, text styles, ken burns, choreography preset ids, device/text overlays, audio.
-- applaunchflow://editing/mockups — complete MockupProjectState, device timing, keyframes, model/finish/lid controls, backgrounds, presenter overlay, audio and validation. list_mockup_presets supplements it with models, finishes, music and scene presets.
 - applaunchflow://editing/socialGraphics — shared Layout contract plus format IDs, dimensions and constraints.
 - applaunchflow://guide/workflows — step-by-step tool sequences for common goals.
 - Read the relevant resource before hand-writing or non-trivially editing JSON. A get_* response only shows what is currently set — it does not tell you what is possible.
@@ -91,7 +90,10 @@ Social graphics workflows (mirror the screenshot flow):
 - When sharing or returning a graphics editor URL after an edit, include \`&format=<format>\` so the browser shows the format that was changed.
 - Use duplicate_variant for a copy of the current graphics variant and prepare_social_graphics_styles for a new design.
 
-Promo video workflows:
+Video workflows:
+- Use create_device_video for a device demo with project media and no generated copy. Use list_source_screenshots and list_video_recordings to find media, and use upload_asset fileType recording-library if a recording is needed. Match the device family to the source.
+- For custom motion, use generate_promo_video_motion, then pass its motion as customMotion or apply the keyframes to a compatible saved scene. Built-in motions include iPhone Duo folds and MacBook lid poses.
+- Device-only and migrated mockup variants are regular Videos. Use list_variants with contentType "promoVideo" and the same read, edit, preview and export tools as for AI videos.
 - generate_promo_video starts background preparation and returns an interactive picker that updates to show three concepts when ready. Let the user choose; do not call apply_promo_video_candidate yourself. If no widget is available, get_promo_video_generation checks the returned generationJobId without generating again. To revisit prepared candidates, provide the exact pickerUrl. Do not generate new candidates just to reopen the picker.
 - generate_promo_video prepares three transient, personalized candidates and opens the same dashboard picker used by the web app. No saved variant is created until the user chooses one. Do not summarize the three options in chat or ask for a candidate id.
 - To replace an existing promo-video variant, pass replaceVariantId only after explicit user approval. The chosen candidate is created first and the old variant is retired only after the new one saves successfully, so replacement works safely at the plan limit.
@@ -102,15 +104,6 @@ Promo video workflows:
 - Use clear_promo_video to wipe a variant's video config when the user wants to start over.
 - Use duplicate_variant for copies / A-B tests; it clones the source promo-video variant, including its config.
 - Promo video has no template gallery — the LLM produces the full config end-to-end. Do NOT call browse_templates / browse_social_templates for promo videos.
-
-Mockup animation workflows:
-- create_mockup_animation takes device (phone, duo, tablet, laptop) and platform; pick the device that matches the screen content. A new variant is always created. Find existing screens with list_assets, mockup uploads and recordings with list_mockup_media, and models, finishes, music and presets with list_mockup_presets.
-- For edits, ALWAYS call get_mockup_animation first (variantId optional; it returns the variantId), mutate the MockupProjectState in memory, then call update_mockup_animation with that variantId and the full updated state. Read the returned ignoredFields and warnings. Edits propagate live to any open mockup editor tab via realtime — do not open the editor again.
-- After an edit, check the framing with preview_mockup_animation (server-rendered PNGs at timeline seconds).
-- To deliver a file: export_mockup_animation, then poll get_mockup_animation_export and share the exact download URL. Server exports must be under 30 s with no transparent background and use one API export. Transparent WebM, PNG stills and longer videos are editor-only.
-- generate_mockup_motion drafts custom keyframes from a prompt and saves nothing; apply them with get_mockup_animation + update_mockup_animation.
-- Screen recordings must be export-safe (H.264, ≤1080 px short side, keyframes ≤2.5 s apart); upload_asset rejects others with an ffmpeg command to fix them.
-- Mockup animation has no template gallery — the LLM constructs the MockupProjectState end-to-end using values from list_mockup_presets. Do NOT call browse_templates / browse_social_templates for mockup animations.
 
 Translation and localization:
 - Screenshots: ALWAYS use translate_layouts to translate or localize (never edit text nodes by hand for translation). Re-running it for an existing language re-syncs that language's design from the source. sync_layout re-syncs designs without translating; apply_locale_screenshots applies per-language screenshot folders (set_asset_folder_locale) to the translations.
@@ -173,7 +166,7 @@ export function createAppLaunchFlowServer(
   registerTemplateTools(server, client);
   registerGraphicsTools(server, client);
   registerPromoVideoTools(server, client);
-  registerMockupTools(server, client);
+  registerDeviceVideoTools(server, client);
   registerLocalizationTools(server, client);
   registerVariantTools(server, client);
   registerReleaseTools(server, client);

@@ -119,6 +119,9 @@ const AREAS: Area[] = [
     id: "promoVideo",
     label: "Promo videos",
     tools: [
+      "create_device_video",
+      "list_video_recordings",
+      "generate_promo_video_motion",
       "generate_promo_video",
       "get_promo_video_generation",
       "apply_promo_video_candidate",
@@ -132,26 +135,9 @@ const AREAS: Area[] = [
     ],
     notes: [
       "Read get_editing_reference (feature promoVideo) before editing the config.",
+      "Device-only videos and migrated mockups use the same Video variant and editor.",
     ],
     editor: "/promovideo?projectId={project}",
-  },
-  {
-    id: "mockups",
-    label: "Mockup animations",
-    tools: [
-      "create_mockup_animation",
-      "get_mockup_animation",
-      "update_mockup_animation",
-      "list_mockup_media",
-      "list_mockup_presets",
-      "export_mockup_animation",
-      "get_mockup_export",
-      "preview_mockup_animation",
-    ],
-    notes: [
-      "Read get_editing_reference (feature mockups) before editing the state.",
-    ],
-    editor: "/mockups?projectId={project}",
   },
   {
     id: "storeListing",

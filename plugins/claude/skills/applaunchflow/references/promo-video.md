@@ -8,6 +8,19 @@ For new concepts, inspect `list_source_screenshots` and call `generate_promo_vid
 
 For an existing video, use `get_editing_reference(feature: "promoVideo")` and `get_promo_video` for the exact variant/language. Inspect its config and availableLanguages. Fetch the necessary scene/schema/catalog symbols from the index.
 
+# Start a device-only video
+
+Use `create_device_video` to create an animated device demo. Pick project-relative paths
+from `list_source_screenshots` or `list_video_recordings` and match the device type to the media.
+For recordings, use `includeMetadata: true` to check duration and cloud-render suitability.
+Upload new clips with `upload_asset` fileType `recording-library`. A video has up to ten inputs,
+with recordings first and screenshots in selection order.
+
+Use a built-in preset or call `generate_promo_video_motion` to draft custom keyframes. Use
+`phone` for Duo and `laptop` for MacBook when generating motion. Apply the returned motion using
+`customMotion`. The created variant opens in Videos and uses the same read, edit, preview and
+export tools as other videos. Find migrated mockups using `list_variants` with `contentType: "promoVideo"`.
+
 # Make a focused edit
 
 `update_promo_video` replaces the **whole config**. Mutate the fresh config, retaining IDs, screenshots, scenes, theme, media, typography, sound, hidden scenes and unrequested settings. Pass the readReceipt for the same project/variant/language. Every next update needs a new read. appName changes fallback branding; projectName renames the entire project.
@@ -30,6 +43,6 @@ Use `translate_promo_video` for new target languages. Each is independently edit
 
 Check `get_plan_usage` when export access is relevant. `export_promo_video` uses server rendering with API export entitlement and a stable idempotency key. The saved visible duration must be strictly under 30s. Don't shorten an authored video just to satisfy that limit without matching the user's intent; the dashboard offers on-device export for longer work.
 
-Exports support category appStore, ipad, social or creative with the sizes advertised by the tool. Creative header/search video uses MP4/1080p only. Default quality is 1080p; don't reduce it because previews are small. Poll `get_promo_video_export` until completed and deliver the exact download URL. Preserve the key after an uncertain response. A failed job is not a reason to create another paid export automatically.
+Exports support category appStore, ipad, social or creative with the sizes advertised by the tool. App Store and iPad formats use MP4 at 1080p. For an alpha channel, select a social format and WebM with transparentBackground enabled. Default quality is 1080p; don't reduce it because previews are small. Poll `get_promo_video_export` until completed and deliver the exact download URL. Preserve the key after an uncertain response. A failed job is not a reason to create another paid export automatically.
 
 See [edit recipes and review checkpoints](promo-video/edit-recipes.md), plus [the complete tool catalog](promo-video/tool-catalog.md), for specific requests and supported inputs.

@@ -11,7 +11,7 @@ them.
 - **Homepage:** `https://dashboard.applaunchflow.com/docs/mcp`
 - **Name:** AppLaunchFlow
 - **Description:** Create and edit app-store screenshots, social graphics,
-  promo videos, and animated device mockups from your app screenshots. The
+  and AI or device-only videos from your app screenshots. The
   plugin connects Claude Code and Cowork to AppLaunchFlow's hosted OAuth MCP
   server, with browser-based visual pickers for design decisions.
 - **Example use cases:**
@@ -21,7 +21,7 @@ them.
      formats conversationally.
   3. Compare three promo-video concepts, select one, and continue editing it in
      the AppLaunchFlow dashboard.
-  4. Create animated phone, tablet, or laptop mockups and refine their motion,
+  4. Create animated device-only videos for phones, tablets, and laptops and refine their motion,
      timing, overlays, and audio.
 - **Plugin manifest:** `.claude-plugin/plugin.json`
 - **Bundled MCP configuration:** `.mcp.json`
@@ -35,7 +35,7 @@ Validate before submission with `claude plugin validate . --strict`.
 - **Name:** AppLaunchFlow
 - **Slug:** `applaunchflow`
 - **Tagline:** Create launch visuals from your app screenshots
-- **Description:** AppLaunchFlow turns uploaded app screenshots into polished launch assets directly from Claude. Create and edit App Store and Google Play screenshot sets, generate social graphics in six common formats, compare and select promo-video concepts, and build animated device mockups. AppLaunchFlow opens visual pickers in the browser whenever a design choice needs human review. Access is scoped to the connected AppLaunchFlow account through OAuth 2.1 with PKCE.
+- **Description:** AppLaunchFlow turns uploaded app screenshots into polished launch assets directly from Claude. Create and edit App Store and Google Play screenshot sets, generate social graphics in six common formats, compare and select promo-video concepts, and create device-only videos. AppLaunchFlow opens visual pickers in the browser whenever a design choice needs human review. Access is scoped to the connected AppLaunchFlow account through OAuth 2.1 with PKCE.
 - **Categories:** Design; Productivity; Sales and marketing
 - **Company:** Yannick Westermann Labs
 - **Website:** `https://www.applaunchflow.com`
@@ -53,7 +53,7 @@ Validate before submission with `claude plugin validate . --strict`.
 1. Turn 3-10 uploaded iOS or Android app screenshots into a new personalized app-store screenshot variant, using a browser picker to choose the final visual direction.
 2. Generate a coordinated social-graphics set across OG image, X post, Instagram Story, Play Store feature graphic, X header, and LinkedIn banner formats, then edit individual formats conversationally.
 3. Generate three promo-video concepts from project screenshots, let the user compare and select one, and continue editing the chosen video in the dashboard.
-4. Create animated phone, tablet, or laptop mockups and refine camera motion, timing, overlays, and audio through Claude.
+4. Create animated device-only videos for phones, tablets, and laptops and refine camera motion, timing, overlays, and audio through Claude.
 
 ## Data handling summary
 
@@ -66,7 +66,7 @@ Validate before submission with `claude plugin validate . --strict`.
 ## Submission gates
 
 - [ ] Submit from a Claude Team or Enterprise organization as an Owner/Primary Owner or a role with Directory management access.
-- [ ] Create an isolated reviewer account with representative synthetic screenshots, social graphics, promo-video capacity, and mockup data.
+- [ ] Create an isolated reviewer account with representative synthetic screenshots, social graphics, and capacity for AI and device-only videos.
 - [ ] Verify the reviewer can complete OAuth without MFA or an emailed one-time code.
 - [ ] Run the complete hosted-tool smoke suite using the reviewer account.
 - [ ] Review and explicitly approve Anthropic's current Software Directory Policy, Software Directory Terms, security-testing authorization, and all seven portal compliance acknowledgments.

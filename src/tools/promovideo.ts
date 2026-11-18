@@ -52,10 +52,10 @@ const languageField = z
     "Language code of the promo-video translation (e.g. 'de'). Omit for the source language. get_promo_video lists availableLanguages.",
   );
 
-const PROMO_EXPORT_SIZES = {
-  appStore: ["default", "6.9", "6.7", "6.5", "6.3"],
-  ipad: ["12.9", "11"],
-  social: ["9:16", "1:1", "16:9"],
+export const PROMO_EXPORT_SIZES = {
+  appStore: ["default", "duo", "6.9", "6.7", "6.5", "6.3"],
+  ipad: ["12.9", "11", "13"],
+  social: ["9:16", "1:1", "16:9", "4:3"],
   creative: ["header", "search"],
 } as const;
 type PromoExportCategory = keyof typeof PROMO_EXPORT_SIZES;
@@ -101,11 +101,10 @@ export function resolvePromoExportOptions(
       `size "${size}" is not valid for category "${category}". Use one of: ${PROMO_EXPORT_SIZES[category].join(", ")}.`,
     );
   }
-  const creative = category === "creative";
-  if (creative && (args.format === "webm" || args.quality === "720p")) {
+  if (category !== "social" && (args.format === "webm" || args.quality === "720p")) {
     throw new ToolInputError(
       "INVALID_TOOL_INPUT",
-      "App Store creative exports (header/search) are mp4 at 1080p only: Apple matches them by exact pixel size.",
+      "App Store and iPad exports use MP4 at 1080p. Use a social format for WebM or 720p.",
     );
   }
   return {
@@ -538,7 +537,7 @@ export function registerPromoVideoTools(
           .string()
           .optional()
           .describe(
-            "category:size — appStore:{default,6.9,6.7,6.5,6.3}, ipad:{12.9,11}, social:{9:16,1:1,16:9}, creative:{header,search}.",
+            "category:size — appStore:{default,duo,6.9,6.7,6.5,6.3}, ipad:{13,12.9,11}, social:{9:16,1:1,16:9,4:3}, creative:{header,search}.",
           ),
         scale: z
           .number()
@@ -595,6 +594,8 @@ export function registerPromoVideoTools(
         size: z.string().optional(),
         format: z.enum(["mp4", "webm"]).optional(),
         quality: z.enum(["720p", "1080p"]).optional(),
+        transparentBackground: z.boolean().optional()
+          .describe("Render with alpha. Requires a social WebM export."),
         idempotencyKey: z
           .string()
           .min(8)
@@ -602,7 +603,7 @@ export function registerPromoVideoTools(
           .describe("Unique per intended export; reuse on retries."),
       }),
     },
-    async ({ projectId, variantId, language, idempotencyKey, ...choice }) => {
+    async ({ projectId, variantId, language, idempotencyKey, transparentBackground, ...choice }) => {
       try {
         let previewFormat: unknown;
         if (!choice.category || !choice.size) {
@@ -614,8 +615,17 @@ export function registerPromoVideoTools(
           previewFormat = saved?.project?.remotion_code?.previewFormat;
         }
         const options = resolvePromoExportOptions(choice, previewFormat);
+        if (transparentBackground && options.format !== "webm") {
+          throw new ToolInputError("INVALID_TOOL_INPUT", "Transparent exports use social WebM.");
+        }
         const result = await client.exportPromoVideo(
-          { projectId, variantId, language, options },
+          {
+            projectId,
+            variantId,
+            language,
+            options,
+            ...(transparentBackground ? { transparentBackground } : {}),
+          },
           idempotencyKey,
         );
         const exportId = result?.exportJobId ?? result?.jobId;

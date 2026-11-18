@@ -42,7 +42,7 @@ function importInput(provider: "pexels" | "unsplash", photo: StockSearchPhoto) {
 export const STOCK_PHOTO_USAGE =
   "Use the returned path and attribution: screenshots/social panorama → transform_layout {nodeType:'panoramaBackground', changes:{imageUrl:<path>, storagePath:<path>, attribution}}; " +
   "one screen → {nodeType:'screen', screens:[i], changes:{backgroundImage:{url:<path>, storagePath:<path>, attribution}}}; " +
-  "mockup animation → state.backgroundMode:'image' and state.backgroundImage:{url:<returned url>, storagePath:<path>, attribution} via update_mockup_animation (the mockup editor displays url as-is; layouts re-sign from storagePath). Keep attribution: the editor credits the photographer from it.";
+  "Keep attribution so the editor can credit the photographer.";
 
 export function registerStockPhotoTools(
   server: McpServer,

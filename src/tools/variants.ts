@@ -8,7 +8,6 @@ const contentTypeEnum = z.enum([
   "screenshots",
   "socialGraphics",
   "promoVideo",
-  "mockups",
   "website",
 ]);
 type ContentType = z.infer<typeof contentTypeEnum>;
@@ -17,7 +16,6 @@ const EDITOR_PATHS: Record<string, string> = {
   screenshots: "/editor",
   socialGraphics: "/graphics",
   promoVideo: "/promovideo",
-  mockups: "/mockups",
   website: "/website",
   asoCopy: "/asocopy",
   appIcon: "/icon-composer",

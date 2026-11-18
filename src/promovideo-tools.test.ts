@@ -168,6 +168,14 @@ test("export options follow the editor dialog rules and the video's format", () 
     category: "social",
     size: "9:16",
   });
+  assert.deepEqual(parsePromoFormat("appStore:duo"), {
+    category: "appStore",
+    size: "duo",
+  });
+  assert.deepEqual(parsePromoFormat("social:4:3"), {
+    category: "social",
+    size: "4:3",
+  });
   assert.deepEqual(parsePromoFormat("bogus"), {
     category: "appStore",
     size: "default",
@@ -193,7 +201,7 @@ test("export options follow the editor dialog rules and the video's format", () 
         { category: "creative", size: "header", quality: "720p" },
         null,
       ),
-    /mp4 at 1080p only/,
+    /MP4 at 1080p/,
   );
 });
 

@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "applaunchflow",
   "displayName": "AppLaunchFlow",
-  "version": "0.8.10",
-  "description": "Create and edit app-store screenshots, social graphics, promo videos, and animated device mockups from your app screenshots.",
+  "version": "0.9.0",
+  "description": "Create and edit app-store screenshots, social graphics, AI and device-only videos from your app screenshots.",
   "author": {
     "name": "Yannick Westermann Labs",
     "email": "support@applaunchflow.com",
@@ -18,6 +18,6 @@
     "screenshots",
     "social-graphics",
     "promo-video",
-    "device-mockups"
+    "device-video"
   ]
 }

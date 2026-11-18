@@ -195,10 +195,11 @@ Input schema:
         "panorama",
         "background",
         "font",
+        "recording-library",
         "mockup-media",
         "promo-media"
       ],
-      "description": "Use mockup-media for mockup screens/recordings and mockup soundtracks, promo-media for promo video/audio footage, font for TTF/OTF/WOFF/WOFF2, or an image category. Mockup recordings are checked on upload (H.264, ≤1080 px short side, keyframe every ≤2 s, ≤60 fps) and rejected with an ffmpeg command when unsuitable."
+      "description": "Use recording-library for device-only screen recordings (mockup-media is a legacy alias), promo-media for video/audio footage, font for TTF/OTF/WOFF/WOFF2, or an image category. Use list_video_recordings with includeMetadata to check a recording for cloud rendering."
     },
     "source": {
       "type": "object",

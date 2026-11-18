@@ -1,7 +1,7 @@
 # AppLaunchFlow for Claude
 
 Create and edit app-store screenshots, social graphics, App Store headers and
-search creatives, promo videos, and animated device mockups using your connected
+search creatives, and AI or device-only videos using your connected
 AppLaunchFlow account. The `applaunchflow` skill supplies a single entry point
 with focused reference guides for each feature, including assets, localization,
 store listing copy, and keyword tracking.
