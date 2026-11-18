@@ -6,7 +6,7 @@ This is a reference, not a script to execute in order. Read only the tool needed
 
 ## create_device_video
 
-Creates and saves a regular Video variant with project screenshots or recordings on a 3D device and no generated copy. The editor can add text, scenes and transitions later. Returns the variant ID and editor link.
+Saves a new Video variant in the selected project using its existing screenshots or recordings on a 3D device, without generating copy. Returns the variant ID and editor link. Optional replaceVariantId retires that existing variant after the new video saves and requires explicit user approval.
 
 Input schema:
 
@@ -617,7 +617,7 @@ Input schema:
 
 ## export_promo_video
 
-Starts an MP4/WebM export of a saved promo-video variant and language. Supports configured App Store, iPad, social and creative placements within renderer limits. Server duration must be under thirty seconds. An accepted job uses one API export allowance and returns exportId. The same idempotencyKey identifies the same request across retries.
+Starts an MP4 or WebM render of a saved video variant and language under 30 seconds. An accepted job uses one API export allowance and returns exportId. The saved design stays intact. Transparent backgrounds require social WebM. Reuse the same idempotencyKey for retries of the same export.
 
 Input schema:
 

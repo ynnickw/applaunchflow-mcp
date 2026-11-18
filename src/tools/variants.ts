@@ -102,7 +102,7 @@ export function registerVariantTools(
     {
       title: "Create Empty Variant",
       description:
-        "Creates an empty, named, inactive content-type variant. Does not generate or copy a design and counts against the plan's variant limit.",
+        "Creates an empty variant in the selected project and counts against the plan's variant limit. The first variant for a content type becomes active automatically. Later variants are created inactive. Use this when the user wants an empty starting point.",
       inputSchema: z.object({
         generationId: z.string().uuid(),
         contentType: contentTypeEnum,
